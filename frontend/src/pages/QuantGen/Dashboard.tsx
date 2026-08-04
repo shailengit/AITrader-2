@@ -12,6 +12,7 @@ import { TrendingDown, Activity, DollarSign, ArrowLeft, Trash2 } from 'lucide-re
 import { NavLink } from 'react-router-dom';
 import { clearAppReferrer } from '@/components/layout/Layout';
 import { CandleStickChart } from '@/components/quantgen/CandleStickChart';
+import { SectorRegime, fetchRegimes } from '@/lib/regime';
 import { IndicatorPanel } from '@/components/quantgen/IndicatorPanel';
 import OptimizationResults from '@/components/quantgen/OptimizationResults';
 import { TickerIdentityCard, FundamentalsPanel, ResearchPanel } from '@/components/quantgen';
@@ -165,6 +166,17 @@ export default function Dashboard() {
   const [researchData, setResearchData] = useState<any>(null);
   const [researchLoading, setResearchLoading] = useState(false);
   const [researchMode, setResearchMode] = useState<'simulated' | 'live'>('simulated');
+
+  // Regime overlay state. `showRegimeOverlay` gates the chart's green/red
+  // regime badge; `regimes` is the SectorRegime[] payload fed to the chart's
+  // `regimeBands` prop. Fetched once on mount from /api/markov/regimes.
+  const [showRegimeOverlay, setShowRegimeOverlay] = useState(false);
+  const [regimes, setRegimes] = useState<SectorRegime[]>([]);
+  useEffect(() => {
+    fetchRegimes()
+      .then(setRegimes)
+      .catch(() => setRegimes([]));
+  }, []);
 
   // Load cached research from localStorage on mount
   useEffect(() => {
@@ -551,6 +563,28 @@ export default function Dashboard() {
               >
                 <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <DollarSign size={14} style={{ color: 'var(--accent)' }} /> Price Action & Volume
+                  <label
+                    style={{
+                      marginLeft: 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--subtle)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={showRegimeOverlay}
+                      onChange={(e) => setShowRegimeOverlay(e.target.checked)}
+                      style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: 'var(--accent)' }}
+                    />
+                    Regime Overlay
+                  </label>
                 </h3>
                 {indicators?.length > 0 && (
                   <IndicatorPanel indicators={indicators} selectedIndicators={selIndicators} onToggle={handleIndicatorToggle} />
@@ -579,6 +613,8 @@ export default function Dashboard() {
                               ? { from: timeDomain[0], to: timeDomain[1] }
                               : undefined
                           }
+                          regimeBands={regimes}
+                          showRegimeOverlay={showRegimeOverlay}
                         />
                       );
                     })()
