@@ -54,4 +54,4 @@ def test_filter_by_source_and_status(db_session):
     create_hypothesis(source="markov", why="b", db=db_session)
     only_markov = list_hypotheses(source="markov", db=db_session)
     assert len(only_markov) == 1
-    only_markov[0].source.value == "markov"
+    assert only_markov[0].source.value == "markov"
