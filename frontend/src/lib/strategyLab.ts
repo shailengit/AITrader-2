@@ -209,10 +209,11 @@ export const strategyLabApi = {
       strategy_class_path: strategyClassPath,
     }),
 
-  deployStrategyClass: (strategyClassPath: string, experimentId: string) =>
+  deployStrategyClass: (strategyClassPath: string, experimentId: string, sourceHypothesisIds?: string[]) =>
     postJson<DeploymentInfo>(`${base}/sessions/_/deploy`, {
       strategy_class_path: strategyClassPath,
       experiment_id: experimentId,
+      source_hypothesis_ids: sourceHypothesisIds ?? [],
     }),
 
   // ── Experiment endpoints ──

@@ -43,6 +43,18 @@ def test_mark_generated(db_session):
     assert str(h2.generated_strategy_id) == sid
 
 
+def test_mark_multiple_generated(db_session):
+    from app.services.hypothesis_service import create_hypothesis, mark_generated
+    h1 = create_hypothesis(source="sectors", why="a", db=db_session)
+    h2 = create_hypothesis(source="screener", why="b", db=db_session)
+    sid = str(uuid.uuid4())
+    mark_generated(h1.id, sid, db=db_session)
+    mark_generated(h2.id, sid, db=db_session)
+    from app.models.hypothesis import Hypothesis
+    rows = db_session.query(Hypothesis).filter_by(generated_strategy_id=sid).all()
+    assert len(rows) == 2
+
+
 def test_archive(db_session):
     h = create_hypothesis(source="manual", why="y", db=db_session)
     h2 = archive_hypothesis(h.id, db=db_session)

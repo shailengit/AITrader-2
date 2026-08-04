@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.models.strategy_lab import StrategySession
 from app.services.deployments_registry import deploy_strategy as registry_deploy
+from app.services.hypothesis_service import mark_generated
 from app.services.strategy_lab_models import list_ollama_models
 from app.services.strategy_lab_session import (
     create_session as svc_create_session,
@@ -504,6 +505,7 @@ async def batch_events(
 class DeployRequest(BaseModel):
     strategy_class_path: str = Field(..., description="Path to the Strategy subclass file to deploy")
     experiment_id: Optional[uuid.UUID] = None
+    source_hypothesis_ids: List[str] = []  # optional — link deployed strategy back to source hypotheses
 
 
 class DeploymentResponse(BaseModel):
@@ -626,6 +628,12 @@ def deploy(
     db.add(deployment)
     db.commit()
     db.refresh(deployment)
+
+    # Link the deployed strategy back to its source hypotheses: mark each as
+    # generated with this deployment's id.
+    if body.source_hypothesis_ids:
+        for hid in body.source_hypothesis_ids:
+            mark_generated(hid, str(deployment.id), db)
 
     return DeploymentResponse(
         deployment_id=str(deployment.id),

@@ -12,11 +12,19 @@ interface StepDeployProps {
 
 export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: StepDeployProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sourceHypothesisIds, setSourceHypothesisIds] = useState("");
   const qc = useQueryClient();
 
   const deployMut = useMutation({
     mutationFn: () =>
-      strategyLabApi.deployStrategyClass(strategyClassPath, experimentId),
+      strategyLabApi.deployStrategyClass(
+        strategyClassPath,
+        experimentId,
+        sourceHypothesisIds
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["strategy-lab-deployments"] });
       onDeployed();
@@ -83,6 +91,31 @@ export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: Step
                   updates alpaca_runner.py import
                 </div>
               </div>
+            </div>
+
+            <div>
+              <div className="slab-eyebrow">Source hypotheses</div>
+              <div className="slab-mono slab-mono--xs slab-mono--dim" style={{ marginTop: 4 }}>
+                Optional — paste hypothesis IDs (comma/space/newline separated) from the Terminal banner
+                to link this strategy back to its source hypotheses.
+              </div>
+              <textarea
+                value={sourceHypothesisIds}
+                onChange={(e) => setSourceHypothesisIds(e.target.value)}
+                placeholder="e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6 9b2c…"
+                rows={2}
+                style={{
+                  width: "100%",
+                  marginTop: 8,
+                  padding: "10px 12px",
+                  background: "var(--slab-ink-2)",
+                  color: "var(--slab-paper)",
+                  border: "1px solid var(--slab-rule)",
+                  fontFamily: "var(--slab-mono, monospace)",
+                  fontSize: 13,
+                  resize: "vertical",
+                }}
+              />
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
