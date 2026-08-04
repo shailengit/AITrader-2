@@ -12,6 +12,37 @@ interface StepBacktestProps {
   onWinnerPicked: (experimentId: string) => void;
 }
 
+type WinnerMetric = "bear" | "mean";
+
+function toNum(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
+// BEAR-robust score: BEAR return per unit of drawdown risk. Mirrors the
+// backend's existing sharpe_proxy convention (return / abs(drawdown)) but
+// uses the BEAR-leg return specifically, so strategies that make money
+// during bear regimes win. Falls back to raw BEAR return when drawdown is 0.
+function bearRobustScore(r: ExperimentRow): number {
+  const k = r.kpis || {};
+  const bearRet = toNum(k.bear_return_pct);
+  const dd = Math.abs(toNum(k.max_drawdown_pct));
+  return dd > 0 ? bearRet / dd : bearRet;
+}
+
+// Mean (total-period) Sharpe, from the backend's annualized sharpe_ratio.
+function meanSharpe(r: ExperimentRow): number {
+  return toNum(r.kpis?.sharpe_ratio);
+}
+
+function scoreByMetric(r: ExperimentRow, metric: WinnerMetric): number {
+  return metric === "bear" ? bearRobustScore(r) : meanSharpe(r);
+}
+
 const STORAGE_KEY_BATCH = "strategy_lab_active_batch";
 
 function loadBatchState() {
@@ -50,6 +81,21 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
   const [progress, setProgress] = useState(isResumed ? { completed: 0, total: savedBatch!.nRuns, failed: 0 } : { completed: 0, total: 0, failed: 0 });
   const [selectedWinner, setSelectedWinner] = useState<string | null>(null);
   const [equityExperimentId, setEquityExperimentId] = useState<string | null>(null);
+  const [winnerMetric, setWinnerMetric] = useState<WinnerMetric>("bear");
+  const winnerMetricRef = useRef<WinnerMetric>("bear");
+  const hasAutoPicked = useRef(false);
+
+  useEffect(() => { winnerMetricRef.current = winnerMetric; }, [winnerMetric]);
+
+  const pickBest = (rows: ExperimentRow[], metric: WinnerMetric) => {
+    const completed = rows.filter((r) => r.status === "completed");
+    if (completed.length === 0) return;
+    const best = completed.reduce((a, b) =>
+      scoreByMetric(b, metric) > scoreByMetric(a, metric) ? b : a
+    );
+    setSelectedWinner(best.id);
+    onWinnerPicked(best.id);
+  };
 
   const equityCurve = useQuery({
     queryKey: ["equity-curve", equityExperimentId],
@@ -70,6 +116,7 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
       setExperiments([]);
       setSelectedWinner(null);
       setProgress({ completed: 0, total: nRuns, failed: 0 });
+      hasAutoPicked.current = false;
       saveBatchState(r.batch_id, strategyClassPath, nRuns, endDate, startDateMin, startDateMax);
     },
   });
@@ -85,6 +132,11 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
         setProgress({ completed, total: nRuns, failed });
         if (completed + failed >= nRuns) {
           if (pollRef.current) clearInterval(pollRef.current);
+          // Auto-select the default winner once the batch completes.
+          if (!hasAutoPicked.current) {
+            hasAutoPicked.current = true;
+            pickBest(rows, winnerMetricRef.current);
+          }
         }
       } catch {
         // ignore transient poll errors
@@ -197,6 +249,12 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
                   onWinnerPicked(id);
                 }}
                 onShowEquity={(id) => setEquityExperimentId(id)}
+                winnerMetric={winnerMetric}
+                onChangeMetric={(m) => {
+                  setWinnerMetric(m);
+                  // Re-select the default winner for the newly chosen metric.
+                  pickBest(experiments, m);
+                }}
               />
             )}
 
@@ -396,13 +454,15 @@ function LiveTicker({ completed, total, failed, isRunning, batchId }: {
 }
 
 // ── Experiments table ────────────────────────────────────────────────
-type SortKey = "run_index" | "start_date" | "total_return_pct" | "alpha_pct" | "win_rate" | "cagr_pct" | "sharpe_ratio" | "total_trades";
+type SortKey = "run_index" | "start_date" | "total_return_pct" | "alpha_pct" | "win_rate" | "cagr_pct" | "sharpe_ratio" | "total_trades" | "bull_return_pct" | "bear_return_pct";
 type SortDir = "asc" | "desc";
 
-function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity }: {
+function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity, winnerMetric, onChangeMetric }: {
   rows: ExperimentRow[]; selectedWinner: string | null;
   onPick: (id: string) => void;
   onShowEquity: (id: string) => void;
+  winnerMetric: WinnerMetric;
+  onChangeMetric: (m: WinnerMetric) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("run_index");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -452,6 +512,27 @@ function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity }: {
         <span className="slab-mono slab-mono--xs slab-mono--dim">
           click <span style={{ color: "var(--slab-gold)" }}>pick</span> to mark the winner · click <span style={{ color: "var(--slab-cyan)" }}>chart</span> for equity curve
         </span>
+        <span style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          <span className="slab-mono slab-mono--xs slab-mono--dim" style={{ alignSelf: "center", marginRight: 4 }}>
+            default winner
+          </span>
+          <button
+            type="button"
+            onClick={() => onChangeMetric("bear")}
+            className={`slab-btn slab-btn--xs ${winnerMetric === "bear" ? "slab-btn--primary" : "slab-btn--ghost"}`}
+            title="Pick the run with the best BEAR-robust Sharpe (BEAR return per unit of drawdown)"
+          >
+            BEAR-robust
+          </button>
+          <button
+            type="button"
+            onClick={() => onChangeMetric("mean")}
+            className={`slab-btn slab-btn--xs ${winnerMetric === "mean" ? "slab-btn--primary" : "slab-btn--ghost"}`}
+            title="Pick the run with the best mean (total-period) Sharpe"
+          >
+            Mean Sharpe
+          </button>
+        </span>
       </div>
       <div style={{ maxHeight: 480, overflow: "auto" }}>
         <table className="slab-table">
@@ -469,6 +550,8 @@ function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity }: {
               <Th columnKey="cagr_pct">CAGR%</Th>
               <Th columnKey="total_trades">Trades</Th>
               <Th columnKey="sharpe_ratio">Sharpe</Th>
+              <Th columnKey="bull_return_pct">BULL%</Th>
+              <Th columnKey="bear_return_pct">BEAR%</Th>
               <th>Status</th>
               <th></th>
               <th></th>
@@ -508,6 +591,18 @@ function ExperimentRowView({ row, isSelected, onPick, onShowEquity }: {
       <td className="slab-table__num">{k?.cagr_pct != null ? `${k.cagr_pct.toFixed(1)}%` : "—"}</td>
       <td className="slab-table__num">{k?.total_trades ?? "—"}</td>
       <td className="slab-table__num">{k?.sharpe_ratio != null ? k.sharpe_ratio.toFixed(2) : "—"}</td>
+      <td
+        className="slab-table__num"
+        style={{ color: k?.bull_return_pct != null && k.bull_return_pct >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}
+      >
+        {k?.bull_return_pct != null ? `${k.bull_return_pct >= 0 ? "+" : ""}${k.bull_return_pct.toFixed(1)}%` : "—"}
+      </td>
+      <td
+        className="slab-table__num"
+        style={{ color: k?.bear_return_pct != null && k.bear_return_pct >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}
+      >
+        {k?.bear_return_pct != null ? `${k.bear_return_pct >= 0 ? "+" : ""}${k.bear_return_pct.toFixed(1)}%` : "—"}
+      </td>
       <td>
         {row.status === "completed" ? (
           <span className="slab-tag slab-tag--terminal">OK</span>

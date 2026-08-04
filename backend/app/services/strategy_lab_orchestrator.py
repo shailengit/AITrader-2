@@ -131,6 +131,76 @@ def _run_one(
     return _run_code_text(code_text, session_id, as_of, end_date, run_index, started_at)
 
 
+def _augment_kpis_with_regime(
+    kpis: Dict[str, Any], trades: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Add BULL/BEAR regime-split returns to a run's KPIs.
+
+    Uses the process-wide trained SectorRegimeManager — the SAME instance the
+    markov router and screener regime filter train (see markov.py). Each
+    realized SELL trade's pnl is bucketed by its sector regime on entry_date,
+    then expressed as a percent of the run's initial capital so the columns
+    read consistently alongside total_return_pct.
+
+    Regime classification is only possible if that manager has already been
+    trained. Training 11 Markov+GARCH models per run is far too expensive for
+    a streaming backtest batch, so when the manager is untrained (no regime
+    scan run yet) we default the split to 0 and surface it as such. Trades
+    that classify as UNKNOWN (untrained ETF, missing sector) are skipped.
+    """
+    try:
+        from app.services.markov.regime_model import get_shared_regime_manager
+        from app.services.data_service import DataService
+    except Exception:
+        # Regime stack unavailable — degrade gracefully, never fail the run.
+        kpis["bull_return_pct"] = 0.0
+        kpis["bear_return_pct"] = 0.0
+        return kpis
+
+    rm = get_shared_regime_manager()
+    if not rm.models:
+        # Manager not trained yet (no Markov scan has run) — can't classify.
+        kpis["bull_return_pct"] = 0.0
+        kpis["bear_return_pct"] = 0.0
+        return kpis
+
+    initial_capital = float(kpis.get("initial_capital") or 0.0) or 100_000.0
+    bull_pnl = 0.0
+    bear_pnl = 0.0
+    # Cache sector lookups to avoid a metadata query per trade.
+    sector_cache: Dict[str, str] = {}
+
+    for t in trades:
+        if t.get("side") != "SELL":
+            continue
+        ticker = t.get("ticker", "")
+        entry_date = t.get("entry_date")
+        pnl = t.get("pnl_dollars") or 0.0
+        if not ticker or not entry_date:
+            continue
+        if ticker not in sector_cache:
+            try:
+                meta = DataService.get_ticker_metadata(ticker)
+                sector_cache[ticker] = (meta or {}).get("sector", "") or ""
+            except Exception:
+                sector_cache[ticker] = ""
+        sector = sector_cache[ticker]
+        if not sector:
+            continue
+        try:
+            regime = rm.get_ticker_regime(ticker, sector, entry_date).get("regime")
+        except Exception:
+            continue
+        if regime == "BULL":
+            bull_pnl += pnl
+        elif regime == "BEAR":
+            bear_pnl += pnl
+
+    kpis["bull_return_pct"] = round(bull_pnl / initial_capital * 100, 2)
+    kpis["bear_return_pct"] = round(bear_pnl / initial_capital * 100, 2)
+    return kpis
+
+
 def _run_strategy_class(
     class_path: str,
     as_of: str,
@@ -189,6 +259,9 @@ def _run_strategy_class(
         adapter = StrategyBacktestAdapter(strategy_class())
         result_data = adapter.run(as_of=as_of, end=end_date)
         summary = result_data["summary"]
+        # BULL/BEAR regime-split (only computed if the shared Markov manager
+        # is already trained; otherwise defaults to 0).
+        summary = _augment_kpis_with_regime(summary, result_data.get("trades", []))
 
         # Downsample equity curve
         equity_curve = result_data.get("daily_equity", [])
