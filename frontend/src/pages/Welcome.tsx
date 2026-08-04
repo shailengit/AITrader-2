@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Database, ArrowRight, Sparkles, TrendingUp, Code, Gauge, Calendar, BookOpen, FlaskConical, Terminal } from 'lucide-react'
+import { Database, ArrowRight, Sparkles, TrendingUp, Gauge, Calendar, BookOpen, FlaskConical, Terminal } from 'lucide-react'
 import { ThemeToggle } from '../components/ui'
 import { useTheme } from '../context/ThemeContext'
 
@@ -45,14 +45,14 @@ const tools = [
     detail: 'XGBoost + regime detection with convergent signal engine',
   },
   {
-    id: 'quantgen',
-    title: 'Strategy Builder',
-    description: 'Write, backtest, and optimize quant strategies with AI-assisted code generation and VectorBT.',
-    icon: Code,
+    id: 'command-center',
+    title: 'Command Center',
+    description: 'Your unified hub for the whole platform — monitor live strategies, review backtests, and jump into any tool from one place.',
+    icon: Gauge,
     accent: '#10B981',
-    link: '/quantgen',
-    stat: 'VectorBT engine',
-    detail: 'True walk-forward optimization with position-aware tracking',
+    link: '/',
+    stat: 'All tools',
+    detail: 'Single pane of glass for every TradeCraft workflow',
   },
   {
     id: 'strategy-lab',
@@ -214,7 +214,7 @@ export default function Welcome() {
           marginBottom: 80,
         }}>
           <Link
-            to="/sectors"
+            to="/"
             style={{
               backgroundColor: colors.accent,
               color: colors.btnText,
