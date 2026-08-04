@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { OptimizationConfig } from "@/components/quantgen";
 import { IndicatorBrowser } from '@/components/quantgen/IndicatorBrowser';
+import { SectorRegime, fetchRegimes, summarizeRegimes } from "../../lib/regime";
 
 import { useTheme } from "../../context/ThemeContext";
 
@@ -138,6 +139,32 @@ export default function Builder() {
     onConfirm: () => void;
   } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Regime chart overlay toggle. The Builder itself renders no chart (the
+  // strategy chart lives on /quantgen/dashboard), so when enabled this
+  // surfaces the current aggregate market regime as a green/red badge in
+  // the Builder. `regimeBands` is the SectorRegime[] payload that the
+  // chart's `regimeBands` prop expects, so it can also be handed to a
+  // chart consumer that opts into the overlay.
+  const [showRegimeOverlay, setShowRegimeOverlay] = useState(false);
+  const [regimes, setRegimes] = useState<SectorRegime[]>([]);
+
+  // Fetch sector regimes once on mount so the toggle has data to reflect.
+  useEffect(() => {
+    fetchRegimes()
+      .then(setRegimes)
+      .catch(() => setRegimes([]));
+  }, []);
+
+  const regimeSummary = showRegimeOverlay
+    ? summarizeRegimes(regimes)
+    : { overall: 'UNKNOWN' as const, vol: 'LOW' as const };
+  const regimeColor =
+    regimeSummary.overall === 'BULL'
+      ? '#10b981'
+      : regimeSummary.overall === 'BEAR'
+        ? '#f43f5e'
+        : '#71717a';
 
   // Structured error state for rich error cards
   const [structuredError, setStructuredError] = useState<{
@@ -2063,6 +2090,59 @@ export default function Builder() {
               overflow: "hidden",
             }}
           >
+            {/* Regime Overlay Toggle */}
+            <div
+              style={{
+                flexShrink: 0,
+                padding: "10px 14px",
+                borderRadius: "12px",
+                backgroundColor: "var(--surface)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "var(--foreground)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showRegimeOverlay}
+                  onChange={(e) => setShowRegimeOverlay(e.target.checked)}
+                  style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "var(--accent)" }}
+                />
+                Regime Overlay
+              </label>
+              {showRegimeOverlay && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    padding: "2px 8px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: regimeColor,
+                    border: `1px solid ${regimeColor}`,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                  }}
+                >
+                  {regimeSummary.overall}
+                  {regimeSummary.vol === 'HIGH' ? ' · Vol High' : ''}
+                </span>
+              )}
+            </div>
+
             {/* Run Button */}
             <button
               onClick={handleRun}
