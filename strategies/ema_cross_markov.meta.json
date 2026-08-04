@@ -1,0 +1,5 @@
+{
+  "name": "EMA Cross Markov Strategy",
+  "tags": ["markov-required", "daily", "long-short"],
+  "regime_filter": "BULL"
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Markov Adaptive Strategy",
+  "tags": ["markov-required", "daily", "long-only"],
+  "regime_filter": "BULL"
+}
