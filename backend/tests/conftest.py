@@ -38,15 +38,26 @@ def db_session():
     """
     from app.db.database import Base, SessionLocal, engine
     Base.metadata.create_all(engine)
+    # Snapshot pre-existing deployment IDs so teardown only removes rows the
+    # test created, never production data.
+    from sqlalchemy import text, bindparam
+    with engine.connect() as conn:
+        pre_ids = {row[0] for row in conn.execute(text("SELECT id FROM deployments"))}
     s = SessionLocal()
     yield s
     s.rollback()
     s.close()
-    # Clean up rows written by the test so the real deployments registry is
-    # not left with a bogus active deployment that would break production.
-    from sqlalchemy import text
+    # Delete only rows created during the test (not in the pre-test snapshot).
     with engine.begin() as conn:
-        conn.execute(text("DELETE FROM deployments"))
+        if pre_ids:
+            conn.execute(
+                text("DELETE FROM deployments WHERE id NOT IN :pre_ids")
+                .bindparams(bindparam("pre_ids", expanding=True)),
+                {"pre_ids": list(pre_ids)},
+            )
+        else:
+            # No pre-existing rows, so everything present is test-created.
+            conn.execute(text("DELETE FROM deployments"))
 
 
 @pytest.fixture
