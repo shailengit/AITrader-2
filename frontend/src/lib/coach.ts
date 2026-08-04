@@ -98,11 +98,12 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 export const coachApi = {
-  overview: (params: { period_start?: string; period_end?: string; strategy_id?: string } = {}) => {
+  overview: (params: { period_start?: string; period_end?: string; strategy_id?: string; strategy_path?: string } = {}) => {
     const q = new URLSearchParams();
     if (params.period_start) q.set('period_start', params.period_start);
     if (params.period_end) q.set('period_end', params.period_end);
     if (params.strategy_id) q.set('strategy_id', params.strategy_id);
+    if (params.strategy_path) q.set('strategy_path', params.strategy_path);
     return getJson<OverviewResponse>(`${base}/metrics/overview?${q}`);
   },
   maeMfe: (params: { period_start?: string; period_end?: string; strategy_id?: string } = {}) => {

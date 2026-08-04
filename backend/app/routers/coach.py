@@ -92,9 +92,28 @@ def metrics_overview(
     period_start: Optional[date_cls] = None,
     period_end: Optional[date_cls] = None,
     strategy_id: Optional[uuid.UUID] = None,
+    strategy_path: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
     start, end = _period(period_start, period_end)
+    if strategy_path:
+        # The Command Center links to /coach?strategy=<path> (a strategy FILE
+        # path, e.g. "strategies/golden_cross.py"). Resolve it to the tracked
+        # JournalStrategy id so the overview is actually filtered, not just
+        # visually. An unresolvable path yields an empty overview.
+        from app.services.coach.journal import _resolve_strategy
+        row = _resolve_strategy(strategy_path, session)
+        if row is None:
+            return {
+                "empty": True,
+                "period": {"start": start.isoformat(), "end": end.isoformat()},
+                "kpis": {
+                    "total_pnl": 0.0, "win_rate": 0.0, "expectancy": 0.0,
+                    "n_trades": 0, "n_open": 0, "max_dd": 0.0, "current_dd": 0.0,
+                    "sharpe_proxy": 0.0,
+                },
+            }
+        strategy_id = row.id
     o = A.overview(session, start, end, strategy_id)
     if o["kpis"]["n_trades"] == 0 and not o["win_rate_by_strategy"]:
         return {"empty": True, "period": o["period"], "kpis": o["kpis"]}

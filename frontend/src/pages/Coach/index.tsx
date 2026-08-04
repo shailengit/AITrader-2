@@ -18,14 +18,19 @@ export default function CoachIndex() {
   const qc = useQueryClient();
   const [searchParams] = useSearchParams();
   // The Command Center links here with ?strategy=<strategy_path>. It is a file
-  // path (e.g. "strategies/<file>.py"), not a UUID. The overview endpoint only
-  // filters by a UUID strategy_id, so we reflect the filter in the query key /
-  // header chip but cannot pass the path through without a 422. See task report.
+  // path (e.g. "strategies/<file>.py"), not a UUID. The overview endpoint
+  // resolves the path to the tracked JournalStrategy id and filters by it, so
+  // the data shown is genuinely filtered (not just the chip / query key).
   const strategyFilter = searchParams.get('strategy');
 
   const overview = useQuery({
     queryKey: ['coach-overview', range, strategyFilter],
-    queryFn: () => coachApi.overview({ period_start: range.start, period_end: range.end }),
+    queryFn: () =>
+      coachApi.overview({
+        period_start: range.start,
+        period_end: range.end,
+        strategy_path: strategyFilter ?? undefined,
+      }),
   });
 
   const maeMfe = useQuery({
