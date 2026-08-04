@@ -18,6 +18,12 @@ import { test, expect } from '@playwright/test';
  */
 
 test('full workflow loop: Command Center -> Sectors -> hypothesis -> Terminal -> backlog', async ({ page }) => {
+  // Cleanup note: this test creates one hypothesis row per run. The backend
+  // exposes only POST /api/hypotheses and PATCH /api/hypotheses/{id} — there is
+  // NO DELETE endpoint — so the row cannot be cleaned up via the API. If you
+  // need a clean slate, truncate hypotheses manually or extend the backend with
+  // a DELETE route before running repeatedly.
+
   // 1. Visit Command Center (the operational home; landing is at /welcome)
   await page.goto('/');
   await expect(page.locator('h1')).toContainText('Command Center');
@@ -45,6 +51,21 @@ test('full workflow loop: Command Center -> Sectors -> hypothesis -> Terminal ->
   await expect(page.getByText('Tech leading with low vol')).toBeVisible();
 });
 
+/**
+ * DESTRUCTIVE test — gated behind an opt-in env var.
+ *
+ * Deploying marks `daily_golden_cross` as the ACTIVE deployment and
+ * deactivates whatever is currently active (both `registry_deploy` in
+ * deployments_registry.py and the StrategyDeployment query in
+ * strategy_lab.py). Running against a live stack flips the Alpaca
+ * paper-trading target. Only run this against a scratch/throwaway DB, and
+ * only when you explicitly opt in:
+ *
+ *   E2E_DEPLOY=1 npx playwright test e2e/workflow_loop.spec.ts
+ */
+const deployEnabled = process.env.E2E_DEPLOY === '1';
+
+test.describe.skip(!deployEnabled ? 'deploy E2E (opt-in)' : 'deploy E2E', () => {
 test('deploying a strategy surfaces the Coach DEPLOYED badge in Strategy Lab', async ({ page, request }) => {
   // Seed a deployment via the real strategy-lab deploy endpoint. The strategy
   // file must be an existing, valid Strategy subclass (daily_golden_cross.py is
@@ -67,4 +88,5 @@ test('deploying a strategy surfaces the Coach DEPLOYED badge in Strategy Lab', a
 
   // The per-strategy Coach badge shows the DEPLOYED capsule
   await expect(page.getByText('DEPLOYED', { exact: true })).toBeVisible();
+});
 });
