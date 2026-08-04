@@ -62,7 +62,7 @@ def test_engine_smoke_runs():
 
 
 def test_safe_import_valid_file(tmp_path):
-    safe = _load_module("strategies_safe_import", os.path.join(STRATEGIES_DIR, "_safe_import.py"))
+    safe = _load_module("strategies_safe_import", os.path.join(STRATEGIES_DIR, "_archive", "_safe_import.py"))
     f = tmp_path / "valid_strategy.py"
     f.write_text("MY_CONST = 42\n")
     result = safe.safe_import_strategy(str(f))
@@ -71,7 +71,7 @@ def test_safe_import_valid_file(tmp_path):
 
 
 def test_safe_import_syntax_error(tmp_path):
-    safe = _load_module("strategies_safe_import", os.path.join(STRATEGIES_DIR, "_safe_import.py"))
+    safe = _load_module("strategies_safe_import", os.path.join(STRATEGIES_DIR, "_archive", "_safe_import.py"))
     f = tmp_path / "broken.py"
     f.write_text("def broken(:\n    pass\n")
     result = safe.safe_import_strategy(str(f))
@@ -80,7 +80,7 @@ def test_safe_import_syntax_error(tmp_path):
 
 
 def test_safe_import_missing_file():
-    safe = _load_module("strategies_safe_import", os.path.join(STRATEGIES_DIR, "_safe_import.py"))
+    safe = _load_module("strategies_safe_import", os.path.join(STRATEGIES_DIR, "_archive", "_safe_import.py"))
     result = safe.safe_import_strategy("/nonexistent/path/does_not_exist.py")
     assert result.error is not None
     assert result.module is None
