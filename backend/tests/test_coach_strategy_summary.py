@@ -1,5 +1,7 @@
+import os
 from datetime import datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
@@ -8,6 +10,13 @@ from app.services.deployments_registry import deploy_strategy
 from app.models.journal import JournalStrategy, JournalTrade
 
 client = TestClient(app)
+
+# These tests hit the journal DB via the app (read + write). Refuse to run
+# against the production DB — skip unless a dedicated TEST_DATABASE_URL is set.
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("TEST_DATABASE_URL"),
+    reason="TEST_DATABASE_URL not set — refusing to hit the production DB",
+)
 
 
 def test_summary_for_unknown_strategy_returns_backtested_fallback():
