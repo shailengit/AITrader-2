@@ -22,6 +22,7 @@ import {
   getSubScoreInputs,
   type SubScoreKey,
 } from '../../../lib/subScoreInputs';
+import { SaveHypothesisPopover } from '../../../components/shared/SaveHypothesisPopover';
 
 // Buy-and-hold return is only meaningful if at least 2 trading days have elapsed
 // since the as-of-date. Otherwise the buy/sell prices collapse to the same bar.
@@ -106,6 +107,9 @@ export default function ResultsPanel({
     () => getColumnsForFilters((filters?.conditions ?? []) as FilterCondition[]),
     [filters],
   );
+  // Concise summary of the active filters, stored on hypotheses saved from
+  // the screener so the hypothesis backlog shows what was filtered on.
+  const filterSummary = filterColumns.map((c) => c.header).join(', ') || 'no filters';
 
   const colors = {
     text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
@@ -500,6 +504,21 @@ export default function ResultsPanel({
                     Δ vs return
                   </th>
                 )}
+                <th
+                  style={{
+                    padding: '10px 14px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: colors.muted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Save this stock as a hypothesis"
+                >
+                  Save
+                </th>
               </tr>
             </thead>
 
@@ -697,6 +716,14 @@ export default function ResultsPanel({
                             }${Number(row.score_minus_return).toFixed(1)}`}
                       </td>
                     )}
+                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                      <SaveHypothesisPopover
+                        source="screener"
+                        ticker={row.ticker}
+                        sector={row.sector}
+                        sourceMeta={{ page: 'screener', filter_summary: filterSummary, score: row.score }}
+                      />
+                    </td>
                   </tr>,
                 ];
                 if (openSet.size > 0) {
