@@ -543,8 +543,8 @@ def deploy(
     The deploy flow:
       1. Imports the Strategy subclass
       2. Verifies it has the required methods
-      3. Updates alpaca_runner.py to use the new class
-      4. Records the deployment
+      3. Records the deployment in the deployments registry (which the Alpaca
+         runner loads as the active strategy)
     """
     from app.services.strategy_base import Strategy
     import importlib.util
@@ -630,9 +630,21 @@ def deploy(
     db.refresh(deployment)
 
     # Link the deployed strategy back to its source hypotheses: mark each as
-    # generated with this deployment's id.
+    # generated with this deployment's id. The deploy has already succeeded and
+    # been committed above, so a malformed (non-UUID) hypothesis id must never
+    # turn that success into a 500. Validate each token as a UUID and skip
+    # (with a warning) any that don't parse; keep the valid links working.
     if body.source_hypothesis_ids:
         for hid in body.source_hypothesis_ids:
+            try:
+                uuid.UUID(str(hid))
+            except (ValueError, AttributeError, TypeError):
+                logger.warning(
+                    "Skipping invalid source_hypothesis_id %r on deploy of %s: "
+                    "not a valid UUID (deploy %s already succeeded)",
+                    hid, class_name, deployment.id,
+                )
+                continue
             mark_generated(hid, str(deployment.id), db)
 
     return DeploymentResponse(
