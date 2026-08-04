@@ -65,7 +65,7 @@ test('full workflow loop: Command Center -> Sectors -> hypothesis -> Terminal ->
  */
 const deployEnabled = process.env.E2E_DEPLOY === '1';
 
-test.describe.skip(!deployEnabled ? 'deploy E2E (opt-in)' : 'deploy E2E', () => {
+test.describe.skip(!deployEnabled, 'deploy E2E (opt-in)', () => {
 test('deploying a strategy surfaces the Coach DEPLOYED badge in Strategy Lab', async ({ page, request }) => {
   // Seed a deployment via the real strategy-lab deploy endpoint. The strategy
   // file must be an existing, valid Strategy subclass (daily_golden_cross.py is
