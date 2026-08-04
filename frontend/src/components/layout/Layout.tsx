@@ -15,6 +15,7 @@ const pageTitles: Record<string, string> = {
   "/coach": "Trade Coach",
   "/strategy-lab": "AI Strategy Builder",
   "/terminal": "AI Terminal",
+  "/hypotheses": "Hypothesis Backlog",
 };
 
 const REFERRER_KEY = "tc_last_app_referrer";
