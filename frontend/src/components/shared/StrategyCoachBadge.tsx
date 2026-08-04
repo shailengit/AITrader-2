@@ -30,7 +30,8 @@ export function StrategyCoachBadge({ strategyPath }: { strategyPath: string }) {
     ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(16,185,129,.15)', color: '#10B981', fontSize: 11, fontWeight: 600 }}>DEPLOYED</span>
     : <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,.05)', color: 'inherit', fontSize: 11, opacity: .7 }}>BACKTESTED</span>;
 
-  const pnlColor = s.live_pnl >= 0 ? '#10B981' : '#EF4444';
+  const displayPnl = s.is_deployed ? (s.live_pnl ?? 0) : (s.backtested?.total_return ?? 0);
+  const pnlColor = displayPnl >= 0 ? '#10B981' : '#EF4444';
   const pnlText = s.is_deployed
     ? `${s.live_pnl >= 0 ? '+' : ''}${(s.live_pnl * 100).toFixed(1)}% live`
     : s.backtested?.total_return != null
