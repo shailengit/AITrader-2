@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import QueryProvider from './components/QueryProvider'
 import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/layout/Layout'
-import Landing from './pages/Landing'
+import Welcome from './pages/Welcome'
+import CommandCenter from './pages/CommandCenter'
 import SectorRotation from './pages/SectorRotation'
 import ScreenerBuilder from './pages/app/ScreenerBuilder'
 import ChartView from './pages/app/ScreenerBuilder/ChartView'
@@ -14,6 +15,7 @@ import CoachIndex from './pages/Coach'
 import CoachTrades from './pages/Coach/trades'
 import StrategyLabPage from './pages/StrategyLab'
 import TerminalPage from './pages/Terminal'
+import Hypotheses from './pages/Hypotheses'
 
 function App() {
   return (
@@ -22,7 +24,12 @@ function App() {
         <Routes>
           <Route path="/" element={
             <ErrorBoundary>
-              <Landing />
+              <CommandCenter />
+            </ErrorBoundary>
+          } />
+          <Route path="welcome" element={
+            <ErrorBoundary>
+              <Welcome />
             </ErrorBoundary>
           } />
           <Route element={<Layout />}>
@@ -84,6 +91,7 @@ function App() {
                 <TerminalPage />
               </ErrorBoundary>
             } />
+            <Route path="hypotheses" element={<ErrorBoundary><Hypotheses /></ErrorBoundary>} />
           </Route>
         </Routes>
       </BrowserRouter>

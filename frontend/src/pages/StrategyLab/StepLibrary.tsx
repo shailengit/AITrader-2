@@ -1,72 +1,199 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { BookOpen, Download, Clock, GitBranch, TrendingUp, BarChart3 } from "lucide-react";
-import { strategyLabApi, type LibraryListResponse } from "../../lib/strategyLab";
+import { useState, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  BookOpen, Code, ArrowUpDown,
+  ArrowUp, ArrowDown, CheckCircle, XCircle, Play, Trash2,
+} from "lucide-react";
+import { strategyLabApi } from "../../lib/strategyLab";
+import { StrategyCoachBadge } from "../../components/shared/StrategyCoachBadge";
 
-interface StepLibraryProps {
-  onLoadSession: (sessionId: string) => void;
+interface StrategyClassItem {
+  name: string;
+  path: string;
+  description: string;
+  created_at: string | null;
+  modified_at: string | null;
+  cagr_pct: number | null;
+  sharpe_ratio: number | null;
+  total_return_pct: number | null;
+  win_rate: number | null;
+  max_drawdown_pct: number | null;
+  total_trades: number | null;
+  last_backtest: string | null;
+  deployed: boolean;
+  deployed_at: string | null;
 }
 
-export function StepLibrary({ onLoadSession }: StepLibraryProps) {
-  const { data: strategies, isLoading } = useQuery({
-    queryKey: ["strategy-library"],
-    queryFn: () => strategyLabApi.listLibrary(),
+interface StepLibraryProps {
+  onSelectStrategy: (path: string) => void;
+}
+
+type SortKey = "name" | "created_at" | "cagr_pct" | "sharpe_ratio" | "total_return_pct" | "win_rate" | "total_trades" | "last_backtest" | "deployed";
+type SortDir = "asc" | "desc";
+
+export function StepLibrary({ onSelectStrategy }: StepLibraryProps) {
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const qc = useQueryClient();
+
+  const { data: classes, isLoading } = useQuery({
+    queryKey: ["strategy-classes"],
+    queryFn: () => strategyLabApi.listStrategyClasses(),
   });
 
-  const load = useMutation({
-    mutationFn: (name: string) => strategyLabApi.loadFromLibrary({ name }),
-    onSuccess: (session) => {
-      onLoadSession(session.id);
+  const deleteMut = useMutation({
+    mutationFn: (path: string) => strategyLabApi.deleteStrategyClass(path),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategy-classes"] });
+      setConfirmDelete(null);
     },
   });
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const sorted = useMemo(() => {
+    if (!classes) return [];
+    const copy = [...classes];
+    copy.sort((a, b) => {
+      let va: any, vb: any;
+      if (keyIsString(sortKey)) {
+        va = (a as any)[sortKey] || "";
+        vb = (b as any)[sortKey] || "";
+      } else {
+        va = (a as any)[sortKey];
+        vb = (b as any)[sortKey];
+        if (va == null) va = sortKey === "deployed" ? false : -999999;
+        if (vb == null) vb = sortKey === "deployed" ? false : -999999;
+      }
+      return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+    });
+    return copy;
+  }, [classes, sortKey, sortDir]);
+
+  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+    if (sortKey !== columnKey) return <ArrowUpDown size={10} style={{ opacity: 0.3, verticalAlign: "middle", marginLeft: 4 }} />;
+    return sortDir === "asc"
+      ? <ArrowUp size={10} style={{ verticalAlign: "middle", marginLeft: 4 }} />
+      : <ArrowDown size={10} style={{ verticalAlign: "middle", marginLeft: 4 }} />;
+  };
+
+  const Th = ({ columnKey, children, className }: { columnKey: SortKey; children: React.ReactNode; className?: string }) => (
+    <th onClick={() => handleSort(columnKey)} style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }} className={className}>
+      {children}<SortIcon columnKey={columnKey} />
+    </th>
+  );
 
   return (
     <>
       <div className="slab-page-head">
         <div>
           <div className="slab-eyebrow slab-eyebrow--gold">// Library</div>
-          <h1 className="slab-page-head__title">Saved strategies.</h1>
+          <h1 className="slab-page-head__title">Strategy library.</h1>
           <p className="slab-page-head__lede">
-            Browse previously saved strategies. Click <span style={{ color: "var(--slab-gold)" }}>Load</span> to
-            skip straight to the Code step — no need to re-enter the idea.
+            Select a strategy to backtest and deploy. To create a new strategy,
+            open the <span style={{ color: "var(--slab-gold)" }}>terminal</span> and describe your idea to Claude Code.
           </p>
         </div>
         <div className="slab-page-head__meta">
-          <span>Browse</span>
+          <span>{classes?.length ?? 0} strategies</span>
           <span className="slab-mono slab-mono--gold">LIBRARY</span>
         </div>
       </div>
 
       <div className="slab-page-body">
         {isLoading && (
-          <div className="slab-mono slab-mono--sm slab-mono--dim">Loading library…</div>
+          <div className="slab-mono slab-mono--sm slab-mono--dim">Loading strategies…</div>
         )}
 
-        {strategies && strategies.length === 0 && (
+        {classes && classes.length === 0 && (
           <div style={{ textAlign: "center", padding: "64px 16px", color: "var(--slab-paper-faint)" }}>
             <BookOpen size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
             <p className="slab-prose" style={{ fontSize: 14 }}>
-              No saved strategies yet. Generate and validate a strategy, then save it to the library.
+              No strategies found. Open the terminal and use Claude Code to generate one.
             </p>
           </div>
         )}
 
-        {strategies && strategies.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1280 }}>
-            {strategies.map((s) => (
-              <StrategyCard
-                key={s.name}
-                entry={s}
-                onLoad={() => load.mutate(s.name)}
-                isLoading={load.isPending}
-              />
-            ))}
+        {classes && classes.length > 0 && (
+          <div className="slab-panel" style={{ maxWidth: 1400 }}>
+            <div style={{ maxHeight: 600, overflow: "auto" }}>
+              <table className="slab-table">
+                <thead>
+                  <tr>
+                    <Th columnKey="name">Strategy</Th>
+                    <Th columnKey="created_at">Created</Th>
+                    <Th columnKey="cagr_pct">CAGR%</Th>
+                    <Th columnKey="sharpe_ratio">Sharpe</Th>
+                    <Th columnKey="total_return_pct">Return</Th>
+                    <Th columnKey="win_rate">Win%</Th>
+                    <Th columnKey="total_trades">Trades</Th>
+                    <Th columnKey="last_backtest">Last Test</Th>
+                    <Th columnKey="deployed">Status</Th>
+                    <th style={{ textAlign: "center" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((c) => (
+                    <StrategyRow
+                      key={c.path}
+                      entry={c}
+                      onBacktest={() => onSelectStrategy(c.path)}
+                      onDelete={() => setConfirmDelete(c.path)}
+                      isDeleting={deleteMut.isPending && confirmDelete === c.path}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {load.isError && (
-          <div className="slab-mono slab-mono--sm slab-mono--rose" style={{ marginTop: 16 }}>
-            Failed to load strategy: {String((load.error as Error)?.message ?? "Unknown error")}
+        {/* Delete confirmation modal */}
+        {confirmDelete && (
+          <div
+            style={{
+              position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50,
+            }}
+            onClick={() => setConfirmDelete(null)}
+          >
+            <div
+              className="slab-panel"
+              style={{ maxWidth: 440, width: "100%" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="slab-panel__head">
+                <span className="slab-eyebrow slab-eyebrow--gold">// Confirm delete</span>
+              </div>
+              <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <p className="slab-prose">
+                  Delete <span className="slab-mono" style={{ color: "var(--slab-gold)" }}>{confirmDelete.split("/").pop()}</span>?
+                  This will remove the strategy file and its performance data.
+                </p>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                  <button type="button" onClick={() => setConfirmDelete(null)} className="slab-btn">
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteMut.mutate(confirmDelete)}
+                    disabled={deleteMut.isPending}
+                    className="slab-btn"
+                    style={{ borderColor: "var(--slab-rose)", color: "var(--slab-rose)" }}
+                  >
+                    {deleteMut.isPending ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -74,95 +201,100 @@ export function StepLibrary({ onLoadSession }: StepLibraryProps) {
   );
 }
 
-function StrategyCard({ entry, onLoad, isLoading }: {
-  entry: LibraryListResponse;
-  onLoad: () => void;
-  isLoading: boolean;
+function keyIsString(key: SortKey): boolean {
+  return key === "name" || key === "created_at" || key === "last_backtest";
+}
+
+function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
+  entry: StrategyClassItem; onBacktest: () => void;
+  onDelete: () => void; isDeleting: boolean;
 }) {
-  const latest = entry.latest_version;
-  const kpis = latest.backtest_kpis || {};
-  const ret = kpis.total_return_pct;
-  const sharpe = kpis.sharpe_ratio;
+  const fmtPct = (v: number | null) => {
+    if (v == null) return <span className="slab-mono slab-mono--xs slab-mono--faint">N/A</span>;
+    const isNeg = v < 0;
+    return (
+      <span className="slab-mono slab-mono--sm" style={{ color: isNeg ? "var(--slab-rose)" : "var(--slab-terminal)" }}>
+        {v >= 0 ? "+" : ""}{v.toFixed(1)}%
+      </span>
+    );
+  };
+
+  const fmtNum = (v: number | null) => {
+    if (v == null) return <span className="slab-mono slab-mono--xs slab-mono--faint">N/A</span>;
+    return <span className="slab-mono slab-mono--sm">{v.toLocaleString()}</span>;
+  };
+
+  const fmtDate = (v: string | null) => {
+    if (!v) return <span className="slab-mono slab-mono--xs slab-mono--faint">—</span>;
+    return <span className="slab-mono slab-mono--xs slab-mono--dim">{v.slice(0, 10)}</span>;
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="slab-panel"
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <GitBranch size={12} style={{ color: "var(--slab-gold)" }} />
-            <span className="slab-eyebrow slab-eyebrow--gold">
-              {entry.display_name}
-            </span>
-            <span className="slab-mono slab-mono--xs slab-mono--dim">
-              v{entry.version_count}
-            </span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
-            {ret != null && (
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <TrendingUp size={11} style={{ color: ret >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }} />
-                <span className="slab-mono slab-mono--sm" style={{ color: ret >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}>
-                  {ret >= 0 ? "+" : ""}{ret.toFixed(1)}%
-                </span>
-              </div>
-            )}
-            {sharpe != null && (
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <BarChart3 size={11} style={{ color: "var(--slab-paper-faint)" }} />
-                <span className="slab-mono slab-mono--sm slab-mono--dim">Sharpe {sharpe.toFixed(2)}</span>
-              </div>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <Clock size={11} style={{ color: "var(--slab-paper-faint)" }} />
-              <span className="slab-mono slab-mono--xs slab-mono--dim">
-                {latest.created_at?.slice(0, 10)}
-              </span>
+    <tr>
+      <td>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Code size={12} style={{ color: "var(--slab-gold)", flexShrink: 0 }} />
+          <div>
+            <div className="slab-mono slab-mono--sm" style={{ fontWeight: 600, color: "var(--slab-gold)" }}>
+              {entry.name}
             </div>
-          </div>
-
-          {latest.change_description && (
-            <p className="slab-mono slab-mono--sm slab-mono--dim" style={{ marginTop: 8, fontStyle: "italic" }}>
-              {latest.change_description}
-            </p>
-          )}
-
-          {/* Version history */}
-          {entry.versions.length > 1 && (
-            <details style={{ marginTop: 12 }}>
-              <summary className="slab-mono slab-mono--xs slab-mono--dim" style={{ cursor: "pointer" }}>
-                {entry.versions.length} versions
-              </summary>
-              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-                {entry.versions.slice().reverse().map((v) => (
-                  <div key={v.version} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-                    <span className="slab-mono slab-mono--xs slab-mono--gold">v{v.version}</span>
-                    <span className="slab-mono slab-mono--xs slab-mono--dim">{v.created_at?.slice(0, 10)}</span>
-                    <span className="slab-mono slab-mono--xs slab-mono--faint" style={{ fontStyle: "italic" }}>
-                      {v.change_description}
-                    </span>
-                  </div>
-                ))}
+            {entry.description && (
+              <div className="slab-mono slab-mono--xs slab-mono--faint" style={{ marginTop: 2, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {entry.description}
               </div>
-            </details>
-          )}
+            )}
+            <StrategyCoachBadge strategyPath={(entry.path.split("/services/")[1] ?? entry.path)} />
+          </div>
         </div>
-
+      </td>
+      <td>{fmtDate(entry.created_at)}</td>
+      <td className="slab-table__num">{fmtPct(entry.cagr_pct)}</td>
+      <td className="slab-table__num">
+        {entry.sharpe_ratio != null ? (
+          <span className="slab-mono slab-mono--sm" style={{ color: entry.sharpe_ratio >= 0.5 ? "var(--slab-terminal)" : entry.sharpe_ratio >= 0 ? "var(--slab-amber)" : "var(--slab-rose)" }}>
+            {entry.sharpe_ratio.toFixed(2)}
+          </span>
+        ) : (
+          <span className="slab-mono slab-mono--xs slab-mono--faint">N/A</span>
+        )}
+      </td>
+      <td className="slab-table__num">{fmtPct(entry.total_return_pct)}</td>
+      <td className="slab-table__num">{fmtPct(entry.win_rate)}</td>
+      <td className="slab-table__num">{fmtNum(entry.total_trades)}</td>
+      <td>{fmtDate(entry.last_backtest)}</td>
+      <td>
+        {entry.deployed ? (
+          <span className="slab-tag slab-tag--terminal" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <CheckCircle size={9} /> Active
+          </span>
+        ) : (
+          <span className="slab-tag" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <XCircle size={9} /> Idle
+          </span>
+        )}
+      </td>
+      <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
         <button
           type="button"
-          onClick={onLoad}
-          disabled={isLoading}
-          className="slab-btn"
-          style={{ flexShrink: 0 }}
+          onClick={onBacktest}
+          className="slab-btn slab-btn--xs slab-btn--primary"
+          title="Backtest this strategy"
+          style={{ marginRight: 6 }}
         >
-          <Download size={11} />
-          {isLoading ? "Loading…" : "Load"}
+          <Play size={10} />
+          Run
         </button>
-      </div>
-    </motion.div>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={isDeleting}
+          className="slab-btn slab-btn--xs"
+          title="Delete this strategy"
+          style={{ borderColor: "var(--slab-rose)", color: "var(--slab-rose)" }}
+        >
+          <Trash2 size={10} />
+        </button>
+      </td>
+    </tr>
   );
 }

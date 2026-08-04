@@ -133,10 +133,11 @@ export function TerminalComponent({ sessionId, onReady, onDisconnected }: Termin
 
       ws.onclose = (event) => {
         // If we closed intentionally (sessionId change, unmount),
-        // surface the close to the parent. Otherwise try to reconnect
-        // silently — the user has not asked to end the session.
+        // do NOT surface the close to the parent — the component is
+        // being torn down and calling onDisconnected would cause the
+        // new component (on re-mount) to show "Session ended" due to
+        // the async onclose firing after the new mount.
         if (intentionallyClosedRef.current) {
-          onDisconnectedRef.current?.(event.code);
           return;
         }
         if (event.code === 1000 || event.code === 1001) {

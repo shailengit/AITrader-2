@@ -1,69 +1,38 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { StepSidebar } from "../../components/strategy-lab/StepSidebar";
-import { StepIdea } from "./StepIdea";
-import { StepPlan } from "./StepPlan";
-import { StepCode } from "./StepCode";
 import { StepBacktest } from "./StepBacktest";
 import { StepDeploy } from "./StepDeploy";
 import { StepLibrary } from "./StepLibrary";
-import { strategyLabApi } from "../../lib/strategyLab";
 import "../../components/strategy-lab/lab.css";
 
 const STEPS = [
   { id: 0, label: "Library", meta: "Saved" },
-  { id: 1, label: "Idea", meta: "Prompt" },
-  { id: 2, label: "Plan", meta: "Review" },
-  { id: 3, label: "Code", meta: "Edit" },
-  { id: 4, label: "Backtest", meta: "Validate" },
-  { id: 5, label: "Deploy", meta: "Ship" },
+  { id: 1, label: "Backtest", meta: "Run" },
+  { id: 2, label: "Deploy", meta: "Ship" },
 ] as const;
 
 export default function StrategyLabPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const sessionId = searchParams.get("session");
-  const [activeStep, setActiveStep] = useState<number>(1);
+  const [activeStep, setActiveStep] = useState<number>(0);
+  const [selectedStrategyPath, setSelectedStrategyPath] = useState<string | null>(null);
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
 
-  const session = useQuery({
-    queryKey: ["strategy-lab-session", sessionId],
-    queryFn: () => strategyLabApi.getSession(sessionId!),
-    enabled: !!sessionId,
-  });
-
-  const handlePlanApproved = () => setActiveStep(3);
-  const handleCodeReady = () => setActiveStep(4);
-  const handleWinnerPicked = (experimentId: string) => {
-    setSelectedExperimentId(experimentId);
-    setActiveStep(5);
+  const handleSelectStrategy = (path: string) => {
+    setSelectedStrategyPath(path);
+    setActiveStep(1);
   };
 
-  const handleCreated = (newSessionId: string) => {
-    setSearchParams({ session: newSessionId });
+  const handleWinnerPicked = (experimentId: string) => {
+    setSelectedExperimentId(experimentId);
     setActiveStep(2);
   };
 
-  const handleLoadSession = (newSessionId: string) => {
-    setSearchParams({ session: newSessionId });
-    setActiveStep(3);  // Skip to Code step
-  };
-
   const handleSelectStep = (stepId: number) => {
-    if (stepId === 0) { setActiveStep(0); return; }  // Library always accessible
-    if (!sessionId && stepId !== 1) return;
-    if (stepId >= 3 && !session.data?.code_text) return;
+    if (stepId === 0) { setActiveStep(0); return; }
+    if (stepId === 1 && !selectedStrategyPath) return;
+    if (stepId === 2 && !selectedExperimentId) return;
     setActiveStep(stepId);
   };
-
-  const completedUpTo = sessionId
-    ? session.data?.plan_text
-      ? session.data?.code_text
-        ? 3
-        : 2
-      : 1
-    : 0;
 
   return (
     <div className="slab flex h-full min-h-[calc(100vh-4rem)]">
@@ -72,62 +41,35 @@ export default function StrategyLabPage() {
           id: s.id,
           label: s.label,
           meta: s.meta,
-          completed: s.id <= completedUpTo,
+          completed: s.id < activeStep,
           active: s.id === activeStep,
         }))}
         onSelect={handleSelectStep}
-        sessionName={session.data?.name}
-        modelId={session.data?.model_id}
+        sessionName={selectedStrategyPath ? selectedStrategyPath.split("/").pop() : undefined}
       />
       <main className="flex-1 overflow-y-auto">
-        {/*
-          IMPORTANT: do NOT add `key={activeStep}` here. Doing so remounts the
-          entire step subtree on every navigation, which kills any in-flight
-          fetch and causes Chrome to log "The message port closed before a
-          response was received" — and (more importantly) re-fires the
-          StepPlan / StepCode useEffect that auto-generates content, leading
-          to duplicate LLM calls. The step components themselves are
-          unmounted by the conditional rendering below when their step is no
-          longer active.
-        */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
         >
           {activeStep === 0 ? (
-            <StepLibrary key="step-0" onLoadSession={handleLoadSession} />
-          ) : activeStep === 1 || !sessionId ? (
-            <StepIdea key="step-1" onCreated={handleCreated} sessionId={sessionId || undefined} />
-          ) : activeStep === 2 && session.data ? (
-            <StepPlan
-              key={`step-2-${session.data.id}`}
-              session={session.data}
-              model={session.data.model_id}
-              onPlanApproved={handlePlanApproved}
-            />
-          ) : activeStep === 3 && session.data ? (
-            <StepCode
-              key={`step-3-${session.data.id}`}
-              session={session.data}
-              model={session.data.model_id}
-              onCodeReady={handleCodeReady}
-            />
-          ) : activeStep === 4 && session.data ? (
+            <StepLibrary key="step-0" onSelectStrategy={handleSelectStrategy} />
+          ) : activeStep === 1 && selectedStrategyPath ? (
             <StepBacktest
-              key={`step-4-${session.data.id}`}
-              session={session.data}
+              key={`step-1-${selectedStrategyPath}`}
+              strategyClassPath={selectedStrategyPath}
               onWinnerPicked={handleWinnerPicked}
             />
-          ) : activeStep === 5 && session.data && selectedExperimentId ? (
+          ) : activeStep === 2 && selectedStrategyPath && selectedExperimentId ? (
             <StepDeploy
-              key={`step-5-${session.data.id}`}
-              session={session.data}
+              key={`step-2-${selectedStrategyPath}`}
+              strategyClassPath={selectedStrategyPath}
               experimentId={selectedExperimentId}
               onDeployed={() => {}}
             />
           ) : (
-            <StepNoWinner key="step-no-winner" />
+            <StepNoStrategy key="step-no-strategy" />
           )}
         </motion.div>
       </main>
@@ -135,15 +77,14 @@ export default function StrategyLabPage() {
   );
 }
 
-function StepNoWinner() {
+function StepNoStrategy() {
   return (
     <div className="slab-page-body">
-      <div className="slab-eyebrow slab-eyebrow--gold mb-3">// 05 · Deploy</div>
-      <h1 className="slab-display slab-h2 mb-3">Pick a winner first.</h1>
+      <div className="slab-eyebrow slab-eyebrow--gold mb-3">// 01 · Backtest</div>
+      <h1 className="slab-display slab-h2 mb-3">Select a strategy first.</h1>
       <p className="slab-lede">
-        You haven't selected a winning experiment yet. Go back to step 4 and
-        click <span className="slab-mono slab-mono--gold">PICK</span> on the
-        row with the best metrics.
+        Pick a strategy from the library or use the terminal to generate one with Claude Code.
+        Generated strategies live in <span className="slab-mono">backend/app/services/strategies/</span>.
       </p>
     </div>
   );

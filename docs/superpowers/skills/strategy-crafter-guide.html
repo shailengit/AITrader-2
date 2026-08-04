@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strategy Crafter — Skill Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; line-height: 1.6; }
+  .container { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
+  h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, #22d3ee, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+  h2 { font-size: 1.4rem; font-weight: 700; color: #22d3ee; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #1e293b; }
+  h3 { font-size: 1.1rem; font-weight: 600; color: #e2e8f0; margin: 24px 0 12px; }
+  .subtitle { color: #64748b; font-size: 1rem; margin-bottom: 32px; }
+  .hero { background: linear-gradient(135deg, #0f172a, #1e293b); border: 1px solid #334155; border-radius: 16px; padding: 40px; margin-bottom: 32px; text-align: center; }
+  .hero-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; background: rgba(16,185,129,0.15); color: #10b981; margin-bottom: 16px; }
+  .hero p { color: #94a3b8; max-width: 600px; margin: 0 auto; font-size: 0.95rem; }
+  .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+  .card-title { font-size: 1rem; font-weight: 600; color: #22d3ee; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .phase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .phase-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+  .phase-number { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; }
+  .phase-name { font-size: 1.1rem; font-weight: 700; color: #22d3ee; margin-bottom: 8px; }
+  .phase-desc { font-size: 0.85rem; color: #94a3b8; line-height: 1.5; }
+  .phase-desc ul { margin: 8px 0 0 16px; }
+  .phase-desc li { margin-bottom: 4px; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; background: #1e293b; padding: 2px 6px; border-radius: 4px; color: #22d3ee; }
+  pre { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; background: #1e293b; padding: 16px; border-radius: 8px; overflow-x: auto; color: #e2e8f0; border: 1px solid #334155; margin: 12px 0; }
+  .step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #1e293b; }
+  .step:last-child { border-bottom: none; }
+  .step-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+  .step-icon.green { background: rgba(16,185,129,0.15); color: #10b981; }
+  .step-icon.cyan { background: rgba(34,211,238,0.15); color: #22d3ee; }
+  .step-icon.amber { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .step-icon.rose { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .step-icon.purple { background: rgba(167,139,250,0.15); color: #a78bfa; }
+  .step-content { flex: 1; }
+  .step-title { font-weight: 600; font-size: 0.9rem; color: #e2e8f0; }
+  .step-desc { font-size: 0.82rem; color: #94a3b8; margin-top: 2px; }
+  .tip { background: #1e293b; border-left: 4px solid #22d3ee; border-radius: 8px; padding: 16px; margin: 12px 0; font-size: 0.85rem; color: #cbd5e1; }
+  .tip strong { color: #22d3ee; }
+  .warn { background: #1e293b; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 16px; margin: 12px 0; font-size: 0.85rem; color: #cbd5e1; }
+  .warn strong { color: #f59e0b; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 12px 0; }
+  th { text-align: left; padding: 10px 12px; color: #64748b; font-weight: 500; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; border-bottom: 2px solid #1e293b; }
+  td { padding: 10px 12px; border-bottom: 1px solid #1e293b; }
+  tr:hover td { background: #1a2332; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+  .tag-green { background: rgba(16,185,129,0.15); color: #10b981; }
+  .tag-cyan { background: rgba(34,211,238,0.15); color: #22d3ee; }
+  .tag-amber { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  @media (max-width: 768px) { .phase-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">TradeCraft Skill</div>
+    <h1>Strategy Crafter</h1>
+    <p class="subtitle">Natural Language → Verified, Reported Strategy</p>
+    <p>
+      A multi-phase Claude Code skill that transforms a plain English trading idea into
+      a verified, backtested, and beautifully reported strategy — ready for paper trading on Alpaca.
+    </p>
+  </div>
+
+  <!-- Quick Start -->
+  <h2>Quick Start</h2>
+  <div class="card">
+    <div class="step">
+      <div class="step-icon green">1</div>
+      <div class="step-content">
+        <div class="step-title">Open the terminal</div>
+        <div class="step-desc">Navigate to <code>/terminal</code> in the app. You'll see a <code>zsh</code> shell prompt.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon green">2</div>
+      <div class="step-content">
+        <div class="step-title">Invoke the skill</div>
+        <div class="step-desc">Type <code>/strategy-crafter</code> to load the skill, then describe your strategy idea in plain English.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon cyan">3</div>
+      <div class="step-content">
+        <div class="step-title">Get coached</div>
+        <div class="step-desc">Claude will ask clarifying questions, provide examples, critique your choices, and recommend better alternatives.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon cyan">4</div>
+      <div class="step-content">
+        <div class="step-title">Code is generated</div>
+        <div class="step-desc">Two files are created: a standalone script (<code>strategies/&lt;name&gt;.py</code>) and an in-app Strategy subclass (<code>backend/app/services/strategies/&lt;name&gt;.py</code>).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon amber">5</div>
+      <div class="step-content">
+        <div class="step-title">Verification runs</div>
+        <div class="step-desc">Claude checks syntax, runs smoke tests, and verifies both versions produce <strong>identical performance</strong>.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon purple">6</div>
+      <div class="step-content">
+        <div class="step-title">HTML report generated</div>
+        <div class="step-desc">A comprehensive report is created with hero stats, equity curve with buy/sell markers, sortable run table, and strategy details.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon green">7</div>
+      <div class="step-content">
+        <div class="step-title">Backtest in the app</div>
+        <div class="step-desc">Open the <strong>Strategy Lab</strong> → pick your strategy from the Library → run a batch backtest → pick a winner → deploy to Alpaca.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- The 5 Phases -->
+  <h2>The Five Phases</h2>
+
+  <div class="phase-grid">
+    <div class="phase-card">
+      <div class="phase-number">Phase 1</div>
+      <div class="phase-name">Clarify &amp; Coach</div>
+      <div class="phase-desc">
+        Claude engages you in a structured dialogue covering:
+        <ul>
+          <li>Entry signal design</li>
+          <li>Candidate ranking / scoring</li>
+          <li>Exit rules (priority order)</li>
+          <li>Position sizing strategy</li>
+          <li>Risk management (sector caps, volatility, bear mode)</li>
+          <li>Parameter tuning</li>
+          <li>Special filters</li>
+        </ul>
+        For each topic, Claude provides examples, critiques your choices, and recommends better alternatives.
+        <div class="tip" style="margin-top: 8px;">
+          <strong>💡 Tip:</strong> The more specific you are, the better the result. "Buy when RSI &lt; 30 and volume &gt; 1.5× average" is better than "buy oversold stocks".
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-number">Phase 2</div>
+      <div class="phase-name">Generate</div>
+      <div class="phase-desc">
+        Two files are created with <strong>identical logic</strong>:
+        <ul>
+          <li><code>strategies/&lt;name&gt;.py</code> — standalone script, runnable independently</li>
+          <li><code>backend/app/services/strategies/&lt;name&gt;.py</code> — Strategy ABC subclass for the app</li>
+        </ul>
+        Both use the same entry conditions, scoring, exit rules, and parameters.
+        <div class="warn" style="margin-top: 8px;">
+          <strong>⚠️ Critical:</strong> Both versions must produce identical performance. This is verified in Phase 3.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-number">Phase 3</div>
+      <div class="phase-name">Verify</div>
+      <div class="phase-desc">
+        A 4-step verification suite:
+        <ol style="margin: 8px 0 0 16px;">
+          <li>Syntax check (<code>ast.parse</code>)</li>
+          <li>Standalone smoke test (short date range)</li>
+          <li>In-app smoke test (via backtesting adapter)</li>
+          <li><strong>Identical performance check</strong> — both versions on the same date range</li>
+        </ol>
+        <div class="tip" style="margin-top: 8px;">
+          <strong>✅ Pass criteria:</strong> Non-zero trades, non-zero return, both versions within 0.1% return tolerance.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-number">Phase 4</div>
+      <div class="phase-name">Learn (Interactive)</div>
+      <div class="phase-desc">
+        After running experiments in the app:
+        <ol style="margin: 8px 0 0 16px;">
+          <li>Open the terminal (<code>/terminal</code>)</li>
+          <li>Run <code>claude</code> to start Claude Code</li>
+          <li>Share the HTML report path or describe performance</li>
+          <li>Claude analyzes and suggests improvements</li>
+          <li>You decide which changes to apply</li>
+        </ol>
+        <div class="tip" style="margin-top: 8px;">
+          <strong>💡 Tip:</strong> Run at least 10 backtest windows before the learning phase — more data = better improvement suggestions.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 5: Report -->
+  <h2>Phase 5: The Report</h2>
+  <div class="card">
+    <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 16px;">
+      A single, self-contained HTML file combining the best of both existing report formats.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Section</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="tag tag-green">Hero</span></td><td>Strategy name, date range, big stat cards (Return, Sharpe, Win Rate, Max DD)</td></tr>
+        <tr><td><span class="tag tag-cyan">Strategy Details</span></td><td>Entry/exit rules, scoring formula, all parameters, full source code</td></tr>
+        <tr><td><span class="tag tag-cyan">Performance Distribution</span></td><td>Decile table showing min/max/avg return per decile (multi-run batches)</td></tr>
+        <tr><td><span class="tag tag-amber">Run Table</span></td><td>Sortable, clickable rows that expand to show trades, exit breakdown, and equity curve</td></tr>
+        <tr><td><span class="tag tag-amber">Equity Curve</span></td><td>SVG line chart with <span style="color: #10b981;">●</span> buy markers and <span style="color: #ef4444;">●</span> sell markers — hover for details</td></tr>
+        <tr><td><span class="tag tag-rose">Top/Bottom Trades</span></td><td>Top 10 winners and losers across all runs with ticker, return, P&amp;L, exit reason</td></tr>
+        <tr><td><span class="tag tag-rose">Exit Analysis</span></td><td>Breakdown by exit reason: count, win rate, total P&amp;L with bar chart</td></tr>
+        <tr><td><span class="tag tag-purple">Improvement Log</span></td><td>Table of changes made with before/after KPIs (from Phase 4)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Example Workflow -->
+  <h2>Example: Full Workflow</h2>
+  <div class="card">
+    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Here's what a complete session looks like:</p>
+
+    <div style="margin-bottom: 16px;">
+      <div class="tag tag-cyan" style="margin-bottom: 8px;">USER</div>
+      <pre style="margin-top: 4px;">/strategy-crafter
+
+I want a strategy that buys stocks when their 20-day EMA crosses above the 200-day EMA. Rank by how steep the crossover is. Hold 5 positions max. Exit when the death cross happens or after 60 days.</pre>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div class="tag tag-green" style="margin-bottom: 8px;">CLAUDE</div>
+      <div class="tip" style="margin-top: 4px;">
+        <strong>Great idea!</strong> Let me ask a few questions to make this robust:<br><br>
+        <strong>1. Scoring:</strong> You mentioned ranking by crossover steepness. What weight would you give the angle vs other factors like market cap? A 60/40 split (angle/market cap) is a common starting point.<br><br>
+        <strong>2. Take profit:</strong> If a position goes up 30%, should we lock it in? Without take profit, winners can reverse.<br><br>
+        <strong>3. Trailing stop:</strong> A 20% trailing stop from the peak protects against drawdowns. What do you think?<br><br>
+        <strong>4. Bear market mode:</strong> Should we go to cash when SPY is below its 200-day SMA? This protects against major drawdowns.<br><br>
+        <strong>5. Sector diversification:</strong> Max how many positions per sector? 2-3 is typical to avoid concentration.
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div class="tag tag-cyan" style="margin-bottom: 8px;">USER</div>
+      <pre style="margin-top: 4px;">60/40 split sounds good. Yes to take profit at 30%. 20% trailing stop. Yes to bear market cash mode. Max 3 per sector.</pre>
+    </div>
+
+    <div>
+      <div class="tag tag-green" style="margin-bottom: 8px;">CLAUDE</div>
+      <div class="tip" style="margin-top: 4px;">
+        <strong>Good choices!</strong> One critique: a 20% trailing stop is reasonable, but with a 10% hard stop loss from entry price as a safety net during the first 7 days. Let me generate the code now...<br><br>
+        ✅ Syntax check passed<br>
+        ✅ Standalone smoke test: +36.5% return, 576 trades<br>
+        ✅ In-app smoke test: +36.5% return, 576 trades<br>
+        ✅ Identical performance verified<br><br>
+        📊 Report generated: <code>docs/reports/my_strategy_20260802.html</code><br><br>
+        Open the Strategy Lab to run a full batch backtest, or open the report to see the results.
+      </div>
+    </div>
+  </div>
+
+  <!-- Tips -->
+  <h2>Tips for Best Results</h2>
+  <div class="card">
+    <div class="tip">
+      <strong>🎯 Be specific.</strong> "Buy when RSI(14) &lt; 30 and volume &gt; 1.5× 50-day average" generates a much better strategy than "buy oversold stocks with high volume".
+    </div>
+    <div class="tip">
+      <strong>📊 Know your exits.</strong> A strategy's exits matter more than its entries. Spend as much time on exit rules as entry signals.
+    </div>
+    <div class="tip">
+      <strong>🛡️ Add risk management.</strong> Sector caps, volatility filters, and bear market cash mode are what separate robust strategies from curve-fit ones.
+    </div>
+    <div class="tip">
+      <strong>🔁 Iterate.</strong> Run a batch, review the report, discuss improvements with Claude Code in the terminal, then re-run. Each iteration sharpens the strategy.
+    </div>
+    <div class="warn">
+      <strong>⚠️ Past performance ≠ future results.</strong> A strategy that backtests well may not forward-test well. Always paper trade before going live.
+    </div>
+  </div>
+
+  <!-- Reference -->
+  <h2>Reference Files</h2>
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>File</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>strategies/daily_golden_cross_rotation.py</code></td><td>Gold standard for standalone scripts</td></tr>
+        <tr><td><code>backend/app/services/strategies/daily_golden_cross.py</code></td><td>Gold standard for in-app Strategy ABC</td></tr>
+        <tr><td><code>backend/app/services/strategy_base.py</code></td><td>Strategy ABC base class</td></tr>
+        <tr><td><code>backend/app/services/strategy_backtest_adapter.py</code></td><td>Backtesting adapter for Strategy ABC</td></tr>
+        <tr><td><code>docs/reports/golden_cross_rotation_report.html</code></td><td>Static report reference</td></tr>
+        <tr><td><code>docs/reports/run_viewer.html</code></td><td>Interactive report reference</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="text-align: center; color: #475569; font-size: 0.8rem; margin-top: 40px; padding: 20px; border-top: 1px solid #1e293b;">
+    TradeCraft — Strategy Crafter Skill Guide<br>
+    <span style="color: #334155;">Generated 2026-08-02</span>
+  </div>
+
+</div>
+</body>
+</html>

@@ -4,6 +4,7 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { FloatingPanel, type PanelState } from "./FloatingPanel";
+import { TerminalHypothesisBanner } from "../shared/TerminalHypothesisBanner";
 import { useTheme } from "../../context/ThemeContext";
 import {
   TrendingUp,
@@ -330,7 +331,25 @@ export function TerminalHost() {
           interactive controls (buttons, etc. set pointer-events:auto
           themselves). */}
       {mode === "fullpage" ? (
-        <FullPageTerminal
+        <>
+          {/* Hypothesis suggestion banner — floats above the terminal in
+              fullpage (/terminal) mode only. Dismissable, hidden when no
+              open hypotheses. zIndex above the chrome so it stays
+              clickable. */}
+          <div
+            style={{
+              position: "fixed",
+              left: 0,
+              right: 0,
+              top: 92, // below toolbar (48px) + nav strip (36px) + 8px gap
+              zIndex: 501,
+              padding: "0 16px",
+              pointerEvents: "auto",
+            }}
+          >
+            <TerminalHypothesisBanner />
+          </div>
+          <FullPageTerminal
           statusLabel={statusLabel}
           statusColor={statusColor}
           isDarkMode={isDarkMode}
@@ -361,6 +380,7 @@ export function TerminalHost() {
             setEditRows(String(dims.rows));
           }}
         />
+        </>
       ) : (
         <FloatingPanel
           panelState={panelState}

@@ -29,6 +29,10 @@ export interface FilterSpec {
   unit?: string;
   description: string;
   tunable?: boolean;
+  /** Fixed selectable options for categorical/select filters (e.g. BULL/BEAR).
+   *  When present, FilterRow renders a dropdown whose selection is stored in
+   *  the condition's `value`. */
+  options?: Array<{ value: string; label: string }>;
   /** Template string for dynamic label, e.g. 'SMA {window}' or 'RSI ({window})'.
    *  When set, the label is computed by substituting param values into this template.
    *  Falls back to the static `label` field when params are empty or template is unset. */
@@ -775,6 +779,21 @@ export const FILTER_CATALOG: FilterSpec[] = [
     backendColumn: 'sector',
     operators: CATEGORICAL_OPS,
     description: 'Stock sector',
+  },
+  {
+    key: 'regime',
+    label: 'Sector Regime',
+    category: 'categorical',
+    type: 'categorical',
+    backendColumn: 'regime',
+    operators: [
+      { operator: 'eq', label: 'Is', valueType: 'string', defaultValue: 'BULL' },
+    ],
+    options: [
+      { value: 'BULL', label: 'BULL' },
+      { value: 'BEAR', label: 'BEAR' },
+    ],
+    description: 'Filter by sector ETF Markov regime (BULL requires bull_probability > 0.5)',
   },
 ];
 

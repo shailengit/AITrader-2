@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { recordAppReferrer } from "../../../components/layout/Layout";
+import { SaveHypothesisPopover } from "../../../components/shared/SaveHypothesisPopover";
 
 interface Signal {
   ticker: string;
@@ -122,6 +123,12 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
               <th style={{ textAlign: "right", padding: "8px 12px", fontWeight: 600 }}>Conviction</th>
               <th style={{ textAlign: "right", padding: "8px 12px", fontWeight: 600 }}>Price</th>
               <th style={{ textAlign: "left", padding: "8px 12px", fontWeight: 600 }}>ETF</th>
+              <th
+                style={{ textAlign: "center", padding: "8px 12px", fontWeight: 600 }}
+                title="Save this signal as a hypothesis"
+              >
+                Save
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -182,6 +189,16 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
                 </td>
                 <td style={{ padding: "8px 12px", textAlign: "right" }}>${s.price.toFixed(2)}</td>
                 <td style={{ padding: "8px 12px" }}>{s.etf}</td>
+                <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                  <SaveHypothesisPopover
+                    source="markov"
+                    ticker={s.ticker}
+                    sector={s.sector}
+                    regime={s.regime}
+                    conviction={s.conviction}
+                    sourceMeta={{ page: 'markov', signal_id: s.ticker, etf: s.etf }}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>

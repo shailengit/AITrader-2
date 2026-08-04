@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "strategy_name": "Bollinger squeeze + OBV accumulation + EPS acceleration q/q....",
+  "prompt": "Bollinger squeeze + OBV accumulation + EPS acceleration q/q. Hold 3 names max.",
+  "plan": "## Signal\n- **Bollinger Squeeze**: Bollinger Bands (20,2) width (upper - lower) / middle < 0.10 (i.e., 10% of middle band) for at least 2 consecutive days.\n- **OBV Accumulation**: OBV > its 20-day simple moving average, and OBV is rising (current OBV > OBV 5 days ago).\n- **EPS Acceleration**: Most recent quarter EPS (year-over-year growth) > previous quarter\u2019s year-over-year growth by at least 5 percentage points (e.g., current QoQ growth 20% vs prior 15%).\n\nAll three conditions must be true simultaneously to generate a candidate.\n\n## Entry scoring\nScore each candidate as:\n- **Bollinger Squeeze tightness**: 1 - (current width / max width over last 20 days). Higher is tighter.\n- **OBV relative strength**: (OBV - OBV 20-day low) / (OBV 20-day high - OBV 20-day low). Normalized 0\u20131.\n- **EPS acceleration magnitude**: (current EPS growth % - prior EPS growth %) / 100, clipped to [0,1] (if negative, set to 0).\n\nFinal score = 0.4 \u00d7 squeeze score + 0.3 \u00d7 OBV score + 0.3 \u00d7 EPS acceleration score.\n\nSelect top 3 candidates by score. If fewer than 3, only those that meet all signal conditions.\n\n## Holding re-score\nEach day, re-score existing positions using the same formula with updated data. If a position\u2019s score drops below 0.3 (i.e., weakens significantly), it becomes a candidate for exit (see below). Also, if a new candidate has a higher score than the lowest-scored holding, consider replacement (subject to minimum hold days).\n\n## Exits\nPriority order:\n1. **Stop loss**: If price < entry price \u00d7 (1 - 0.08) \u2192 exit immediately.\n2. **Trailing stop**: If price > entry price \u00d7 1.10, activate trailing stop at 5% from highest close since entry. If price closes below that level \u2192 exit.\n3. **Time stop**: Exit after 20 trading days regardless of profit/loss.\n4. **Re\u2011score exit**: If daily re\u2011score < 0.3 for 3 consecutive days \u2192 exit.\n5. **Replacement exit**: If a new candidate\u2019s score exceeds the lowest\u2011scored holding by 0.2 or more, and that holding has been held for at least 5 days, replace it.\n\n## Parameters\n- Max holdings: 3\n- Min hold days before replacement: 5\n- Initial stop loss: 8% below entry price\n- Trailing stop activation: 10% profit, then trail at 5%\n- Time stop: 20 trading days\n- Re\u2011score exit threshold: 0.3 for 3 consecutive days\n- Bollinger width lookback: 20 days\n- OBV lookback: 20 days\n- EPS acceleration minimum difference: 5 percentage points\n\n## Edge cases\n- **No candidates**: If no stock meets all three signal conditions, hold existing positions until they exit naturally (stop/time/score). Do not force entry.\n- **Sector concentration**: No more than 2 positions from the same sector (GICS sector level). If a new candidate would cause a sector violation, skip it.\n- **Earnings data lag**: Use the most recent reported quarter. If EPS data is stale (> 3 months since last report), exclude that stock from scoring.\n- **Low liquidity**: Exclude stocks with average daily dollar volume < $10M over the last 20 days.\n- **Market regime**: If the S&P 500 is below its 200-day moving average, reduce max holdings to 1 and tighten stop loss to 5%.\n- **Gap risk**: If a stock gaps up > 5% on entry day, skip entry (avoid chasing). If a stock gaps down > 5% while held, exit immediately at the open.",
+  "created_at": "2026-07-30T14:09:18.511049",
+  "backtest_kpis": {
+    "initial_capital": 100000.0,
+    "final_portfolio": 100000.0,
+    "total_return_pct": 0.0,
+    "cagr_pct": 0.0,
+    "sharpe_ratio": 0.0,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "avg_winner": 0.0,
+    "avg_loser": 0.0,
+    "exit_reasons": {},
+    "spy_return_pct": 2.65,
+    "alpha_pct": -2.65,
+    "top_winners": [],
+    "top_losers": []
+  },
+  "change_description": "Auto-saved after code generation",
+  "model_id": "deepseek-v4-flash:cloud",
+  "session_id": "907dd982-bfd3-4fe9-8b16-a226972d863c"
+}

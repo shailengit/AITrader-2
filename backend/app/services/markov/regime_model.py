@@ -5,6 +5,7 @@ Two-state model with jump penalty lambda to prevent chattering.
 GJR-GARCH with Student-t for volatility overlay.
 """
 import logging
+import threading
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -288,12 +289,47 @@ class SectorRegimeManager:
     ) -> Dict[str, Any]:
         """Get regime for a ticker based on its sector.
 
-        Maps ticker sector to the corresponding ETF.
+        Maps ticker sector to the corresponding ETF. SECTOR_ETFS uses
+        non-GICS names (e.g. "Financial Services", "Consumer Cyclical") while
+        stock_metadata.sector stores GICS names (e.g. "Financials",
+        "Consumer Discretionary", "Information Technology"). Callers pass the
+        raw metadata sector, so we normalize via a GICS->ETF alias table before
+        falling back to the direct name match. This prevents a GICS sector from
+        resolving to UNKNOWN (which would silently drop stocks from the regime
+        filter).
         """
         sector_to_etf = {
             etf['name'].lower(): etf['ticker'] for etf in SECTOR_ETFS
         }
-        etf_ticker = sector_to_etf.get(sector.lower())
+        gics_aliases = {
+            'financials': 'XLF', 'financial services': 'XLF',
+            'health care': 'XLV', 'healthcare': 'XLV',
+            'consumer discretionary': 'XLY', 'consumer cyclical': 'XLY',
+            'consumer staples': 'XLP', 'consumer defensive': 'XLP',
+            'materials': 'XLB', 'basic materials': 'XLB',
+            'information technology': 'XLK', 'technology': 'XLK',
+            'communication services': 'XLC', 'industrials': 'XLI',
+            'energy': 'XLE', 'real estate': 'XLRE', 'utilities': 'XLU',
+        }
+        key = sector.lower()
+        etf_ticker = sector_to_etf.get(key) or gics_aliases.get(key)
         if etf_ticker is None:
             etf_ticker = sector.upper()
         return self.get_regime(etf_ticker, date)
+
+
+# Lazily-initialized process-wide manager so the screener's regime filter and
+# the markov router evaluate against the SAME trained regime state. `train_all`
+# (called by the router on retrain) populates this instance's `models`.
+_shared_regime_manager: Optional["SectorRegimeManager"] = None
+_shared_regime_manager_lock = threading.Lock()
+
+
+def get_shared_regime_manager() -> "SectorRegimeManager":
+    """Return the process-wide trained SectorRegimeManager (lazy singleton)."""
+    global _shared_regime_manager
+    if _shared_regime_manager is None:
+        with _shared_regime_manager_lock:
+            if _shared_regime_manager is None:
+                _shared_regime_manager = SectorRegimeManager()
+    return _shared_regime_manager

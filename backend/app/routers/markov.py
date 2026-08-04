@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.db.database import SECTOR_ETFS
-from app.services.markov.regime_model import SectorRegimeManager
+from app.services.markov.regime_model import SectorRegimeManager, get_shared_regime_manager
 from app.services.markov.signal_generator import SignalGenerator
 from app.services.markov.feature_engineering import DEFAULT_BUY_THRESHOLD
 from app.services.markov.trainer import MarkovTrainer
@@ -56,7 +56,9 @@ _scan_progress_lock = threading.Lock()
 def _get_managers():
     global _regime_manager, _signal_generator, _trainer
     if _regime_manager is None:
-        _regime_manager = SectorRegimeManager()
+        # Use the process-wide shared manager so the screener's regime filter
+        # reads the SAME trained state that `train_all` populates here.
+        _regime_manager = get_shared_regime_manager()
     if _signal_generator is None:
         _signal_generator = SignalGenerator(_regime_manager)
     if _trainer is None:

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SectorRegime, summarizeRegimes } from '../../lib/regime';
 import {
   createChart,
   ColorType,
@@ -95,6 +96,16 @@ interface CandleStickChartProps {
   height?: number;
   cutoffDate?: string; // mm/dd/yyyy or yyyy-mm-dd dashed vertical line
   visibleRange?: { from: number; to: number };
+  /**
+   * Optional sector regime data (per-ETF CURRENT regime, not a time
+   * series). When `showRegimeOverlay` is on, the chart renders a
+   * green/red regime badge reflecting the aggregate market regime.
+   * SectorRegime carries no per-date data, so it cannot drive a
+   * time-based band overlay — the badge is the honest interpretation.
+   */
+  regimeBands?: SectorRegime[];
+  /** When true (and `regimeBands` is provided), show the regime badge. */
+  showRegimeOverlay?: boolean;
 }
 
 /** Parse mm/dd/yyyy or yyyy-mm-dd to UTC timestamp in seconds. */
@@ -198,6 +209,8 @@ export function CandleStickChart({
   height = 400,
   cutoffDate,
   visibleRange,
+  regimeBands,
+  showRegimeOverlay = false,
 }: CandleStickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -235,6 +248,21 @@ export function CandleStickChart({
     () => indicators.filter((i) => i.pane === 'oscillator' && i.visible !== false && i.data?.length).length,
     [indicators],
   );
+
+  /** Aggregate BULL/BEAR/vol regime derived from the per-ETF SectorRegime
+   *  list. Only computed when regime data is actually supplied. */
+  const regimeSummary = useMemo(() => {
+    if (!regimeBands || regimeBands.length === 0) return null;
+    return summarizeRegimes(regimeBands);
+  }, [regimeBands]);
+
+  /** Green for BULL, red for BEAR, muted gray for UNKNOWN / no data. */
+  const regimeColor =
+    regimeSummary?.overall === 'BULL'
+      ? '#10b981'
+      : regimeSummary?.overall === 'BEAR'
+        ? '#f43f5e'
+        : '#71717a';
 
   /** Total chart height the lightweight-charts canvas should be sized to. */
   const totalChartHeight = computeTotalHeight(height, oscillatorCount);
@@ -657,17 +685,62 @@ export function CandleStickChart({
 
   return (
     <div
-      ref={chartContainerRef}
       className="w-full relative"
-      // Wrapper height is driven by `chartTotalHeight` (the measured
-      // total of all pinned panes + the time-scale row) and falls back
-      // to the pre-pinned `totalChartHeight` for the first frame
-      // before the indicator effect has had a chance to measure.
-      // When the total exceeds the parent chart panel's height, the
-      // panel's `overflowY: 'auto'` provides the scrollbar so every
-      // pane — including the candle pane — stays at its full target
-      // size instead of being squished.
       style={{ height: `${Math.max(chartTotalHeight, totalChartHeight)}px` }}
-    />
+    >
+      <div
+        ref={chartContainerRef}
+        className="w-full h-full"
+        // Wrapper height is driven by `chartTotalHeight` (the measured
+        // total of all pinned panes + the time-scale row) and falls back
+        // to the pre-pinned `totalChartHeight` for the first frame
+        // before the indicator effect has had a chance to measure.
+        // When the total exceeds the parent chart panel's height, the
+        // panel's `overflowY: 'auto'` provides the scrollbar so every
+        // pane — including the candle pane — stays at its full target
+        // size instead of being squished.
+      />
+      {/* Regime overlay badge — gated by `showRegimeOverlay`. Rendered as
+          an absolutely-positioned chip in the chart's top-left corner
+          (the chart-header analog), green/red for BULL/BEAR. SectorRegime
+          is a CURRENT per-ETF reading, not a time series, so an honest
+          overlay is this aggregate badge rather than fabricated bands. */}
+      {showRegimeOverlay && regimeSummary && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            zIndex: 5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            border: `1px solid ${regimeColor}`,
+            color: regimeColor,
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: regimeColor,
+              flexShrink: 0,
+            }}
+          />
+          Regime: {regimeSummary.overall}
+          <span style={{ opacity: 0.75 }}>Vol: {regimeSummary.vol}</span>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,0 +1,28 @@
+{
+  "version": 6,
+  "strategy_name": "Buy stocks where EMA20 crosses above EMA200. Rank by crossov...",
+  "prompt": "Buy stocks where EMA20 crosses above EMA200. Rank by crossover angle + market cap. Hold top 5, exit on death cross or 20% trailing stop.",
+  "plan": "## Signal\n- **Entry trigger**: EMA20 crosses above EMA200 (golden cross) on the daily close.  \n- **Crossover confirmation**: The crossover must occur with the previous day\u2019s EMA20 \u2264 EMA200 (i.e., a fresh cross, not a sustained position).  \n- **Universe**: All US-listed common stocks with price \u2265 $5 and average daily volume \u2265 500,000 shares over the last 20 days.\n\n## Entry scoring\n- **Score formula**:  \n  `Score = 0.60 \u00d7 normalized_crossover_angle + 0.40 \u00d7 normalized_market_cap`  \n- **Crossover angle**: Slope of EMA20 over the 5 days ending on the crossover day, computed as (EMA20[t] \u2013 EMA20[t-4]) / 4.  \n  - Normalized to [0,1] using min\u2011max across all candidates on that day.  \n- **Market cap**: Log\u2011transformed market cap (ln(market_cap)), then min\u2011max normalized across all candidates on that day.  \n- **Ranking**: All stocks with a fresh golden cross on the current day are scored. The top 5 (by score) are selected for entry, subject to portfolio capacity.\n\n## Holding re-score\n- **No daily re\u2011scoring**: Existing positions are not re\u2011ranked or replaced. They are held until an exit condition is met.  \n- **Monitoring**: Only exit conditions (death cross, trailing stop, time stop) are checked daily.\n\n## Exits\n- **Priority order** (first condition met triggers exit):  \n  1. **Death cross**: EMA20 crosses below EMA200 on the daily close.  \n  2. **Trailing stop**: Price closes below the trailing stop level. The stop is set at 20% below the highest close since entry (including entry day). The stop is recalculated daily.  \n  3. **Time stop**: Exit after 90 calendar days from entry, regardless of price.\n\n## Parameters\n- `max_holdings` = 5  \n- `min_hold_days` = 1 (no exit on the entry day)  \n- `trailing_stop%` = 20%  \n- `take_profit%` = None (not used)  \n- `time_stop_days` = 90  \n- `max_sector_count` = 2 (no more than 2 positions in the same GICS sector)  \n- `crossover_angle_lookback` = 5 days  \n- `min_price` = $5  \n- `min_volume_20d` = 500,000 shares  \n\n## Edge cases\n- **Sector cap**: If a sector already has 2 positions, new entries from that sector are skipped, even if they rank in the top 5.  \n- **Multiple crossovers on same day**: All are scored; only the top 5 (respecting sector cap) are entered.  \n- **No candidates**: If fewer than 5 stocks trigger a golden cross, only those are entered. If none, portfolio remains unchanged.  \n- **Gap\u2011down through trailing stop**: Exit on the close of the day the stop is breached.  \n- **Death cross on entry day**: If the crossover is immediately followed by a death cross on the same day (unlikely but possible with intraday data), the position is not entered.  \n- **Regime adaptation**: The strategy is designed for trending markets. In a choppy or bear market, consider disabling entries when the S&P 500 is below its 200\u2011day moving average. (Optional \u2013 not specified by user, but recommended.)  \n- **Slippage and commissions**: Assume 0.1% slippage per trade; no commission.",
+  "created_at": "2026-07-27T15:39:24.988164",
+  "backtest_kpis": {
+    "initial_capital": 100000.0,
+    "final_portfolio": 132643.74827861786,
+    "total_return_pct": 32.64,
+    "cagr_pct": 15.18,
+    "sharpe_ratio": 0.69,
+    "total_trades": 26,
+    "win_rate": 23.1,
+    "profit_factor": 0.99,
+    "avg_winner": 5402.79,
+    "avg_loser": -1645.05,
+    "exit_reasons": {
+      "Death Cross": 16,
+      "Trailing Stop": 10
+    },
+    "spy_return_pct": 2.65,
+    "alpha_pct": 30.0
+  },
+  "change_description": "Auto-saved after code generation",
+  "model_id": "deepseek-v4-flash:cloud",
+  "session_id": "6fc9fda4-998e-45ab-80df-d9551ccc90cb"
+}

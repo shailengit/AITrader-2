@@ -44,33 +44,21 @@ export interface ListSessionsParams {
   offset?: number;
 }
 
-export interface PlanResponse {
-  plan_text: string;
-  error?: string;
-}
-
-export interface GenerateCodeResponse {
-  code: string;
-  validation_status?: string;
-  validation_attempts?: number;
-  validation_log?: string[];
-}
-
-export interface RefineCodeResponse {
-  diff: string;
-  summary: string;
-  error?: string;
-}
-
-export interface RefineDirectResponse {
-  code: string;
-  summary: string;
-  validation_status: string;
-  validation_log: string[];
-}
-
-export interface ApplyDiffResponse {
-  code: string;
+export interface StrategyClassItem {
+  name: string;
+  path: string;
+  description: string;
+  created_at: string | null;
+  modified_at: string | null;
+  cagr_pct: number | null;
+  sharpe_ratio: number | null;
+  total_return_pct: number | null;
+  win_rate: number | null;
+  max_drawdown_pct: number | null;
+  total_trades: number | null;
+  last_backtest: string | null;
+  deployed: boolean;
+  deployed_at: string | null;
 }
 
 export interface ExperimentRow {
@@ -98,29 +86,6 @@ export interface BatchStats {
   worst_3: Array<{ id: string; run_index: number; start_date: string; sharpe: number; kpis: any }>;
 }
 
-export interface SummarizeResponse {
-  summary_id: string;
-  summary_text: string;
-  winner_run_id: string | null;
-  error?: string;
-}
-
-export interface RefineStrategyResponse {
-  code: string;
-  summary: string;
-  rationale: string;
-  before_kpis: Record<string, any>;
-  after_kpis: Record<string, any>;
-  validation_log: string[];
-  validation_status: string;  // "passed" | "partial" | "failed"
-  version: {
-    version: number;
-    strategy_name: string;
-    change_description: string;
-  } | null;
-  error?: string;
-}
-
 export interface LibraryEntryResponse {
   version: number;
   strategy_name: string;
@@ -137,22 +102,6 @@ export interface LibraryListResponse {
   version_count: number;
   latest_version: LibraryEntryResponse;
   versions: LibraryEntryResponse[];
-}
-
-export interface ChatMessage {
-  id: string;
-  role: string;
-  content: string;
-  model_id: string;
-  critique_of?: string;
-  code_change_instruction?: string;
-  created_at: string;
-}
-
-export interface ChatResponse {
-  response: string;
-  history: ChatMessage[];
-  code_change_instruction?: string;
 }
 
 export interface DeploymentInfo {
@@ -248,21 +197,26 @@ export const strategyLabApi = {
 
   deleteSession: (id: string) => deleteJson(`${base}/sessions/${id}`),
 
-  generatePlan: (id: string, body: { model?: string } = {}) =>
-    postJson<PlanResponse>(`${base}/sessions/${id}/plan`, body),
+  // ── Strategy class endpoints (new mode) ──
+  listStrategyClasses: () => getJson<StrategyClassItem[]>(`${base}/strategy-classes`),
 
-  generateCode: (id: string, body: { model?: string; plan_text?: string } = {}) =>
-    postJson<GenerateCodeResponse>(`${base}/sessions/${id}/generate-code`, body, 300000),
+  deleteStrategyClass: (path: string) =>
+    postJson<{ deleted: string; name: string }>(`${base}/strategy-classes/delete`, { path }),
 
-  generateWithAgent: (id: string, body: { model?: string; plan_text?: string } = {}) =>
-    postJson<{ agent_session_id: string; message: string }>(`${base}/sessions/${id}/generate-code-agent`, body),
+  startExperimentsWithClass: (strategyClassPath: string, body: { n_runs: number; end_date: string; start_date_min?: string; start_date_max?: string }) =>
+    postJson<{ batch_id: string }>(`${base}/sessions/_/experiments`, {
+      ...body,
+      strategy_class_path: strategyClassPath,
+    }),
 
-  refineCode: (id: string, body: { model?: string; current_code?: string; instruction: string }) =>
-    postJson<RefineCodeResponse>(`${base}/sessions/${id}/refine-code`, body),
+  deployStrategyClass: (strategyClassPath: string, experimentId: string, sourceHypothesisIds?: string[]) =>
+    postJson<DeploymentInfo>(`${base}/sessions/_/deploy`, {
+      strategy_class_path: strategyClassPath,
+      experiment_id: experimentId,
+      source_hypothesis_ids: sourceHypothesisIds ?? [],
+    }),
 
-  applyDiff: (id: string, body: { instruction: string; current_code?: string }) =>
-    postJson<ApplyDiffResponse>(`${base}/sessions/${id}/apply-diff`, body),
-
+  // ── Experiment endpoints ──
   startExperiments: (id: string, body: { n_runs: number; end_date: string; start_date_min?: string; start_date_max?: string; fixed_start_dates?: string[]; model?: string }) =>
     postJson<{ batch_id: string }>(`${base}/sessions/${id}/experiments`, body),
 
@@ -274,15 +228,12 @@ export const strategyLabApi = {
   getBatchStats: (id: string, batchId: string) =>
     getJson<BatchStats>(`${base}/sessions/${id}/batches/${batchId}/stats`),
 
-  summarizeBatch: (id: string, batchId: string, body: { model?: string } = {}) =>
-    postJson<SummarizeResponse>(`${base}/sessions/${id}/batches/${batchId}/summarize`, body),
+  getEquityCurve: (experimentId: string) =>
+    getJson<{ equity_curve: Array<{ date: string; value: number }> }>(
+      `${base}/experiments/${experimentId}/equity-curve`,
+    ),
 
-  refineAfterBatch: (id: string, batchId: string, body: { model?: string; instruction?: string } = {}) =>
-    postJson<RefineStrategyResponse>(`${base}/sessions/${id}/batches/${batchId}/refine`, body),
-
-  deploy: (id: string, body: { experiment_id: string; class_name?: string }) =>
-    postJson<DeploymentInfo>(`${base}/sessions/${id}/deploy`, body),
-
+  // ── Deployment endpoints ──
   listDeployments: (params: { active_only?: boolean } = {}) => {
     const q = new URLSearchParams();
     if (params.active_only) q.set("active_only", "true");
@@ -290,9 +241,13 @@ export const strategyLabApi = {
     return getJson<DeploymentListItem[]>(`${base}/deployments${qs ? `?${qs}` : ""}`);
   },
 
-  refineDirect: (id: string, body: { instruction: string; model?: string; validation_runs?: number }) =>
-    postJson<RefineDirectResponse>(`${base}/sessions/${id}/refine-direct`, body, 300000),
+  rollbackDeployment: (deploymentId: string) =>
+    postJson<{ rolled_back_deployment_id: string; new_active_class_name: string }>(
+      `${base}/deployments/${deploymentId}/rollback`,
+      {},
+    ),
 
+  // ── Library endpoints ──
   saveToLibrary: (id: string, body: { name: string; change_description?: string; model?: string }) =>
     postJson<LibraryEntryResponse>(`${base}/sessions/${id}/library/save`, body),
 
@@ -302,21 +257,4 @@ export const strategyLabApi = {
 
   loadFromLibrary: (body: { name: string; version?: number }) =>
     postJson<StrategySession>(`${base}/library/load`, body),
-
-  getEquityCurve: (experimentId: string) =>
-    getJson<{ equity_curve: Array<{ date: string; value: number }> }>(
-      `${base}/experiments/${experimentId}/equity-curve`,
-    ),
-
-  rollbackDeployment: (deploymentId: string) =>
-    postJson<{ rolled_back_deployment_id: string; new_active_class_name: string }>(
-      `${base}/deployments/${deploymentId}/rollback`,
-      {},
-    ),
-
-  chat: (id: string, body: { message: string; model: string; critique_of?: string }) =>
-    postJson<ChatResponse>(`${base}/sessions/${id}/chat`, body),
-
-  getChatHistory: (id: string) =>
-    getJson<ChatMessage[]>(`${base}/sessions/${id}/chat`),
 };

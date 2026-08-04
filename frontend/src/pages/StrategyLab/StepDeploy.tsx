@@ -1,32 +1,33 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Rocket, Check, X, AlertCircle, History, FileCode, RotateCcw } from "lucide-react";
-import { strategyLabApi, type StrategySession } from "../../lib/strategyLab";
-import { ChatPanel } from "../../components/strategy-lab/ChatPanel";
+import { Rocket, AlertCircle, History, FileCode, RotateCcw } from "lucide-react";
+import { strategyLabApi } from "../../lib/strategyLab";
 
 interface StepDeployProps {
-  session: StrategySession;
+  strategyClassPath: string;
   experimentId: string;
   onDeployed: () => void;
 }
 
-export function StepDeploy({ session, experimentId, onDeployed }: StepDeployProps) {
-  const [className, setClassName] = useState("");
+export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: StepDeployProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sourceHypothesisIds, setSourceHypothesisIds] = useState("");
   const qc = useQueryClient();
 
   const deployMut = useMutation({
     mutationFn: () =>
-      strategyLabApi.deploy(session.id, {
-        experiment_id: experimentId,
-        class_name: className.trim() || undefined,
-      }),
-    onSuccess: (deployment) => {
+      strategyLabApi.deployStrategyClass(
+        strategyClassPath,
+        experimentId,
+        sourceHypothesisIds
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["strategy-lab-deployments"] });
       onDeployed();
-      // eslint-disable-next-line no-console
-      console.log("Deployed", deployment.class_name);
     },
   });
 
@@ -42,46 +43,32 @@ export function StepDeploy({ session, experimentId, onDeployed }: StepDeployProp
     },
   });
 
+  const strategyName = strategyClassPath.split("/").pop()?.replace(".py", "") || "Unknown";
+
   return (
     <>
       <div className="slab-page-head">
         <div>
-          <div className="slab-eyebrow slab-eyebrow--gold">// 05 · Deploy</div>
+          <div className="slab-eyebrow slab-eyebrow--gold">// 02 · Deploy</div>
           <h1 className="slab-page-head__title">Ship to paper.</h1>
           <p className="slab-page-head__lede">
-            Promote the winning experiment to a live Strategy class on the
-            Alpaca paper account. Previous deployments are deactivated and
-            can be rolled back.
+            Deploy the winning strategy to your Alpaca paper account.
+            Previous deployments are deactivated and can be rolled back.
           </p>
         </div>
         <div className="slab-page-head__meta">
-          <span>Phase · Ship</span>
+          <span>{strategyName}</span>
           <span className="slab-mono slab-mono--gold">READY</span>
         </div>
       </div>
 
       <div className="slab-page-body">
-        {/* Selected experiment summary */}
         <div className="slab-corner-marks slab-panel" style={{ maxWidth: 920, position: "relative" }}>
           <div className="slab-panel__head">
-            <span className="slab-eyebrow slab-eyebrow--gold">// Selected experiment</span>
-            <span className="slab-mono slab-mono--xs slab-mono--dim">id · {experimentId.slice(0, 8)}</span>
+            <span className="slab-eyebrow slab-eyebrow--gold">// Selected strategy</span>
+            <span className="slab-mono slab-mono--xs slab-mono--dim">{strategyClassPath}</span>
           </div>
           <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div className="slab-field">
-              <label className="slab-field__label">Class name</label>
-              <input
-                type="text"
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                placeholder="auto · derived from session name + as-of date"
-                className="slab-input"
-              />
-              <div className="slab-field__hint">
-                A valid Python identifier. Leave blank to use the auto-generated name.
-              </div>
-            </div>
-
             <div
               style={{
                 display: "grid",
@@ -101,9 +88,34 @@ export function StepDeploy({ session, experimentId, onDeployed }: StepDeployProp
               <div>
                 <div className="slab-eyebrow">Side effects</div>
                 <div className="slab-mono slab-mono--md slab-mono--dim" style={{ marginTop: 4 }}>
-                  writes 1 file · updates runner import
+                  records the deployment in the deployments registry
                 </div>
               </div>
+            </div>
+
+            <div>
+              <div className="slab-eyebrow">Source hypotheses</div>
+              <div className="slab-mono slab-mono--xs slab-mono--dim" style={{ marginTop: 4 }}>
+                Optional — paste hypothesis IDs (comma/space/newline separated) from the Terminal banner
+                to link this strategy back to its source hypotheses.
+              </div>
+              <textarea
+                value={sourceHypothesisIds}
+                onChange={(e) => setSourceHypothesisIds(e.target.value)}
+                placeholder="e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6 9b2c…"
+                rows={2}
+                style={{
+                  width: "100%",
+                  marginTop: 8,
+                  padding: "10px 12px",
+                  background: "var(--slab-ink-2)",
+                  color: "var(--slab-paper)",
+                  border: "1px solid var(--slab-rule)",
+                  fontFamily: "var(--slab-mono, monospace)",
+                  fontSize: 13,
+                  resize: "vertical",
+                }}
+              />
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -156,20 +168,6 @@ export function StepDeploy({ session, experimentId, onDeployed }: StepDeployProp
                   <div className="slab-mono slab-mono--md slab-mono--dim" style={{ marginTop: 4 }}>
                     <FileCode size={11} style={{ verticalAlign: "middle", marginRight: 6 }} />
                     {deployMut.data.class_file_path}
-                  </div>
-                </div>
-                <div>
-                  <div className="slab-eyebrow">Verification</div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                    {Object.entries(deployMut.data.verification ?? {}).map(([k, v]) => (
-                      <span
-                        key={k}
-                        className={`slab-tag ${v ? "slab-tag--terminal" : "slab-tag--rose"}`}
-                      >
-                        {v ? <Check size={9} /> : <X size={9} />}
-                        {k}
-                      </span>
-                    ))}
                   </div>
                 </div>
                 <div
@@ -229,7 +227,7 @@ export function StepDeploy({ session, experimentId, onDeployed }: StepDeployProp
                   </tr>
                 </thead>
                 <tbody>
-                  {deployments.data.map((d) => (
+                  {deployments.data.map((d: any) => (
                     <tr key={d.deployment_id} className={d.is_active ? "slab-table__row--winner" : ""}>
                       <td style={{ color: d.is_active ? "var(--slab-gold)" : "var(--slab-paper-dim)" }}>
                         {d.class_name}
@@ -262,19 +260,13 @@ export function StepDeploy({ session, experimentId, onDeployed }: StepDeployProp
             )}
           </div>
         </div>
-
-        {/* ChatPanel */}
-        <ChatPanel
-          sessionId={session.id}
-          defaultModelId={session.model_id}
-        />
       </div>
 
       {/* Confirm modal */}
       <AnimatePresence>
         {confirmOpen && (
           <ConfirmModal
-            className={className.trim() || "<auto>"}
+            strategyName={strategyName}
             onCancel={() => setConfirmOpen(false)}
             onConfirm={() => {
               setConfirmOpen(false);
@@ -288,11 +280,11 @@ export function StepDeploy({ session, experimentId, onDeployed }: StepDeployProp
 }
 
 function ConfirmModal({
-  className,
+  strategyName,
   onCancel,
   onConfirm,
 }: {
-  className: string;
+  strategyName: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -326,12 +318,9 @@ function ConfirmModal({
         </div>
         <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <p className="slab-prose">
-            This will write a new Strategy class to{" "}
-            <span className="slab-mono" style={{ color: "var(--slab-gold)" }}>
-              backend/app/services/strategies/
-            </span>{" "}
-            and update <span className="slab-mono">alpaca_runner.py</span> to
-            import it. Any active deployment will be deactivated.
+            This will record <span className="slab-mono" style={{ color: "var(--slab-gold)" }}>{strategyName}</span> in
+            the deployments registry as the active strategy for paper trading.
+            Any active deployment will be deactivated.
           </p>
           <div
             style={{
@@ -340,9 +329,9 @@ function ConfirmModal({
               border: "1px solid var(--slab-rule)",
             }}
           >
-            <div className="slab-eyebrow">Target class</div>
+            <div className="slab-eyebrow">Strategy</div>
             <div className="slab-mono slab-mono--md slab-mono--gold" style={{ marginTop: 4 }}>
-              {className}
+              {strategyName}
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

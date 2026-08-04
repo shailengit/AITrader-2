@@ -26,6 +26,8 @@ import { ProgressMetric } from '../components/ui/Metric'
 import { useTheme } from '../context/ThemeContext'
 import { recordAppReferrer } from '../components/layout/Layout'
 import { CandleStickChart } from '../components/quantgen/CandleStickChart'
+import { SaveHypothesisPopover } from '../components/shared/SaveHypothesisPopover'
+import { fetchRegimes, SectorRegime } from '../lib/regime'
 
 interface Sector {
   ticker: string
@@ -89,6 +91,7 @@ export default function SectorRotation() {
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isDbConnected, setIsDbConnected] = useState(false)
+  const [regimes, setRegimes] = useState<Record<string, SectorRegime>>({})
   const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString())
   const [cutoffDate, setCutoffDate] = useState(savedState?.cutoffDate || oneMonthAgo.toISOString().split('T')[0])
   const [holdingDays, setHoldingDays] = useState(savedState?.holdingDays ?? 30)
@@ -114,6 +117,11 @@ export default function SectorRotation() {
   useEffect(() => {
     checkDbStatus()
     fetchSectors()
+    fetchRegimes().then(list => {
+      const map: Record<string, SectorRegime> = {}
+      for (const r of list) map[r.etf] = r
+      setRegimes(map)
+    }).catch(() => {})
   }, [])
 
   const checkDbStatus = async () => {
@@ -491,10 +499,29 @@ export default function SectorRotation() {
                       >
                         {index + 1}
                       </div>
-                      {isSelected && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                      <div className="flex items-center gap-2">
+                        {isSelected && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                        <SaveHypothesisPopover
+                          source="sectors"
+                          ticker={sector.ticker}
+                          sector={sector.name}
+                          sourceMeta={{ page: 'sectors', tile: sector.ticker, perf_3m: sector.perf_3m }}
+                        />
+                      </div>
                     </div>
 
-                    <h3 className="text-2xl font-bold mb-1 tracking-tight" style={{ color: colors.text }}>{sector.ticker}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-2xl font-bold tracking-tight" style={{ color: colors.text }}>{sector.ticker}</h3>
+                      {regimes[sector.ticker] && (
+                        <span style={{
+                          padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                          background: regimes[sector.ticker].regime === 'BULL' ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)',
+                          color: regimes[sector.ticker].regime === 'BULL' ? '#10B981' : '#EF4444',
+                        }}>
+                          {regimes[sector.ticker].regime}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs truncate mb-4" style={{ color: colors.muted }}>{sector.name}</p>
                   </div>
 

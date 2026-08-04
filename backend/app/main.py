@@ -96,7 +96,8 @@ async def startup_event():
 
 
 # Import routers
-from app.routers import sectors, screener, quantgen, health, earnings, markov, coach, strategy_lab, strategy_agent, terminal
+from app.routers import sectors, screener, quantgen, health, earnings, markov, coach, strategy_lab, terminal
+from app.routers import hypotheses, coach_strategy
 
 # Include routers
 app.include_router(health.router, prefix="/api", tags=["Health"])
@@ -106,9 +107,10 @@ app.include_router(quantgen.router, prefix="/api", tags=["QuantGen"])
 app.include_router(earnings.router, prefix="/api", tags=["Earnings"])
 app.include_router(markov.router, prefix="/api", tags=["Markov Chain Trader"])
 app.include_router(coach.router, prefix="/api", tags=["Trade Coach"])
+app.include_router(coach_strategy.router, prefix="/api", tags=["Coach"])
 app.include_router(strategy_lab.router, prefix="/api", tags=["AI Strategy Builder"])
-app.include_router(strategy_agent.router, prefix="/api", tags=["Strategy Agent"])
 app.include_router(terminal.router, prefix="/api", tags=["Terminal"])
+app.include_router(hypotheses.router, prefix="/api", tags=["Hypotheses"])
 
 
 # Root endpoint

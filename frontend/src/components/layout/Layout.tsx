@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, Terminal } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useEffect, useState } from "react";
 import { TerminalHost } from "../terminal/TerminalHost";
+import { RegimeBadge } from "../shared/RegimeBadge";
 
 const pageTitles: Record<string, string> = {
   "/sectors": "Sector Rotation Scanner",
@@ -14,6 +15,7 @@ const pageTitles: Record<string, string> = {
   "/coach": "Trade Coach",
   "/strategy-lab": "AI Strategy Builder",
   "/terminal": "AI Terminal",
+  "/hypotheses": "Hypothesis Backlog",
 };
 
 const REFERRER_KEY = "tc_last_app_referrer";
@@ -279,8 +281,9 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* Help + Theme Toggle */}
+        {/* Regime Badge + Help + Theme Toggle */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <RegimeBadge />
           <a
             href="/user-manual.html"
             target="_blank"

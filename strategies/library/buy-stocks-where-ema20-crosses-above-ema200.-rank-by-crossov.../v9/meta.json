@@ -1,0 +1,28 @@
+{
+  "version": 9,
+  "strategy_name": "Buy stocks where EMA20 crosses above EMA200. Rank by crossov...",
+  "prompt": "Buy stocks where EMA20 crosses above EMA200. Rank by crossover angle + market cap. Hold top 5, exit on death cross or 20% trailing stop.",
+  "plan": "## Signal\n- **Entry trigger**: EMA20 crosses above EMA200 (golden cross) on the daily timeframe.\n- **Universe**: All US stocks with average daily volume > $1M and price > $5 to ensure liquidity.\n\n## Entry scoring\n- **Score components**:\n  - **Crossover angle**: The angle (in degrees) between the EMA20 and EMA200 lines at the point of crossover. Compute as `atan( (EMA20 - EMA200) / 1 )` (assuming 1-day step) and convert to degrees. Normalize to [0,1] by dividing by 90\u00b0.\n  - **Market cap**: Use log10(market cap) to reduce skew. Normalize to [0,1] using min-max across the candidate pool each day.\n- **Weighting**: 50% crossover angle + 50% market cap.\n- **Ranking**: Score = 0.5 * angle_norm + 0.5 * cap_norm. Higher is better.\n- **Selection**: From all stocks that triggered a golden cross today, select the top 5 by score. If fewer than 5 signals, take all. If already holding 5 positions, do not add new ones until a position exits.\n\n## Holding re-score\n- **No daily re-scoring**: Positions are held until an exit condition is triggered. The initial ranking is used only for entry selection. No replacement based on rank changes.\n\n## Exits\n- **Priority order** (first condition met triggers exit):\n  1. **Death cross**: EMA20 crosses below EMA200.\n  2. **Trailing stop**: Current price drops 20% below the highest price since entry (including entry day). The trailing stop is recalculated daily as price reaches new highs.\n\n## Parameters\n- `max_holdings`: 5\n- `min_hold_days`: 0 (no minimum holding period)\n- `trailing_stop%`: 20%\n- `take_profit%`: None (not used)\n- `time_stop_days`: None (not used)\n- `max_sector_count`: 3 (to avoid overconcentration in one sector)\n- `crossover_angle_weight`: 0.5\n- `market_cap_weight`: 0.5\n\n## Edge cases\n- **No signals**: If no golden cross occurs on a given day, no new entries are made. Existing positions continue to be monitored for exits.\n- **Tie-breaking**: If two stocks have identical scores, prefer the one with higher average daily volume over the last 20 days.\n- **Sector cap**: If a sector already has 3 positions in the portfolio, skip any new signal from that sector until a position exits.\n- **Volatility filter**: (Optional) Exclude stocks with ATR(20) > 10% of price to avoid extremely volatile names that may trigger false crossovers.\n- **Regime adaptation**: (Optional) In a bear market (e.g., S&P 500 below its 200-day SMA), reduce `max_holdings` to 3 or require a steeper crossover angle (e.g., > 30\u00b0) to enter.\n- **Gap risk**: The trailing stop is based on daily closing prices. Intraday stops are not implemented; use close-to-close for simplicity.",
+  "created_at": "2026-07-30T14:05:19.894377",
+  "backtest_kpis": {
+    "initial_capital": 100000.0,
+    "final_portfolio": 100000.0,
+    "total_return_pct": 0.0,
+    "cagr_pct": 0.0,
+    "sharpe_ratio": 0.0,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "avg_winner": 0.0,
+    "avg_loser": 0.0,
+    "exit_reasons": {},
+    "spy_return_pct": 2.65,
+    "alpha_pct": -2.65,
+    "top_winners": [],
+    "top_losers": []
+  },
+  "change_description": "Auto-saved after code generation",
+  "model_id": "deepseek-v4-flash:cloud",
+  "session_id": "571adeb1-9ee1-43b1-ad58-c339de2e1e79"
+}

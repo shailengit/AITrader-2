@@ -1,0 +1,5 @@
+{
+  "name": "Markov Triad Strategy",
+  "tags": ["markov-required", "daily", "long-short"],
+  "regime_filter": "BULL"
+}

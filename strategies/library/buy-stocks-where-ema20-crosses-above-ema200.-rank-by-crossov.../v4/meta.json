@@ -1,0 +1,29 @@
+{
+  "version": 4,
+  "strategy_name": "Buy stocks where EMA20 crosses above EMA200. Rank by crossov...",
+  "prompt": "Buy stocks where EMA20 crosses above EMA200. Rank by crossover angle + market cap. Hold top 5, exit on death cross or 20% trailing stop.",
+  "plan": "## Signal\n- **Trigger**: EMA20 crosses above EMA200 (golden cross) on the daily close.\n- **Confirmation**: The crossover must occur with the previous day\u2019s EMA20 strictly below EMA200 (i.e., a new crossover, not a continuation).\n\n## Entry scoring\n- **Score formula**:  \n  `Score = 0.60 * normalized_crossover_angle + 0.40 * normalized_market_cap`\n- **Crossover angle**:  \n  Compute the slope of EMA20 over the last 3 days (linear regression). Convert to degrees via `arctan(slope)`. Normalize to [0,1] by dividing by 90\u00b0 (cap at 1).\n- **Market cap**:  \n  Take the natural log of the current market cap. Normalize to [0,1] using min-max across the candidate pool each day.\n- **Ranking**:  \n  Sort all stocks with a new golden cross by descending score. Select the top 5 for entry (subject to max holdings and sector cap).\n\n## Holding re-score\n- **Daily re-score** (for existing positions):  \n  `Re-score = 0.60 * normalized_spread + 0.40 * normalized_market_cap`\n- **Spread**:  \n  `(EMA20 - EMA200) / EMA200` (current distance as a percentage). Normalize to [0,1] using min-max across all held positions.\n- **Market cap**:  \n  Same log-normalization as entry, but using the current day\u2019s market cap.\n- **Purpose**:  \n  Re-scoring is used only for potential replacement decisions (see Edge cases \u2013 sector caps) and for monitoring, not for automatic exit.\n\n## Exits\n- **Priority 1 \u2013 Death cross**:  \n  Exit immediately when EMA20 crosses below EMA200 (any day after entry).\n- **Priority 2 \u2013 Trailing stop**:  \n  Set a trailing stop at 20% below the highest close since entry. Exit when the current close falls below that level.\n- **No take profit or time stop** (unless added in Parameters).\n\n## Parameters\n- `max_holdings`: 5  \n- `min_hold_days`: 1 (no forced minimum; exit can occur on day 1 if death cross or stop triggers)  \n- `trailing_stop%`: 20%  \n- `take_profit%`: None (not used)  \n- `time_stop_days`: None (not used)  \n- `max_sector_count`: 2 (to avoid overconcentration in one sector)  \n- `min_price`: $5 (avoid penny stocks)  \n- `min_volume`: 100,000 shares/day (liquidity filter)  \n- `crossover_angle_weight`: 0.60  \n- `market_cap_weight`: 0.40  \n\n## Edge cases\n- **Sector caps**:  \n  If a new candidate would cause more than `max_sector_count` positions in the same sector, replace the lowest\u2011scored existing position in that sector (if the new candidate\u2019s score is higher). Re\u2011scoring is used for this comparison.\n- **Volatility filter**:  \n  Exclude stocks with average true range (ATR) > 10% of price over the last 20 days (excessive volatility).\n- **Regime adaptation**:  \n  Do not enter new positions if the S&P 500 (SPY) is below its 200\u2011day moving average (bear market filter). Existing positions are still held until their own exit triggers.\n- **Multiple crossovers on same day**:  \n  If multiple stocks trigger a golden cross on the same day, rank them by entry score and take the top 5 (subject to sector caps). No priority by time.\n- **Gap handling**:  \n  If a stock gaps above the trailing stop level, the stop is recalculated from the new high. If it gaps below the stop, exit at the open.\n- **Data quality**:  \n  Require at least 200 days of price history for EMA200 calculation. Skip stocks with missing data.",
+  "created_at": "2026-07-27T13:15:51.159566",
+  "backtest_kpis": {
+    "initial_capital": 100000.0,
+    "final_portfolio": 191559.88758945465,
+    "total_return_pct": 91.56,
+    "cagr_pct": 38.44,
+    "sharpe_ratio": 1.23,
+    "total_trades": 1087,
+    "win_rate": 52.4,
+    "profit_factor": 1.44,
+    "avg_winner": 525.97,
+    "avg_loser": -402.36,
+    "exit_reasons": {
+      "Rotated Out": 1066,
+      "Death Cross": 20,
+      "Trailing Stop": 1
+    },
+    "spy_return_pct": 2.65,
+    "alpha_pct": 88.91
+  },
+  "change_description": "Auto-saved after code generation",
+  "model_id": "deepseek-v4-flash:cloud",
+  "session_id": "46cad60a-b6c4-4238-871e-863d01c45374"
+}

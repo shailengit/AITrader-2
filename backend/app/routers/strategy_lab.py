@@ -10,12 +10,15 @@ import threading
 import uuid
 from typing import List, Optional, Any, Dict
 
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.models.strategy_lab import StrategySession
+from app.services.deployments_registry import deploy_strategy as registry_deploy
+from app.services.hypothesis_service import mark_generated
 from app.services.strategy_lab_models import list_ollama_models
 from app.services.strategy_lab_session import (
     create_session as svc_create_session,
@@ -149,434 +152,147 @@ def delete_one_session(session_id: uuid.UUID, db: Session = Depends(get_db)):
     return None
 
 
-# ── LLM endpoints (Phase 2) ─────────────────────────────────────────────
+# ── Strategy class endpoints ───────────────────────────────────────────
 
-class PlanRequest(BaseModel):
-    model: Optional[str] = None  # defaults to OLLAMA_MODEL env var
-
-
-class PlanResponse(BaseModel):
-    plan_text: str = ""
-    error: Optional[str] = None
-
-
-class GenerateCodeRequest(BaseModel):
-    model: Optional[str] = None
-    plan_text: Optional[str] = None  # if not provided, uses session's stored plan
-
-
-class GenerateCodeResponse(BaseModel):
-    code: str
-    validation_status: str = "unknown"  # "passed" | "failed" | "unknown"
-    validation_attempts: int = 1
-    validation_log: List[str] = Field(default_factory=list)
-
-
-class RefineCodeRequest(BaseModel):
-    model: Optional[str] = None
-    current_code: Optional[str] = None  # if not provided, uses session's stored code
-    instruction: str = Field(..., min_length=1)
+class StrategyClassItem(BaseModel):
+    name: str
+    path: str
+    description: str = ""
+    # File metadata
+    created_at: Optional[str] = None
+    modified_at: Optional[str] = None
+    # Performance KPIs (from meta file)
+    cagr_pct: Optional[float] = None
+    sharpe_ratio: Optional[float] = None
+    total_return_pct: Optional[float] = None
+    win_rate: Optional[float] = None
+    max_drawdown_pct: Optional[float] = None
+    total_trades: Optional[int] = None
+    last_backtest: Optional[str] = None
+    # Deployment status
+    deployed: bool = False
+    deployed_at: Optional[str] = None
 
 
-class RefineCodeResponse(BaseModel):
-    diff: str = ""
-    summary: str = ""
-    error: Optional[str] = None
+@router.get("/strategy-classes", response_model=List[StrategyClassItem])
+def list_strategy_classes():
+    """List all available Strategy subclass files in the strategies/ directory.
 
-
-@router.post("/sessions/{session_id}/plan", response_model=PlanResponse)
-def post_plan(
-    session_id: uuid.UUID,
-    body: PlanRequest,
-    db: Session = Depends(get_db),
-):
-    """Generate a structured plan for the session's prompt. Persists to plan_text."""
-    from app.services.strategy_lab_llm import generate_plan
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    plan, err = generate_plan(sess.prompt, model=body.model)
-    if err or plan is None:
-        logger.error("Plan generation failed: %s", err)
-        return PlanResponse(error=err or "LLM returned no content")
-    # Persist
-    svc_update_session(db, session_id, plan_text=plan)
-    return PlanResponse(plan_text=plan)
-
-
-@router.post("/sessions/{session_id}/generate-code", response_model=GenerateCodeResponse)
-def post_generate_code(
-    session_id: uuid.UUID,
-    body: GenerateCodeRequest,
-    db: Session = Depends(get_db),
-):
-    """Generate strategy code (4 filter functions + CONFIG) from the plan.
-    Persists to code_text. Automatically validates by running a single
-    backtest — if validation fails, retries up to 3 times with the error
-    message fed back to the LLM so it can fix the issue.
+    Scans backend/app/services/strategies/ for .py files that contain
+    Strategy subclasses. Enriches each entry with metadata from a sidecar
+    .meta.json file and deployment status from the database.
     """
-    from app.services.strategy_lab_llm import generate_code, debug_code
-    from app.services.strategy_lab_orchestrator import _run_one
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    plan = body.plan_text or sess.plan_text
-    if not plan:
-        raise HTTPException(status_code=400, detail="no plan_text available — call /plan first")
+    import json
+    import re
+    from datetime import datetime, timezone
 
-    max_generate_attempts = 3
-    max_debug_cycles = 3
-    last_error = None
-    validation_log = []
-    code = None
+    strategies_dir = Path(__file__).resolve().parent.parent / "services" / "strategies"
+    if not strategies_dir.exists():
+        return []
 
-    # Stage 1: Generate (with retries and backoff)
-    import time as _time
-    for attempt in range(1, max_generate_attempts + 1):
-        if attempt > 1:
-            _time.sleep(2)  # brief backoff before retry
-        try:
-            code, err = generate_code(plan, model=body.model)
-        except Exception as gen_err:
-            err = f"{type(gen_err).__name__}: {gen_err}"
-            code = None
-        if err or code is None:
-            last_error = err
-            validation_log.append(f"Generate attempt {attempt}: LLM failed — {err}")
-            continue
-        validation_log.append(f"Generate attempt {attempt}: code generated ({len(code)} chars)")
-        break
-
-    if not code:
-        # Never throw 502 — return graceful failure so the user sees a clear
-        # message with retry button instead of a cryptic server error.
-        logger.error("Code generation failed after %d attempts: %s", max_generate_attempts, last_error)
-        return GenerateCodeResponse(
-            code="",
-            validation_status="failed",
-            validation_attempts=max_generate_attempts,
-            validation_log=validation_log,
-        )
-
-    # Stage 2: Validate + Stage 3: Debug loop
-    for cycle in range(max_debug_cycles + 1):
-        try:
-            result = _run_one(
-                code_text=code,
-                session_id=str(session_id),
-                as_of="2022-01-01",
-                end_date="2024-01-01",
-                run_index=0,
-            )
-        except Exception as validate_err:
-            result = {"status": "failed", "error_message": f"{type(validate_err).__name__}: {validate_err}"}
-
-        if result["status"] == "completed":
-            k = result.get("kpis", {})
-            logger.info(
-                "Code validation passed on cycle %d: ret=%.2f%% trades=%d",
-                cycle, k.get("total_return_pct", 0), k.get("total_trades", 0),
-            )
-            svc_update_session(db, session_id, code_text=code)
-            # Auto-save to library
-            try:
-                from app.services.strategy_lab_library import save_strategy
-                save_strategy(
-                    name=sess.name or "unnamed",
-                    code=code,
-                    prompt=sess.prompt or "",
-                    plan=sess.plan_text or "",
-                    kpis=k,
-                    change_description="Auto-saved after code generation",
-                    model_id=sess.model_id,
-                    session_id=str(session_id),
-                )
-            except Exception as lib_err:
-                logger.warning("Auto-save to library failed: %s", lib_err)
-            return GenerateCodeResponse(
-                code=code,
-                validation_status="passed",
-                validation_attempts=cycle + 1,
-                validation_log=validation_log,
-            )
-
-        last_error = result.get("error_message", "unknown error")
-        validation_log.append(f"Debug cycle {cycle}: backtest failed — {last_error}")
-
-        if cycle >= max_debug_cycles:
-            break
-
-        # Stage 3: Debug — call LLM with error to produce a complete fixed file
-        try:
-            fixed, debug_err = debug_code(code, last_error, model=body.model)
-            if debug_err or fixed is None:
-                validation_log.append(f"Debug cycle {cycle}: debugger failed — {debug_err}")
-                continue
-            code = fixed
-            validation_log.append(f"Debug cycle {cycle}: debugger produced fixed code ({len(fixed)} chars)")
-        except Exception as debug_exc:
-            validation_log.append(f"Debug cycle {cycle}: debugger crashed — {debug_exc}")
-            continue
-
-    # All cycles exhausted — save the last code anyway
-    if code:
-        svc_update_session(db, session_id, code_text=code)
-        logger.warning(
-            "Code validation failed after %d debug cycles, but saving last code. "
-            "Last error: %s", max_debug_cycles, last_error,
-        )
-        return GenerateCodeResponse(
-            code=code,
-            validation_status="failed",
-            validation_attempts=max_debug_cycles + 1,
-            validation_log=validation_log,
-        )
-
-    # Unreachable: if code is None after generate, we return early above.
-    # If code is set, the debug loop either passes or saves code anyway.
-    # This is a safety net in case the logic changes.
-    return GenerateCodeResponse(
-        code=code or "",
-        validation_status="failed",
-        validation_attempts=max_generate_attempts,
-        validation_log=validation_log + ["Unexpected state — no code and no error"],
-    )
-
-
-class AgentGenerateResponse(BaseModel):
-    agent_session_id: str
-    message: str
-
-
-@router.post("/sessions/{session_id}/generate-code-agent", response_model=AgentGenerateResponse)
-async def post_generate_code_agent(
-    session_id: uuid.UUID,
-    body: GenerateCodeRequest,
-    db: Session = Depends(get_db),
-):
-    """Start an agent-based code generation that runs in the background
-    and streams progress via SSE.
-
-    The agent:
-      1. Reads the plan from the session
-      2. Generates code using the agent loop (generate → validate → backtest → debug → improve)
-      3. Saves the code back to the session when complete
-      4. Streams progress events via /api/strategy-agent/{agent_session_id}/stream
-
-    Returns an agent_session_id immediately. Connect to the SSE stream
-    to receive live progress.
-    """
-    from app.services.strategy_agent import start_agent_with_plan
-
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-
-    plan = body.plan_text or sess.plan_text
-    if not plan:
-        raise HTTPException(status_code=400, detail="no plan_text available — call /plan first")
-
-    agent_session_id = await start_agent_with_plan(
-        plan_text=plan,
-        strategy_session_id=str(session_id),
-        model=body.model,
-    )
-
-    logger.info(
-        "Started agent code generation for session %s: agent_session=%s",
-        session_id, agent_session_id,
-    )
-
-    return AgentGenerateResponse(
-        agent_session_id=agent_session_id,
-        message="Agent started. Connect to /api/strategy-agent/{agent_session_id}/stream for live progress.",
-    )
-
-
-@router.post("/sessions/{session_id}/refine-code", response_model=RefineCodeResponse)
-def post_refine_code(
-    session_id: uuid.UUID,
-    body: RefineCodeRequest,
-    db: Session = Depends(get_db),
-):
-    """Generate a unified diff that refines the session's current code per the instruction."""
-    from app.services.strategy_lab_llm import generate_refine_diff
-    from app.services.strategy_lab_diff import diff_summary
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    current = body.current_code or sess.code_text
-    if not current:
-        raise HTTPException(status_code=400, detail="no code_text available — generate code first")
-    diff, err = generate_refine_diff(current, body.instruction, model=body.model)
-    if err or diff is None:
-        logger.error("Refine diff generation failed: %s", err)
-        return RefineCodeResponse(diff="", summary="", error=err or "LLM returned no diff")
-    return RefineCodeResponse(diff=diff, summary=diff_summary(diff))
-
-
-@router.post("/sessions/{session_id}/apply-diff")
-def post_apply_diff(
-    session_id: uuid.UUID,
-    body: RefineCodeRequest,
-    db: Session = Depends(get_db),
-):
-    """Apply a refine diff to the session's code and persist the result.
-
-    If the diff doesn't apply cleanly (e.g. the code has drifted), the LLM
-    is called automatically to produce a complete fixed file instead.
-    """
-    from app.services.strategy_lab_diff import apply_diff as apply_diff_fn
-    from app.services.strategy_lab_llm import debug_code
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    current = body.current_code or sess.code_text
-    if not current:
-        raise HTTPException(status_code=400, detail="no code_text available")
+    # Get deployment status from DB
+    deployed_classes: set[str] = set()
     try:
-        new_code = apply_diff_fn(current, body.instruction)
-    except ValueError as e:
-        # Diff failed to apply — call the LLM to produce a complete fixed file
-        logger.info("Diff apply failed (%s), calling LLM to produce fixed code", str(e)[:80])
+        from app.db.database import SessionLocal
+        from app.models.strategy_lab import StrategyDeployment
+        db = SessionLocal()
         try:
-            fixed, debug_err = debug_code(current, f"Diff apply failed: {e}", model=body.model)
-            if debug_err or fixed is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail={"error": "diff_apply_failed", "details": f"Diff failed: {e}. Auto-fix also failed: {debug_err}"},
-                )
-            new_code = fixed
-        except HTTPException:
-            raise
-        except Exception as auto_fix_err:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "diff_apply_failed", "details": f"Diff failed: {e}. Auto-fix crashed: {auto_fix_err}"},
-            )
-    svc_update_session(db, session_id, code_text=new_code)
-    return {"code": new_code}
+            active = db.query(StrategyDeployment).filter(
+                StrategyDeployment.is_active == True
+            ).all()
+            for d in active:
+                deployed_classes.add(d.class_name)
+        finally:
+            db.close()
+    except Exception:
+        pass
 
-
-class RefineDirectRequest(BaseModel):
-    instruction: str = Field(..., min_length=1)
-    model: Optional[str] = None
-    validation_runs: int = Field(10, ge=1, le=50)  # NEW: number of backtest runs for validation
-
-
-class RefineDirectResponse(BaseModel):
-    code: str = ""
-    summary: str = ""
-    validation_status: str = "unknown"
-    validation_log: List[str] = Field(default_factory=list)
-
-
-@router.post("/sessions/{session_id}/refine-direct", response_model=RefineDirectResponse)
-def post_refine_direct(
-    session_id: uuid.UUID,
-    body: RefineDirectRequest,
-    db: Session = Depends(get_db),
-):
-    """Modify strategy code per a natural language instruction.
-
-    The LLM produces the complete modified file directly (no diff).
-    Validates with a backtest — if it fails, debug loop up to 3 cycles.
-    """
-    from app.services.strategy_lab_llm import refine_code_direct, debug_code
-    from app.services.strategy_lab_orchestrator import _run_one
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    current = sess.code_text
-    if not current:
-        raise HTTPException(status_code=400, detail="no code_text available — generate code first")
-
-    max_debug_cycles = 3
-    validation_log = []
-    code = current
-
-    # Step 1: LLM modifies the code
-    modified, err = refine_code_direct(code, body.instruction, model=body.model)
-    if err or modified is None:
-        logger.error("Refine direct failed: %s", err)
-        return RefineDirectResponse(
-            code=code, summary="", validation_status="failed",
-            validation_log=[f"LLM refine failed: {err}"],
-        )
-    code = modified
-    validation_log.append(f"Code modified ({len(code)} chars)")
-
-    # Step 2: Validate + debug loop (mini-batch of N runs)
-    import random as _random
-    from datetime import datetime as _dt, timedelta as _td
-
-    for cycle in range(max_debug_cycles + 1):
-        # Run a mini-batch of N backtests with random start dates
-        failed_count = 0
-        last_error = None
-        start_base = _dt.strptime("2022-01-01", "%Y-%m-%d")
-        start_max = _dt.strptime("2024-01-01", "%Y-%m-%d")
-        day_range = (start_max - start_base).days
-
-        for i in range(body.validation_runs):
-            random_start = start_base + _td(days=_random.randint(0, max(0, day_range)))
-            try:
-                result = _run_one(
-                    code_text=code,
-                    session_id=str(session_id),
-                    as_of=random_start.strftime("%Y-%m-%d"),
-                    end_date="2024-01-01",
-                    run_index=i,
-                )
-            except Exception as validate_err:
-                result = {"status": "failed", "error_message": f"{type(validate_err).__name__}: {validate_err}"}
-
-            if result["status"] != "completed":
-                failed_count += 1
-                last_error = result.get("error_message", "unknown error")
-
-        if failed_count == 0:
-            # All runs passed
-            logger.info(
-                "Refine validation passed on cycle %d: all %d runs OK",
-                cycle, body.validation_runs,
-            )
-            svc_update_session(db, session_id, code_text=code)
-            return RefineDirectResponse(
-                code=code,
-                summary=f"Applied: {body.instruction[:120]}",
-                validation_status="passed",
-                validation_log=validation_log + [f"All {body.validation_runs} runs passed"],
-            )
-
-        last_error_msg = last_error or "unknown error"
-        validation_log.append(
-            f"Debug cycle {cycle}: {failed_count}/{body.validation_runs} runs failed — {last_error_msg}"
-        )
-
-        if cycle >= max_debug_cycles:
-            break
-
-        # Debug: call LLM to fix
+    classes = []
+    for f in sorted(strategies_dir.glob("*.py")):
+        if f.name.startswith("_") or f.name == "__init__.py":
+            continue
         try:
-            fixed, debug_err = debug_code(code, last_error_msg, model=body.model)
-            if debug_err or fixed is None:
-                validation_log.append(f"Debug cycle {cycle}: debugger failed — {debug_err}")
+            source = f.read_text()
+            if "Strategy" not in source:
                 continue
-            code = fixed
-            validation_log.append(f"Debug cycle {cycle}: debugger produced fix ({len(fixed)} chars)")
-        except Exception as debug_exc:
-            validation_log.append(f"Debug cycle {cycle}: debugger crashed — {debug_exc}")
+
+            # Extract class name and docstring
+            class_match = re.search(r'class\s+(\w+)\s*\(.*Strategy.*\):', source)
+            doc_match = re.search(r'"""(.+?)"""', source, re.DOTALL)
+            if not class_match:
+                continue
+
+            class_name = class_match.group(1)
+            description = (doc_match.group(1).strip().split("\n")[0][:150] if doc_match else "")
+
+            # File timestamps
+            f_stat = f.stat()
+            created_at = datetime.fromtimestamp(f_stat.st_birthtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M") if hasattr(f_stat, 'st_birthtime') else None
+            modified_at = datetime.fromtimestamp(f_stat.st_mtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
+
+            # Read meta file if it exists
+            meta_path = f.with_suffix(".meta.json")
+            meta = {}
+            if meta_path.exists():
+                try:
+                    meta = json.loads(meta_path.read_text())
+                except (json.JSONDecodeError, OSError):
+                    pass
+
+            classes.append(StrategyClassItem(
+                name=class_name,
+                path=str(f.relative_to(Path(__file__).resolve().parent.parent.parent.parent)),
+                description=description,
+                created_at=created_at,
+                modified_at=modified_at,
+                cagr_pct=meta.get("cagr_pct"),
+                sharpe_ratio=meta.get("sharpe_ratio"),
+                total_return_pct=meta.get("total_return_pct"),
+                win_rate=meta.get("win_rate"),
+                max_drawdown_pct=meta.get("max_drawdown_pct"),
+                total_trades=meta.get("total_trades"),
+                last_backtest=meta.get("last_backtest"),
+                deployed=class_name in deployed_classes,
+                deployed_at=meta.get("deployed_at"),
+            ))
+        except Exception:
             continue
 
-    # Save code anyway
-    svc_update_session(db, session_id, code_text=code)
-    return RefineDirectResponse(
-        code=code,
-        summary=f"Applied (with fixes): {body.instruction[:120]}",
-        validation_status="failed",
-        validation_log=validation_log,
-    )
+    return classes
+
+
+class DeleteStrategyRequest(BaseModel):
+    path: str = Field(..., description="Path to the strategy file to delete (e.g. 'backend/app/services/strategies/my_strategy.py')")
+
+
+@router.post("/strategy-classes/delete", status_code=200)
+def delete_strategy_class(body: DeleteStrategyRequest):
+    """Delete a strategy file and its meta file from the strategies directory.
+
+    Only deletes files under backend/app/services/strategies/ for safety.
+    Does NOT delete files from the standalone strategies/ directory.
+    """
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
+    full_path = repo_root / body.path
+
+    # Safety: only allow deleting from backend/app/services/strategies/
+    strategies_dir = Path(__file__).resolve().parent.parent / "services" / "strategies"
+    try:
+        full_path.relative_to(strategies_dir)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Can only delete files in backend/app/services/strategies/")
+
+    if not full_path.exists():
+        raise HTTPException(status_code=404, detail=f"Strategy file not found: {full_path}")
+
+    # Delete the .py file
+    full_path.unlink()
+    # Delete the .meta.json sidecar if it exists
+    meta_path = full_path.with_suffix(".meta.json")
+    if meta_path.exists():
+        meta_path.unlink()
+
+    return {"deleted": str(full_path), "name": full_path.stem}
 
 
 # ── Experiment endpoints (Phase 3) ────────────────────────────────────────
@@ -587,7 +303,9 @@ class ExperimentRequest(BaseModel):
     start_date_min: str = Field("2002-01-01", description="Earliest random start date")
     start_date_max: str = Field("2024-01-01", description="Latest random start date")
     fixed_start_dates: Optional[List[str]] = Field(None, description="Exact start dates to reuse from a previous batch (apples-to-apples comparison)")
-    model: Optional[str] = None  # currently unused, kept for future per-run model selection
+    model: Optional[str] = None
+    # New mode: path to a Strategy subclass file (e.g. "strategies/daily_golden_cross.py")
+    strategy_class_path: Optional[str] = Field(None, description="Path to a Strategy subclass file (replaces code_text mode)")
 
 
 class ExperimentStartResponse(BaseModel):
@@ -621,19 +339,47 @@ class BatchStats(BaseModel):
 
 @router.post("/sessions/{session_id}/experiments", response_model=ExperimentStartResponse, status_code=202)
 def start_experiments(
-    session_id: uuid.UUID,
+    session_id: str,
     body: ExperimentRequest,
     db: Session = Depends(get_db),
 ):
-    """Kick off a batch of N backtest runs with random as_of_date windows."""
+    """Kick off a batch of N backtest runs with random as_of_date windows.
+
+    Supports two modes:
+      - strategy_class_path: path to a Strategy subclass file (new mode)
+      - session.code_text: legacy mode using the 4-function template
+
+    In strategy_class_path mode, session_id can be '_' (placeholder) since
+    no session lookup is needed.
+    """
     from app.services.strategy_lab_orchestrator import run_batch
-    sess = svc_get_session(db, session_id)
+
+    if body.strategy_class_path:
+        # New mode: use a Strategy subclass file — no session needed
+        batch_id = run_batch(
+            session_id=session_id,
+            n_runs=body.n_runs,
+            end_date=body.end_date,
+            start_date_min=body.start_date_min,
+            start_date_max=body.start_date_max,
+            fixed_start_dates=body.fixed_start_dates,
+            strategy_class_path=body.strategy_class_path,
+        )
+        return ExperimentStartResponse(batch_id=batch_id)
+
+    # Legacy mode: requires a valid session
+    try:
+        sid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid session_id format")
+    sess = svc_get_session(db, sid)
     if sess is None:
         raise HTTPException(status_code=404, detail="session not found")
     if not sess.code_text:
         raise HTTPException(status_code=400, detail="no code_text — generate code first")
+
     batch_id = run_batch(
-        session_id=str(session_id),
+        session_id=session_id,
         n_runs=body.n_runs,
         code_text=sess.code_text,
         end_date=body.end_date,
@@ -646,30 +392,32 @@ def start_experiments(
 
 @router.get("/sessions/{session_id}/experiments", response_model=List[ExperimentRow])
 def list_session_experiments(
-    session_id: uuid.UUID,
+    session_id: str,
     db: Session = Depends(get_db),
 ):
     """List all experiments for a session (across batches), newest first."""
     from app.services.strategy_lab_experiments import list_experiments
-    rows = list_experiments(db, session_id=session_id, limit=200)
+    sid = uuid.UUID(session_id) if session_id != '_' else None
+    rows = list_experiments(db, session_id=sid, limit=200)
     return [ExperimentRow(**r.to_dict()) for r in rows]
 
 
 @router.get("/sessions/{session_id}/batches/{batch_id}/experiments", response_model=List[ExperimentRow])
 def list_batch_experiments(
-    session_id: uuid.UUID,
+    session_id: str,
     batch_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
     """List experiments in a specific batch."""
     from app.services.strategy_lab_experiments import list_experiments
-    rows = list_experiments(db, session_id=session_id, batch_id=batch_id, limit=500)
+    sid = uuid.UUID(session_id) if session_id != '_' else None
+    rows = list_experiments(db, session_id=sid, batch_id=batch_id, limit=500)
     return [ExperimentRow(**r.to_dict()) for r in rows]
 
 
 @router.get("/sessions/{session_id}/batches/{batch_id}/stats", response_model=BatchStats)
 def batch_stats(
-    session_id: uuid.UUID,
+    session_id: str,
     batch_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
@@ -693,7 +441,7 @@ def get_equity_curve(
 
 @router.get("/sessions/{session_id}/batches/{batch_id}/events")
 async def batch_events(
-    session_id: uuid.UUID,
+    session_id: str,
     batch_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
@@ -706,10 +454,15 @@ async def batch_events(
     from app.services.strategy_lab_orchestrator import get_batch, drain_events
     from app.services.strategy_lab_experiments import create_experiment
 
-    # Verify the session exists
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
+    # Verify the session exists (skip for placeholder '_')
+    if session_id != '_':
+        try:
+            sid = uuid.UUID(session_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid session_id")
+        sess = svc_get_session(db, sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session not found")
 
     async def event_generator():
         import time
@@ -747,235 +500,12 @@ async def batch_events(
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-class SummarizeRequest(BaseModel):
-    model: Optional[str] = None
-
-
-class SummarizeResponse(BaseModel):
-    summary_id: str = ""
-    summary_text: str = ""
-    winner_run_id: Optional[str] = None
-    error: Optional[str] = None
-
-
-@router.post("/sessions/{session_id}/batches/{batch_id}/summarize", response_model=SummarizeResponse)
-def summarize_batch(
-    session_id: uuid.UUID,
-    batch_id: uuid.UUID,
-    body: SummarizeRequest,
-    db: Session = Depends(get_db),
-):
-    """LLM analyzes the completed batch and writes a 3-paragraph summary."""
-    from app.services.strategy_lab_experiments import list_experiments, get_batch_stats, create_batch_summary
-    from app.services.strategy_lab_llm import summarize_batch
-    import json
-
-    exps = list_experiments(db, session_id=session_id, batch_id=batch_id, limit=500)
-    if not exps:
-        raise HTTPException(status_code=400, detail="batch has no experiments yet")
-    # Build a compact table
-    rows = []
-    for e in exps:
-        k = e.kpis or {}
-        rows.append({
-            "run": e.run_index,
-            "start": e.start_date.isoformat() if e.start_date else "",
-            "ret": k.get("total_return_pct"),
-            "wr": k.get("win_rate"),
-            "dd": k.get("max_drawdown_pct"),
-            "trades": k.get("total_trades"),
-            "status": e.status,
-        })
-    kpis_table = json.dumps(rows, indent=2)
-    summary, err = summarize_batch(kpis_table, len(exps), model=body.model)
-    if err or summary is None:
-        logger.error("Batch summarize failed: %s", err)
-        return SummarizeResponse(summary_id="", summary_text="", error=err or "LLM returned no summary")
-    stats = get_batch_stats(db, batch_id)
-    winner_id = uuid.UUID(stats["best_experiment_id"]) if stats.get("best_experiment_id") else None
-    saved = create_batch_summary(
-        db,
-        session_id=session_id,
-        batch_id=batch_id,
-        summary_text=summary,
-        winner_run_id=winner_id,
-        model_id=body.model or "",
-    )
-    return SummarizeResponse(
-        summary_id=str(saved.id),
-        summary_text=summary,
-        winner_run_id=str(winner_id) if winner_id else None,
-    )
-
-
-class RefineStrategyRequest(BaseModel):
-    instruction: str = Field(default="", description="Optional user instruction for the AI to focus on")
-    model: Optional[str] = None
-    validation_runs: int = Field(default=10, ge=1, le=50)
-
-
-class RefineStrategyResponse(BaseModel):
-    code: str = ""
-    summary: str = ""
-    rationale: str = ""
-    before_kpis: Dict[str, Any] = Field(default_factory=dict)
-    after_kpis: Dict[str, Any] = Field(default_factory=dict)
-    validation_log: List[str] = Field(default_factory=list)
-    validation_status: str = "unknown"
-    version: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-
-
-@router.post("/sessions/{session_id}/batches/{batch_id}/refine", response_model=RefineStrategyResponse)
-def refine_strategy_after_batch(
-    session_id: uuid.UUID,
-    batch_id: uuid.UUID,
-    body: RefineStrategyRequest,
-    db: Session = Depends(get_db),
-):
-    """LLM proposes a code change based on the worst-performing runs of a batch + user instruction.
-
-    Uses the complete-file approach (not diff) — generates modified code, validates
-    with a single backtest run, and auto-saves to library.
-    """
-    from app.services.strategy_lab_experiments import list_experiments, get_batch_stats, list_batch_summaries
-    from app.services.strategy_lab_llm import refine_strategy_with_instruction
-    from app.services.strategy_lab_session import update_session as svc_update_session
-    sess = svc_get_session(db, session_id)
-    if sess is None or not sess.code_text:
-        raise HTTPException(status_code=400, detail="session has no code_text")
-    stats = get_batch_stats(db, batch_id)
-    if not stats["worst_3"]:
-        raise HTTPException(status_code=400, detail="no completed runs in batch")
-    summaries = list_batch_summaries(db, session_id=session_id, batch_id=batch_id)
-    summary_text = summaries[0].summary_text if summaries else ""
-    worst_table = json.dumps(stats["worst_3"], indent=2, default=str)
-
-    # Compute before_kpis from batch stats
-    all_scored = (stats.get("top_3") or []) + (stats.get("worst_3") or [])
-    if all_scored:
-        rets = [r.get("kpis", {}).get("total_return_pct", 0) or 0 for r in all_scored]
-        shs = [r.get("kpis", {}).get("sharpe_ratio", 0) or 0 for r in all_scored]
-        wrs = [r.get("kpis", {}).get("win_rate", 0) or 0 for r in all_scored]
-        trs = [r.get("kpis", {}).get("total_trades", 0) or 0 for r in all_scored]
-        dds = [r.get("kpis", {}).get("max_drawdown_pct", 0) or 0 for r in all_scored]
-        before_kpis = {
-            "total_return_pct": sum(rets) / len(rets) if rets else None,
-            "sharpe_ratio": sum(shs) / len(shs) if shs else None,
-            "win_rate": sum(wrs) / len(wrs) if wrs else None,
-            "total_trades": sum(trs) / len(trs) if trs else None,
-            "max_drawdown_pct": sum(dds) / len(dds) if dds else None,
-        }
-    else:
-        before_kpis = {}
-
-    # Call LLM to generate modified code
-    modified_code, change_summary, err = refine_strategy_with_instruction(
-        sess.code_text, body.instruction, summary_text, worst_table,
-        model=body.model,
-    )
-    if err or modified_code is None:
-        logger.error("Refine strategy failed: %s", err)
-        return RefineStrategyResponse(
-            code="", summary="", rationale="",
-            before_kpis=before_kpis, after_kpis={},
-            validation_log=[], validation_status="failed",
-            error=err or "LLM returned no code",
-        )
-
-    # Run a single validation backtest using the orchestrator's _run_one
-    validation_log = []
-    validation_status = "passed"
-    after_kpis = {}
-    try:
-        from app.services.strategy_lab_orchestrator import _run_one
-
-        # Parse date range from the original batch
-        batch_experiments = list_experiments(db, session_id, batch_id=batch_id)
-        start_dates = [e.start_date for e in batch_experiments if e.start_date and e.status == "completed"]
-        if start_dates:
-            min_date = min(start_dates)
-            max_date = max(start_dates)
-            min_date_str = min_date.isoformat()[:10] if hasattr(min_date, 'isoformat') else str(min_date)[:10]
-            max_date_str = max_date.isoformat()[:10] if hasattr(max_date, 'isoformat') else str(max_date)[:10]
-        else:
-            min_date_str = "2020-01-01"
-            max_date_str = "2024-01-01"
-
-        # Use the median start date for validation
-        val_dates = sorted(set(
-            str(d)[:10] for d in start_dates
-        )) if start_dates else [min_date_str]
-        median_date = val_dates[len(val_dates) // 2] if val_dates else min_date_str
-
-        result = _run_one(
-            code_text=modified_code,
-            session_id=str(session_id),
-            as_of=median_date,
-            end_date=max_date_str,
-            run_index=999,
-        )
-        if result["status"] == "completed" and result.get("kpis"):
-            k = result["kpis"]
-            after_kpis = {
-                "total_return_pct": k.get("total_return_pct", 0),
-                "sharpe_ratio": k.get("sharpe_ratio", 0),
-                "win_rate": k.get("win_rate", 0),
-                "total_trades": k.get("total_trades", 0),
-                "max_drawdown_pct": k.get("max_drawdown_pct", 0),
-            }
-            validation_log.append(f"Validation backtest: OK (return={k.get('total_return_pct', 0):.1f}%)")
-        else:
-            validation_log.append(f"Validation backtest: FAILED ({result.get('error_message', 'unknown')})")
-            validation_status = "partial"
-
-    except Exception as e:
-        logger.warning("Validation backtest failed: %s", e)
-        validation_log.append(f"Validation error: {e}")
-        validation_status = "partial"
-
-    # Auto-save to library using save_strategy
-    version_info = None
-    try:
-        from app.services.strategy_lab_library import save_strategy
-        meta = save_strategy(
-            name=f"{sess.name or 'strategy'}-v{1}",
-            code=modified_code,
-            prompt=sess.prompt or "",
-            plan=sess.plan_text or "",
-            kpis=after_kpis or None,
-            change_description=change_summary or (summary_text[:100] if summary_text else "AI-refined strategy"),
-            model_id=sess.model_id,
-            session_id=str(session_id),
-        )
-        version_info = {
-            "version": meta["version"],
-            "strategy_name": meta["strategy_name"],
-            "change_description": meta["change_description"],
-        }
-    except Exception as e:
-        logger.warning("Auto-save to library failed: %s", e)
-
-    # Save code to session
-    svc_update_session(db, session_id, code_text=modified_code)
-
-    return RefineStrategyResponse(
-        code=modified_code,
-        summary=change_summary or "Code updated",
-        rationale=summary_text[:300] + "..." if summary_text and len(summary_text) > 300 else (summary_text or ""),
-        before_kpis=before_kpis,
-        after_kpis=after_kpis,
-        validation_log=validation_log,
-        validation_status=validation_status,
-        version=version_info,
-    )
-
-
-# ── Deploy endpoints (Phase 4) ───────────────────────────────────────────
+# ── Deploy endpoints ───────────────────────────────────────────────────
 
 class DeployRequest(BaseModel):
-    experiment_id: uuid.UUID
-    class_name: Optional[str] = None  # auto-generated if not provided
+    strategy_class_path: str = Field(..., description="Path to the Strategy subclass file to deploy")
+    experiment_id: Optional[uuid.UUID] = None
+    source_hypothesis_ids: List[str] = []  # optional — link deployed strategy back to source hypotheses
 
 
 class DeploymentResponse(BaseModel):
@@ -987,7 +517,6 @@ class DeploymentResponse(BaseModel):
     rolled_back_at: Optional[str] = None
     experiment_id: Optional[str] = None
     session_id: str
-    verification: Dict[str, bool] = {}
 
 
 class DeploymentListItem(BaseModel):
@@ -1003,31 +532,128 @@ class DeploymentListItem(BaseModel):
 
 @router.post("/sessions/{session_id}/deploy", response_model=DeploymentResponse)
 def deploy(
-    session_id: uuid.UUID,
+    session_id: str,
     body: DeployRequest,
     db: Session = Depends(get_db),
 ):
-    """Generate a pluggable Strategy class from the session's code and deploy to paper."""
-    from app.services.strategy_lab_deploy import deploy_strategy
-    from app.models.strategy_lab import StrategyExperiment
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    experiment = db.get(StrategyExperiment, body.experiment_id)
-    if experiment is None:
-        raise HTTPException(status_code=404, detail="experiment not found")
+    """Deploy a Strategy subclass to Alpaca paper trading.
+
+    The strategy_class_path points to a Strategy subclass file in the
+    repo (e.g. "backend/app/services/strategies/daily_golden_cross.py").
+    The deploy flow:
+      1. Imports the Strategy subclass
+      2. Verifies it has the required methods
+      3. Records the deployment in the deployments registry (which the Alpaca
+         runner loads as the active strategy)
+    """
+    from app.services.strategy_base import Strategy
+    import importlib.util
+    import sys
+
+    # session_id can be '_' placeholder for strategy_class_path mode
+    if session_id != '_':
+        try:
+            sid = uuid.UUID(session_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid session_id format")
+        sess = svc_get_session(db, sid)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="session not found")
+
+    # Resolve the strategy file path
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
+    full_path = repo_root / body.strategy_class_path
+    if not full_path.exists():
+        raise HTTPException(status_code=404, detail=f"Strategy file not found: {full_path}")
+
+    # Import and verify the Strategy subclass
     try:
-        result = deploy_strategy(db, sess, experiment, class_name=body.class_name)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    return DeploymentResponse(
-        deployment_id=result["deployment_id"],
-        class_name=result["class_name"],
-        class_file_path=result["class_file_path"],
+        spec = importlib.util.spec_from_file_location("_deploy_strategy", str(full_path))
+        if spec is None or spec.loader is None:
+            raise HTTPException(status_code=422, detail="Could not create import spec")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["_deploy_strategy"] = mod
+        spec.loader.exec_module(mod)
+
+        strategy_class = None
+        for name in dir(mod):
+            obj = getattr(mod, name)
+            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
+                strategy_class = obj
+                break
+
+        if strategy_class is None:
+            raise HTTPException(status_code=422, detail=f"No Strategy subclass found in {body.strategy_class_path}")
+
+        # Verify required methods
+        instance = strategy_class()
+        for attr in ("get_name", "get_signals", "should_exit", "max_holdings", "sizing_pcts"):
+            if not hasattr(instance, attr):
+                raise HTTPException(status_code=422, detail=f"Strategy missing required member: {attr}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to load strategy: {e}")
+
+    # Register the deployment in the deployments registry (replaces the
+    # alpaca_runner.py file-rewrite path). The stored strategy_path is the
+    # absolute path, loadable by _load_active_strategy_class.
+    class_name = strategy_class.__name__
+    registry_deploy(
+        strategy_path=str(full_path),
+        params={},
+        metrics_snapshot={},
+        db=db,
+    )
+
+    # Record deployment
+    from app.models.strategy_lab import StrategyDeployment
+    from sqlalchemy import text as sa_text
+
+    # Deactivate any active deployment
+    active = db.query(StrategyDeployment).filter(StrategyDeployment.is_active == True).first()
+    if active is not None:
+        active.is_active = False
+        active.rolled_back_at = sa_text("now()")
+
+    # Use a random UUID for placeholder '_' session_id
+    deploy_session_id = uuid.uuid4() if session_id == '_' else uuid.UUID(session_id)
+    deployment = StrategyDeployment(
+        session_id=deploy_session_id,
+        experiment_id=body.experiment_id,
+        class_name=class_name,
+        class_file_path=str(full_path),
         is_active=True,
-        experiment_id=str(body.experiment_id),
+    )
+    db.add(deployment)
+    db.commit()
+    db.refresh(deployment)
+
+    # Link the deployed strategy back to its source hypotheses: mark each as
+    # generated with this deployment's id. The deploy has already succeeded and
+    # been committed above, so a malformed (non-UUID) hypothesis id must never
+    # turn that success into a 500. Validate each token as a UUID and skip
+    # (with a warning) any that don't parse; keep the valid links working.
+    if body.source_hypothesis_ids:
+        for hid in body.source_hypothesis_ids:
+            try:
+                uuid.UUID(str(hid))
+            except (ValueError, AttributeError, TypeError):
+                logger.warning(
+                    "Skipping invalid source_hypothesis_id %r on deploy of %s: "
+                    "not a valid UUID (deploy %s already succeeded)",
+                    hid, class_name, deployment.id,
+                )
+                continue
+            mark_generated(hid, str(deployment.id), db)
+
+    return DeploymentResponse(
+        deployment_id=str(deployment.id),
+        class_name=class_name,
+        class_file_path=str(full_path),
+        is_active=True,
+        experiment_id=str(body.experiment_id) if body.experiment_id else None,
         session_id=str(session_id),
-        verification=result["verification"],
     )
 
 
@@ -1063,76 +689,49 @@ def rollback_deployment(
     db: Session = Depends(get_db),
 ):
     """Roll back a deployment and restore the previous one."""
-    from app.services.strategy_lab_deploy import rollback_deployment as do_rollback
-    try:
-        result = do_rollback(db, deployment_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    return result
+    from app.models.strategy_lab import StrategyDeployment
+    from sqlalchemy import text as sa_text
 
+    deployment = db.get(StrategyDeployment, deployment_id)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="deployment not found")
+    if not deployment.is_active:
+        raise HTTPException(status_code=400, detail="deployment is not active")
 
-# ── Chat endpoints ──────────────────────────────────────────────────────────
+    deployment.is_active = False
+    deployment.rolled_back_at = sa_text("now()")
 
-class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1)
-    model: str = Field(..., min_length=1)
-    critique_of: Optional[str] = None
-
-
-class ChatMessageResponse(BaseModel):
-    id: str
-    role: str
-    content: str
-    model_id: str
-    critique_of: Optional[str] = None
-    created_at: str
-
-
-class ChatResponse(BaseModel):
-    response: str
-    history: List[ChatMessageResponse]
-    code_change_instruction: Optional[str] = None  # NEW: parsed from [CODE_CHANGE: ...] marker
-
-
-@router.post("/sessions/{session_id}/chat", response_model=ChatResponse)
-def post_chat(
-    session_id: uuid.UUID,
-    body: ChatRequest,
-    db: Session = Depends(get_db),
-):
-    """Send a message to the performance chatbot. Returns response + full history."""
-    from app.services.strategy_lab_chat import chat_with_llm
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    try:
-        critique_uuid = uuid.UUID(body.critique_of) if body.critique_of else None
-        response_text, history, code_change_instruction = chat_with_llm(
-            db, session_id, body.message,
-            model=body.model, critique_of=critique_uuid,
-        )
-    except (ValueError, RuntimeError) as e:
-        logger.error("Chat failed: %s", e)
-        return ChatResponse(response=f"Sorry, I encountered an error: {e}", history=[])
-    return ChatResponse(
-        response=response_text,
-        history=[ChatMessageResponse(**h) for h in history],
-        code_change_instruction=code_change_instruction,
+    # Restore the previous deployment
+    previous = (
+        db.query(StrategyDeployment)
+        .filter(StrategyDeployment.id != deployment_id)
+        .order_by(StrategyDeployment.deployed_at.desc())
+        .first()
     )
+    if previous is not None:
+        previous.is_active = True
+        # Update alpaca_runner.py
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        alpaca_runner_path = repo_root / "backend" / "app" / "services" / "alpaca_runner.py"
+        if alpaca_runner_path.exists():
+            text = alpaca_runner_path.read_text()
+            import re
+            new_import = f"from app.services.strategies.{Path(previous.class_file_path).stem} import {previous.class_name}"
+            text = re.sub(
+                r"from app\.services\.strategies\.\w+ import \w+",
+                new_import,
+                text,
+            )
+            # Also update the instantiation line
+            text = re.sub(
+                r"strategy\s*=\s*\w+\(\)",
+                f"strategy = {previous.class_name}()",
+                text,
+            )
+            alpaca_runner_path.write_text(text)
 
-
-@router.get("/sessions/{session_id}/chat", response_model=List[ChatMessageResponse])
-def get_chat(
-    session_id: uuid.UUID,
-    db: Session = Depends(get_db),
-):
-    """Retrieve full chat history for a session."""
-    from app.services.strategy_lab_chat import get_chat_history
-    sess = svc_get_session(db, session_id)
-    if sess is None:
-        raise HTTPException(status_code=404, detail="session not found")
-    history = get_chat_history(db, session_id, limit=100)
-    return [ChatMessageResponse(**h) for h in history]
+    db.commit()
+    return {"rolled_back_deployment_id": str(deployment_id), "restored_class_name": previous.class_name if previous else "GoldenCrossStrategy"}
 
 
 # ── Library endpoints ───────────────────────────────────────────────────────

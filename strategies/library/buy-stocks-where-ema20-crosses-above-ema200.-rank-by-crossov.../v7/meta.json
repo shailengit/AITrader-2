@@ -1,0 +1,25 @@
+{
+  "version": 7,
+  "strategy_name": "Buy stocks where EMA20 crosses above EMA200. Rank by crossov...",
+  "prompt": "Buy stocks where EMA20 crosses above EMA200. Rank by crossover angle 60% + market cap 40%. Hold top 5, exit on death cross or 20% trailing stop or 50% take profit. Buy stocks only when the SPY close is above SPY\u2019s SMA200. If not then stay in cash.",
+  "plan": "## Signal\n- **Entry condition**: EMA20 crosses above EMA200 (i.e., previous EMA20 \u2264 previous EMA200 and current EMA20 > current EMA200).\n- **Market filter**: Only take new entries when the daily close of SPY is above its own 200-day simple moving average (SMA200). If SPY \u2264 SMA200, no new positions are opened (stay in cash).\n\n## Entry scoring\n- **Score = 0.6 \u00d7 (normalized crossover angle) + 0.4 \u00d7 (normalized market cap)**\n- **Crossover angle**: Compute the angle (in degrees) of the EMA20 line relative to horizontal over the last 5 bars using the slope (difference in EMA20 values over 5 days) converted to an angle via `atan(slope)`. Normalize to [0,1] by dividing by 90\u00b0 (max possible angle).  \n  *Example*: slope = 0.5 \u2192 angle \u2248 26.6\u00b0 \u2192 normalized = 26.6/90 \u2248 0.295.\n- **Market cap**: Use the current market capitalization of the stock. Normalize to [0,1] by dividing by the maximum market cap among all candidates on that day (or a fixed large cap like $2T).  \n  *Example*: stock cap = $50B, max cap among candidates = $500B \u2192 normalized = 0.1.\n- **Ranking**: Score all stocks that triggered a crossover on that day. Select the top 5 by score. If fewer than 5 candidates, take all.\n\n## Holding re-score\n- **Daily re-score** for each open position:  \n  `Re-score = 0.6 \u00d7 (current EMA20/EMA200 spread) + 0.4 \u00d7 (current market cap normalized)`\n- **Spread**: `(EMA20 - EMA200) / EMA200` (positive while crossover is active). Normalize to [0,1] by dividing by the maximum spread among all holdings (or a fixed cap like 0.1).  \n  *Example*: spread = 0.03, max spread = 0.08 \u2192 normalized = 0.375.\n- **Market cap**: Same normalization as entry, using current market cap.\n- **Purpose**: Re-score is used only for potential replacement logic (see Edge cases) \u2013 not for exit decisions.\n\n## Exits\n- **Priority order** (first condition met triggers exit):\n  1. **Death cross**: EMA20 crosses below EMA200.\n  2. **Trailing stop**: Maximum price since entry drops by 20% from its peak (trailing stop loss).\n  3. **Take profit**: Price reaches 50% above entry price (closing price on entry day).\n- **Note**: Exits are checked daily. Once an exit condition is met, the position is closed at the next day\u2019s open (or close, specify: use close of the day the condition is triggered).\n\n## Parameters\n| Parameter | Value |\n|-----------|-------|\n| `max_holdings` | 5 |\n| `min_hold_days` | 1 (no minimum) |\n| `trailing_stop%` | 20% |\n| `take_profit%` | 50% |\n| `time_stop_days` | None (no time-based exit) |\n| `max_sector_count` | None (no sector cap) |\n| `crossover_angle_lookback` | 5 days |\n| `angle_normalization_max` | 90\u00b0 |\n| `spread_normalization_max` | 0.10 (10% spread) |\n| `market_cap_normalization_max` | $2T (or dynamic max of day) |\n\n## Edge cases\n- **SPY regime filter**: Only applies to **new entries**. If SPY closes below its SMA200, no new positions are opened. Existing positions continue to be held and are subject to normal exit rules. No forced liquidation of existing positions due to SPY condition.\n- **Replacement logic**: If a new candidate has a higher entry score than the lowest\u2011scored existing holding (by re\u2011score), the lowest\u2011scored holding is replaced at the next day\u2019s open. This ensures the portfolio always holds the top 5 stocks by current score.\n- **No\u2011candidate days**: If no stocks trigger a crossover on a given day, no new entries are made. Existing holdings remain.\n- **Sector/industry concentration**: Not enforced, but can be added if desired (e.g., max 2 per sector).\n- **Volatility filter**: Not specified \u2013 none applied.\n- **Data frequency**: All calculations use daily closing prices.\n- **Handling of multiple crossovers on same day**: All stocks that cross are considered candidates; scoring determines which are taken.\n- **Gap risk**: Exits are executed at the next day\u2019s open if the condition is met at the close. For trailing stop, the peak is tracked using daily closes (not intraday).",
+  "created_at": "2026-07-28T12:23:23.400212",
+  "backtest_kpis": {
+    "initial_capital": 100000.0,
+    "final_portfolio": 100000.0,
+    "total_return_pct": 0.0,
+    "cagr_pct": 0.0,
+    "sharpe_ratio": 0.0,
+    "total_trades": 0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "avg_winner": 0.0,
+    "avg_loser": 0.0,
+    "exit_reasons": {},
+    "spy_return_pct": 2.65,
+    "alpha_pct": -2.65
+  },
+  "change_description": "Auto-saved after code generation",
+  "model_id": "deepseek-v4-flash:cloud",
+  "session_id": "b01f2534-dbea-4bd0-9cf1-c33afaa8c339"
+}

@@ -1,41 +1,101 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
-import { Play, Sparkles, RotateCcw, AlertCircle, FileText, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, CheckCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { Play, RotateCcw, AlertCircle, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   strategyLabApi,
-  type StrategySession,
   type ExperimentRow,
-  type BatchStats,
-  type SummarizeResponse,
-  type RefineStrategyResponse,
 } from "../../lib/strategyLab";
-import { ChatPanel } from "../../components/strategy-lab/ChatPanel";
 
 interface StepBacktestProps {
-  session: StrategySession;
+  strategyClassPath: string;
   onWinnerPicked: (experimentId: string) => void;
 }
 
-export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
-  const [nRuns, setNRuns] = useState(10);
-  const [endDate, setEndDate] = useState("2026-06-01");
-  const [startDateMin, setStartDateMin] = useState("2000-01-01");
-  const [startDateMax, setStartDateMax] = useState("2020-01-01");
-  const [batchId, setBatchId] = useState<string | null>(null);
+type WinnerMetric = "bear" | "mean";
+
+function toNum(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
+// BEAR-robust score: BEAR return per unit of drawdown risk. Mirrors the
+// backend's existing sharpe_proxy convention (return / abs(drawdown)) but
+// uses the BEAR-leg return specifically, so strategies that make money
+// during bear regimes win. Falls back to raw BEAR return when drawdown is 0.
+function bearRobustScore(r: ExperimentRow): number {
+  const k = r.kpis || {};
+  const bearRet = toNum(k.bear_return_pct);
+  const dd = Math.abs(toNum(k.max_drawdown_pct));
+  return dd > 0 ? bearRet / dd : bearRet;
+}
+
+// Mean (total-period) Sharpe, from the backend's annualized sharpe_ratio.
+function meanSharpe(r: ExperimentRow): number {
+  return toNum(r.kpis?.sharpe_ratio);
+}
+
+function scoreByMetric(r: ExperimentRow, metric: WinnerMetric): number {
+  return metric === "bear" ? bearRobustScore(r) : meanSharpe(r);
+}
+
+const STORAGE_KEY_BATCH = "strategy_lab_active_batch";
+
+function loadBatchState() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_BATCH);
+    if (!raw) return null;
+    return JSON.parse(raw) as {
+      batchId: string;
+      strategyClassPath: string;
+      nRuns: number;
+      endDate: string;
+      startDateMin: string;
+      startDateMax: string;
+    };
+  } catch { return null; }
+}
+
+function saveBatchState(batchId: string, strategyClassPath: string, nRuns: number, endDate: string, startDateMin: string, startDateMax: string) {
+  sessionStorage.setItem(STORAGE_KEY_BATCH, JSON.stringify({ batchId, strategyClassPath, nRuns, endDate, startDateMin, startDateMax }));
+}
+
+function clearBatchState() {
+  sessionStorage.removeItem(STORAGE_KEY_BATCH);
+}
+
+export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktestProps) {
+  const savedBatch = loadBatchState();
+  const isResumed = savedBatch !== null && savedBatch.strategyClassPath === strategyClassPath;
+
+  const [nRuns, setNRuns] = useState(isResumed ? savedBatch!.nRuns : 10);
+  const [endDate, setEndDate] = useState(isResumed ? savedBatch!.endDate : "2026-06-01");
+  const [startDateMin, setStartDateMin] = useState(isResumed ? savedBatch!.startDateMin : "2000-01-01");
+  const [startDateMax, setStartDateMax] = useState(isResumed ? savedBatch!.startDateMax : "2020-01-01");
+  const [batchId, setBatchId] = useState<string | null>(isResumed ? savedBatch!.batchId : null);
   const [experiments, setExperiments] = useState<ExperimentRow[]>([]);
-  const [stats, setStats] = useState<BatchStats | null>(null);
-  const [progress, setProgress] = useState({ completed: 0, total: 0, failed: 0 });
-  const [summary, setSummary] = useState<SummarizeResponse | null>(null);
-  const [refine, setRefine] = useState<RefineStrategyResponse | null>(null);
-  const [refineInstruction, setRefineInstruction] = useState("");
-  const [refineStep, setRefineStep] = useState<"idle" | "input" | "review" | "done">("idle");
-  const [refineFollowUp, setRefineFollowUp] = useState("");
+  const [progress, setProgress] = useState(isResumed ? { completed: 0, total: savedBatch!.nRuns, failed: 0 } : { completed: 0, total: 0, failed: 0 });
   const [selectedWinner, setSelectedWinner] = useState<string | null>(null);
-  const [applyError, setApplyError] = useState<string | null>(null);
   const [equityExperimentId, setEquityExperimentId] = useState<string | null>(null);
-  // Save the exact start dates from the first batch so refinement reuses them (apples-to-apples)
-  const [previousStartDates, setPreviousStartDates] = useState<string[] | null>(null);
+  const [winnerMetric, setWinnerMetric] = useState<WinnerMetric>("bear");
+  const winnerMetricRef = useRef<WinnerMetric>("bear");
+  const hasAutoPicked = useRef(false);
+
+  useEffect(() => { winnerMetricRef.current = winnerMetric; }, [winnerMetric]);
+
+  const pickBest = (rows: ExperimentRow[], metric: WinnerMetric) => {
+    const completed = rows.filter((r) => r.status === "completed");
+    if (completed.length === 0) return;
+    const best = completed.reduce((a, b) =>
+      scoreByMetric(b, metric) > scoreByMetric(a, metric) ? b : a
+    );
+    setSelectedWinner(best.id);
+    onWinnerPicked(best.id);
+  };
 
   const equityCurve = useQuery({
     queryKey: ["equity-curve", equityExperimentId],
@@ -44,59 +104,20 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
   });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // On mount, load existing experiments so navigating back shows previous results
-  useEffect(() => {
-    let cancelled = false;
-    strategyLabApi.listExperiments(session.id).then((rows) => {
-      if (cancelled || rows.length === 0) return;
-      // Find the most recent batch_id
-      const batchIds = [...new Set(rows.map((r) => r.batch_id))];
-      const latestBatchId = batchIds[0];
-      const batchRows = rows.filter((r) => r.batch_id === latestBatchId);
-      setBatchId(latestBatchId);
-      setExperiments(batchRows);
-      setNRuns(batchRows.length);
-      setProgress({
-        completed: batchRows.filter((r) => r.status === "completed").length,
-        total: batchRows.length,
-        failed: batchRows.filter((r) => r.status === "failed").length,
-      });
-      // Load stats for the latest batch
-      strategyLabApi.getBatchStats(session.id, latestBatchId).then((s) => {
-        if (!cancelled) setStats(s);
-      }).catch(() => {});
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [session.id]);
-
   const start = useMutation({
-    mutationFn: () => {
-      // If we have fixed start dates from a previous batch (e.g. after refinement),
-      // pass them so the new batch runs on the exact same time windows.
-      // This enables apples-to-apples comparison of strategy changes.
-      const body: {
-        n_runs: number; end_date: string;
-        start_date_min?: string; start_date_max?: string;
-        fixed_start_dates?: string[]; model?: string;
-      } = {
-        n_runs: nRuns,
-        end_date: endDate,
-        start_date_min: startDateMin,
-        start_date_max: startDateMax,
-      };
-      if (previousStartDates && previousStartDates.length > 0) {
-        body.fixed_start_dates = previousStartDates;
-      }
-      return strategyLabApi.startExperiments(session.id, body);
-    },
+    mutationFn: () => strategyLabApi.startExperimentsWithClass(strategyClassPath, {
+      n_runs: nRuns,
+      end_date: endDate,
+      start_date_min: startDateMin,
+      start_date_max: startDateMax,
+    }),
     onSuccess: (r) => {
       setBatchId(r.batch_id);
       setExperiments([]);
-      setStats(null);
-      setSummary(null);
-      setRefine(null);
       setSelectedWinner(null);
       setProgress({ completed: 0, total: nRuns, failed: 0 });
+      hasAutoPicked.current = false;
+      saveBatchState(r.batch_id, strategyClassPath, nRuns, endDate, startDateMin, startDateMax);
     },
   });
 
@@ -104,23 +125,18 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
     if (!batchId) return;
     const poll = async () => {
       try {
-        const [rows, s] = await Promise.all([
-          strategyLabApi.listBatchExperiments(session.id, batchId),
-          strategyLabApi.getBatchStats(session.id, batchId),
-        ]);
+        const rows = await strategyLabApi.listBatchExperiments("_", batchId);
         setExperiments(rows);
-        setStats(s);
-        setProgress({ completed: s.n_completed, total: s.n_total, failed: s.n_failed });
-        // Save start dates once the batch completes (for apples-to-apples comparison on refinement)
-        if (s.n_completed + s.n_failed >= nRuns && rows.length > 0) {
-          const dates = rows
-            .filter((r) => r.start_date)
-            .map((r) => r.start_date!.slice(0, 10))
-            .sort((a, b) => (a < b ? -1 : 1));
-          if (dates.length > 0) {
-            setPreviousStartDates(dates);
-          }
+        const completed = rows.filter((r) => r.status === "completed").length;
+        const failed = rows.filter((r) => r.status === "failed").length;
+        setProgress({ completed, total: nRuns, failed });
+        if (completed + failed >= nRuns) {
           if (pollRef.current) clearInterval(pollRef.current);
+          // Auto-select the default winner once the batch completes.
+          if (!hasAutoPicked.current) {
+            hasAutoPicked.current = true;
+            pickBest(rows, winnerMetricRef.current);
+          }
         }
       } catch {
         // ignore transient poll errors
@@ -131,47 +147,7 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [batchId, nRuns, session.id]);
-
-  const summarize = useMutation({
-    mutationFn: () => strategyLabApi.summarizeBatch(session.id, batchId!, { model: session.model_id }),
-    onSuccess: (r) => setSummary(r),
-  });
-
-  const refineMut = useMutation({
-    mutationFn: (instruction: string) =>
-      strategyLabApi.refineAfterBatch(session.id, batchId!, {
-        model: session.model_id,
-        instruction,
-      }),
-    onSuccess: (r) => {
-      setRefine(r);
-      setRefineStep("review");
-    },
-  });
-
-  const apply = useMutation({
-    mutationFn: async (_code: string) => {
-      // Code is already saved by the refine endpoint — this is a no-op
-      // that just updates UI state
-      return;
-    },
-    onSuccess: () => {
-      setApplyError(null);
-    },
-    onError: (e) => {
-      const err = e as { detail?: unknown; message?: string };
-      const d = err.detail;
-      if (typeof d === "object" && d !== null) {
-        const obj = d as { details?: string };
-        setApplyError(obj.details || JSON.stringify(d));
-      } else if (typeof d === "string") {
-        setApplyError(d);
-      } else {
-        setApplyError(err.message || "Apply failed");
-      }
-    },
-  });
+  }, [batchId, nRuns]);
 
   const isRunning = !!batchId && progress.completed + progress.failed < nRuns;
   const isDone = !!batchId && !isRunning;
@@ -180,7 +156,7 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
     <>
       <div className="slab-page-head">
         <div>
-          <div className="slab-eyebrow slab-eyebrow--gold">// 04 · Backtest</div>
+          <div className="slab-eyebrow slab-eyebrow--gold">// 01 · Backtest</div>
           <h1 className="slab-page-head__title">Validate it.</h1>
           <p className="slab-page-head__lede">
             Run randomized as-of-date windows to see how the strategy holds
@@ -188,7 +164,7 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
           </p>
         </div>
         <div className="slab-page-head__meta">
-          <span>Phase · Validate</span>
+          <span>{strategyClassPath.split("/").pop()}</span>
           <span
             className={
               isRunning
@@ -223,6 +199,19 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
 
         {batchId && (
           <>
+            {isResumed && (
+              <div
+                className="slab-panel"
+                style={{ maxWidth: 1280, marginBottom: 16, borderColor: "var(--slab-cyan)" }}
+              >
+                <div style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--slab-cyan)", fontSize: 13 }}>⏺</span>
+                  <span className="slab-mono slab-mono--sm" style={{ color: "var(--slab-cyan)" }}>
+                    Resumed — batch is running in the background
+                  </span>
+                </div>
+              </div>
+            )}
             <LiveTicker
               completed={progress.completed}
               total={progress.total}
@@ -231,7 +220,6 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
               batchId={batchId}
             />
 
-            {/* All-failed banner */}
             {isDone && progress.failed > 0 && progress.completed === 0 && (
               <div
                 className="slab-panel"
@@ -244,9 +232,8 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
                       All {progress.total} experiments failed
                     </div>
                     <p style={{ fontSize: 13, color: "var(--slab-paper-subtle)", lineHeight: 1.5 }}>
-                      Every run returned an error. This usually means the strategy code has a bug —
-                      check the <strong>error messages</strong> in the <strong>Status</strong> column below
-                      for details. Common causes: missing imports, database query errors, or division by zero.
+                      Every run returned an error. Check the error messages in the Status column for details.
+                      Use the terminal to debug the strategy with Claude Code.
                     </p>
                   </div>
                 </div>
@@ -262,10 +249,15 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
                   onWinnerPicked(id);
                 }}
                 onShowEquity={(id) => setEquityExperimentId(id)}
+                winnerMetric={winnerMetric}
+                onChangeMetric={(m) => {
+                  setWinnerMetric(m);
+                  // Re-select the default winner for the newly chosen metric.
+                  pickBest(experiments, m);
+                }}
               />
             )}
 
-            {/* Equity curve chart */}
             {equityCurve.data && equityCurve.data.equity_curve.length > 0 && (
               <div className="slab-panel" style={{ maxWidth: 1280, marginTop: 16 }}>
                 <div className="slab-panel__head">
@@ -285,7 +277,7 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
                   <svg viewBox="0 0 800 240" style={{ width: "100%", height: 240 }}>
                     {(() => {
                       const pts = equityCurve.data.equity_curve;
-                      const values = pts.map((p) => p.value);
+                      const values = pts.map((p: any) => p.value);
                       const min = Math.min(...values);
                       const max = Math.max(...values);
                       const range = max - min || 1;
@@ -293,7 +285,7 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
                       const h = 220;
                       const pad = 10;
                       const path = pts
-                        .map((p, i) => {
+                        .map((p: any, i: number) => {
                           const x = pad + (i / (pts.length - 1)) * (w - 2 * pad);
                           const y = pad + h - ((p.value - min) / range) * (h - 2 * pad);
                           return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
@@ -307,36 +299,17 @@ export function StepBacktest({ session, onWinnerPicked }: StepBacktestProps) {
               </div>
             )}
 
-            {isDone && stats && stats.n_completed > 0 && (
-              <>
-                <PostBatchActions
-                  onSummarize={() => summarize.mutate()}
-                  isSummarizing={summarize.isPending}
-                  onAnotherBatch={() => { setBatchId(null); setPreviousStartDates(null); }}
-                  summary={summary}
-                  refine={refine}
-                  onAcceptRefine={(d) => apply.mutate(d)}
-                  onRejectRefine={() => { setRefine(null); setRefineStep("idle"); }}
-                  isApplying={apply.isPending}
-                  applyError={applyError}
-                  refineInstruction={refineInstruction}
-                  setRefineInstruction={setRefineInstruction}
-                  refineStep={refineStep}
-                  setRefineStep={setRefineStep}
-                  refineFollowUp={refineFollowUp}
-                  setRefineFollowUp={setRefineFollowUp}
-                  onRefineWithInstruction={(instruction) => refineMut.mutate(instruction)}
-                  isRefining={refineMut.isPending}
-                  onReRun={() => {
-                    setBatchId(null);
-                    setTimeout(() => start.mutate(), 100);
-                  }}
-                />
-                <ChatPanel
-                  sessionId={session.id}
-                  defaultModelId={session.model_id}
-                />
-              </>
+            {isDone && (
+              <div style={{ maxWidth: 1280, marginTop: 24, display: "flex", gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => { clearBatchState(); setBatchId(null); }}
+                  className="slab-btn"
+                >
+                  <RotateCcw size={11} />
+                  New batch
+                </button>
+              </div>
             )}
           </>
         )}
@@ -425,7 +398,7 @@ function ConfigForm(props: {
   );
 }
 
-// ── Live ticker — three big numbers + a progress bar ──────────────────
+// ── Live ticker ──────────────────────────────────────────────────────
 function LiveTicker({ completed, total, failed, isRunning, batchId }: {
   completed: number; total: number; failed: number; isRunning: boolean; batchId: string;
 }) {
@@ -465,7 +438,6 @@ function LiveTicker({ completed, total, failed, isRunning, batchId }: {
           </span>
         </div>
       </div>
-      {/* hairline progress bar */}
       <div style={{ height: 2, background: "var(--slab-rule)" }}>
         <motion.div
           animate={{ width: `${pct}%` }}
@@ -481,14 +453,16 @@ function LiveTicker({ completed, total, failed, isRunning, batchId }: {
   );
 }
 
-// ── Experiments table with sorting ────────────────────────────────────
-type SortKey = "run_index" | "start_date" | "total_return_pct" | "alpha_pct" | "win_rate" | "cagr_pct" | "sharpe_ratio" | "total_trades";
+// ── Experiments table ────────────────────────────────────────────────
+type SortKey = "run_index" | "start_date" | "total_return_pct" | "alpha_pct" | "win_rate" | "cagr_pct" | "sharpe_ratio" | "total_trades" | "bull_return_pct" | "bear_return_pct";
 type SortDir = "asc" | "desc";
 
-function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity }: {
+function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity, winnerMetric, onChangeMetric }: {
   rows: ExperimentRow[]; selectedWinner: string | null;
   onPick: (id: string) => void;
   onShowEquity: (id: string) => void;
+  winnerMetric: WinnerMetric;
+  onChangeMetric: (m: WinnerMetric) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("run_index");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -538,6 +512,27 @@ function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity }: {
         <span className="slab-mono slab-mono--xs slab-mono--dim">
           click <span style={{ color: "var(--slab-gold)" }}>pick</span> to mark the winner · click <span style={{ color: "var(--slab-cyan)" }}>chart</span> for equity curve
         </span>
+        <span style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          <span className="slab-mono slab-mono--xs slab-mono--dim" style={{ alignSelf: "center", marginRight: 4 }}>
+            default winner
+          </span>
+          <button
+            type="button"
+            onClick={() => onChangeMetric("bear")}
+            className={`slab-btn slab-btn--xs ${winnerMetric === "bear" ? "slab-btn--primary" : "slab-btn--ghost"}`}
+            title="Pick the run with the best BEAR-robust Sharpe (BEAR return per unit of drawdown)"
+          >
+            BEAR-robust
+          </button>
+          <button
+            type="button"
+            onClick={() => onChangeMetric("mean")}
+            className={`slab-btn slab-btn--xs ${winnerMetric === "mean" ? "slab-btn--primary" : "slab-btn--ghost"}`}
+            title="Pick the run with the best mean (total-period) Sharpe"
+          >
+            Mean Sharpe
+          </button>
+        </span>
       </div>
       <div style={{ maxHeight: 480, overflow: "auto" }}>
         <table className="slab-table">
@@ -555,6 +550,8 @@ function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity }: {
               <Th columnKey="cagr_pct">CAGR%</Th>
               <Th columnKey="total_trades">Trades</Th>
               <Th columnKey="sharpe_ratio">Sharpe</Th>
+              <Th columnKey="bull_return_pct">BULL%</Th>
+              <Th columnKey="bear_return_pct">BEAR%</Th>
               <th>Status</th>
               <th></th>
               <th></th>
@@ -594,6 +591,18 @@ function ExperimentRowView({ row, isSelected, onPick, onShowEquity }: {
       <td className="slab-table__num">{k?.cagr_pct != null ? `${k.cagr_pct.toFixed(1)}%` : "—"}</td>
       <td className="slab-table__num">{k?.total_trades ?? "—"}</td>
       <td className="slab-table__num">{k?.sharpe_ratio != null ? k.sharpe_ratio.toFixed(2) : "—"}</td>
+      <td
+        className="slab-table__num"
+        style={{ color: k?.bull_return_pct != null && k.bull_return_pct >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}
+      >
+        {k?.bull_return_pct != null ? `${k.bull_return_pct >= 0 ? "+" : ""}${k.bull_return_pct.toFixed(1)}%` : "—"}
+      </td>
+      <td
+        className="slab-table__num"
+        style={{ color: k?.bear_return_pct != null && k.bear_return_pct >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}
+      >
+        {k?.bear_return_pct != null ? `${k.bear_return_pct >= 0 ? "+" : ""}${k.bear_return_pct.toFixed(1)}%` : "—"}
+      </td>
       <td>
         {row.status === "completed" ? (
           <span className="slab-tag slab-tag--terminal">OK</span>
@@ -632,312 +641,5 @@ function ExperimentRowView({ row, isSelected, onPick, onShowEquity }: {
         )}
       </td>
     </tr>
-  );
-}
-
-// ── Post-batch actions ────────────────────────────────────────────────
-function PostBatchActions(props: {
-  onSummarize: () => void; isSummarizing: boolean;
-  onAnotherBatch: () => void;
-  summary: SummarizeResponse | null;
-  refine: RefineStrategyResponse | null;
-  onAcceptRefine: (code: string) => void; onRejectRefine: () => void;
-  isApplying: boolean;
-  applyError: string | null;
-  refineInstruction: string;
-  setRefineInstruction: (v: string) => void;
-  refineStep: "idle" | "input" | "review" | "done";
-  setRefineStep: (v: "idle" | "input" | "review" | "done") => void;
-  refineFollowUp: string;
-  setRefineFollowUp: (v: string) => void;
-  onRefineWithInstruction: (instruction: string) => void;
-  isRefining: boolean;
-  onReRun: () => void;
-}) {
-  return (
-    <div style={{ maxWidth: 1280, marginTop: 32, display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <span className="slab-eyebrow">// After batch</span>
-        <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          onClick={props.onSummarize}
-          disabled={props.isSummarizing}
-          className="slab-btn"
-        >
-          <Sparkles size={11} />
-          {props.isSummarizing ? "Analyzing…" : "AI summary"}
-        </button>
-        <button
-          type="button"
-          onClick={() => props.setRefineStep("input")}
-          disabled={props.refineStep === "review" || props.refineStep === "done"}
-          className="slab-btn"
-        >
-          <Sparkles size={11} />
-          Refine strategy
-        </button>
-        <button
-          type="button"
-          onClick={props.onAnotherBatch}
-          className="slab-btn slab-btn--ghost"
-        >
-          <RotateCcw size={11} />
-          New batch
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {props.summary && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="slab-panel"
-          >
-            <div className="slab-panel__head">
-              <span className="slab-eyebrow slab-eyebrow--gold">
-                <FileText size={11} style={{ verticalAlign: "middle", marginRight: 6 }} />
-                AI summary
-              </span>
-              <span className="slab-mono slab-mono--xs slab-mono--dim">3 paragraphs</span>
-            </div>
-            <div className="slab-panel__body">
-              <p className="slab-prose" style={{ whiteSpace: "pre-wrap" }}>
-                {props.summary.summary_text}
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Step 1: Pre-refine input */}
-        {props.refineStep === "input" && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="slab-panel"
-          >
-            <div className="slab-panel__head">
-              <span className="slab-eyebrow slab-eyebrow--gold">// Refine strategy</span>
-              <span className="slab-mono slab-mono--xs slab-mono--dim">tell the AI what to focus on</span>
-            </div>
-            <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <textarea
-                value={props.refineInstruction}
-                onChange={(e) => props.setRefineInstruction(e.target.value)}
-                rows={3}
-                placeholder="e.g. reduce max drawdown, focus on improving Sharpe ratio, or leave empty for AI to decide"
-                className="slab-textarea"
-              />
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => props.onRefineWithInstruction(props.refineInstruction)}
-                  disabled={props.isRefining}
-                  className="slab-btn slab-btn--primary"
-                >
-                  {props.isRefining ? "Generating changes…" : "Generate changes"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.setRefineStep("idle")}
-                  className="slab-btn slab-btn--ghost"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Step 2: Review panel */}
-        {props.refine && props.refineStep === "review" && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="slab-panel"
-          >
-            <div className="slab-panel__head">
-              <span className="slab-eyebrow slab-eyebrow--gold">// AI suggested changes</span>
-              <span className="slab-mono slab-mono--xs slab-mono--dim">
-                {props.refine.validation_status === "passed" ? "✓ validated" : props.refine.validation_status === "partial" ? "⚠ partial" : "✗ failed"}
-              </span>
-            </div>
-            <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {/* Rationale */}
-              {props.refine.rationale && (
-                <p className="slab-prose" style={{ whiteSpace: "pre-wrap" }}>{props.refine.rationale}</p>
-              )}
-
-              {/* KPI Comparison Table */}
-              {props.refine.before_kpis && props.refine.after_kpis && Object.keys(props.refine.before_kpis).length > 0 && (
-                <div style={{ overflowX: "auto" }}>
-                  <table className="slab-table" style={{ minWidth: 400 }}>
-                    <thead>
-                      <tr>
-                        <th>Metric</th>
-                        <th className="slab-table__num">Before</th>
-                        <th className="slab-table__num">After</th>
-                        <th className="slab-table__num">Δ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {["total_return_pct", "sharpe_ratio", "max_drawdown_pct", "win_rate", "total_trades"].map((key) => {
-                        const before = props.refine!.before_kpis[key];
-                        const after = props.refine!.after_kpis[key];
-                        if (before == null && after == null) return null;
-                        const b = typeof before === "number" ? before : 0;
-                        const a = typeof after === "number" ? after : 0;
-                        const delta = a - b;
-                        const isPct = key.includes("_pct") || key === "win_rate";
-                        const fmt = (v: number) => isPct ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : v.toFixed(2);
-                        const label = key.replace(/_pct$/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-                        return (
-                          <tr key={key}>
-                            <td>{label}</td>
-                            <td className="slab-table__num">{fmt(b)}</td>
-                            <td className="slab-table__num" style={{ color: a >= b ? "var(--slab-terminal)" : "var(--slab-rose)" }}>{fmt(a)}</td>
-                            <td className="slab-table__num" style={{ color: delta >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}>
-                              {delta >= 0 ? "+" : ""}{fmt(delta)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Change summary */}
-              {props.refine.summary && (
-                <div style={{ padding: "10px 14px", background: "var(--slab-terminal-glow)", borderRadius: 6 }}>
-                  <span className="slab-mono slab-mono--sm" style={{ color: "var(--slab-terminal)" }}>
-                    {props.refine.summary}
-                  </span>
-                </div>
-              )}
-
-              {/* Validation log */}
-              {props.refine.validation_log.length > 0 && (
-                <div>
-                  {props.refine.validation_log.map((entry, i) => (
-                    <div key={i} className="slab-mono slab-mono--xs" style={{
-                      color: entry.includes("FAILED") ? "var(--slab-rose)" : "var(--slab-paper-faint)",
-                      padding: "2px 0",
-                    }}>
-                      {entry}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Follow-up input */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="text"
-                  value={props.refineFollowUp}
-                  onChange={(e) => props.setRefineFollowUp(e.target.value)}
-                  placeholder="Follow-up: make the trailing stop tighter..."
-                  className="slab-input"
-                  style={{ flex: 1, fontSize: 13 }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && props.refineFollowUp.trim()) {
-                      props.onRefineWithInstruction(props.refineFollowUp);
-                      props.setRefineFollowUp("");
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    props.onRefineWithInstruction(props.refineFollowUp);
-                    props.setRefineFollowUp("");
-                  }}
-                  disabled={!props.refineFollowUp.trim() || props.isRefining}
-                  className="slab-btn slab-btn--sm"
-                >
-                  Refine
-                </button>
-              </div>
-
-              {/* Accept / Reject */}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    props.onAcceptRefine(props.refine!.code);
-                    props.setRefineStep("done");
-                  }}
-                  disabled={props.isApplying}
-                  className="slab-btn slab-btn--primary"
-                >
-                  {props.isApplying ? "Applying…" : "Accept & Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    props.onRejectRefine();
-                    props.setRefineStep("idle");
-                  }}
-                  className="slab-btn slab-btn--ghost"
-                >
-                  Reject
-                </button>
-              </div>
-
-              {props.applyError && (
-                <div className="slab-mono slab-mono--sm slab-mono--rose" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <AlertCircle size={12} />
-                  {props.applyError}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Step 3: Done — change applied */}
-        {props.refineStep === "done" && props.refine && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="slab-panel"
-          >
-            <div className="slab-panel__head">
-              <span className="slab-eyebrow slab-eyebrow--gold">// Change applied</span>
-            </div>
-            <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <CheckCircle size={16} style={{ color: "var(--slab-terminal)" }} />
-                <span className="slab-mono slab-mono--sm" style={{ color: "var(--slab-terminal)" }}>
-                  {props.refine.version
-                    ? `Change applied and saved as "${props.refine.version.strategy_name}"`
-                    : "Change applied"}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={props.onReRun}
-                  className="slab-btn slab-btn--terminal"
-                >
-                  <RotateCcw size={11} />
-                  Re-run with same dates
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.setRefineStep("idle")}
-                  className="slab-btn slab-btn--ghost"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }

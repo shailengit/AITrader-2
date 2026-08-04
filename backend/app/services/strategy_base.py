@@ -24,6 +24,8 @@ class Signal:
     price: float = 0.0
     entry_date: str = ""        # YYYY-MM-DD
     entry_type: str = ""         # Strategy-specific label (e.g. "A" or "B")
+    market_cap: float = 0.0
+    sector: str = "Unknown"
 
 
 @dataclass
@@ -31,6 +33,32 @@ class ExitCheck:
     """Result of checking whether a position should be closed."""
     should_close: bool = False
     reason: str = ""
+
+
+@dataclass
+class RotationConfig:
+    """Configuration for rotation-based strategies.
+
+    Controls how the adapter runs the daily simulation loop.
+    Each strategy can override these to match its specific rules.
+    """
+    sizing_method: str = "linear"            # "linear" or "score_squared"
+    hard_stop_loss: float = 0.0              # 0 = disabled
+    trailing_stop: float = 0.20
+    take_profit: float = 0.30
+    time_stop_days: int = 60
+    min_hold_days: int = 7
+    max_sector_count: int = 2
+    re_score_holdings: bool = False          # Re-score existing holdings each day
+    bear_exposure: float = 1.0              # Position size multiplier in bear market (1.0 = no reduction)
+    exit_priority: List[str] = field(       # Order of exit checks
+        default_factory=lambda: [
+            "strategy_exit",     # should_exit() — death cross, etc.
+            "take_profit",       # ret >= take_profit
+            "trailing_stop",     # drawdown >= trailing_stop
+            "time_stop",         # hold_days >= time_stop_days
+        ]
+    )
 
 
 class Strategy(ABC):
@@ -41,6 +69,11 @@ class Strategy(ABC):
     2. When should I exit a position? (should_exit)
 
     The runner handles all execution, risk management, and Alpaca integration.
+
+    For efficient backtesting, strategies can optionally implement
+    precompute_signals() which is called once before the daily simulation
+    loop. The adapter will use the cached results instead of calling
+    get_signals() on every trading day.
     """
 
     @abstractmethod
@@ -89,6 +122,65 @@ class Strategy(ABC):
     def sizing_pcts(self) -> List[float]:
         """Position sizing percentages, largest first. Must sum to 1.0."""
         ...
+
+    def precompute_signals(self, all_dates: List[str], engine: Engine) -> Optional[Dict[str, List[Signal]]]:
+        """Precompute signals for all dates in the simulation.
+
+        Override this to provide a signal cache for efficient backtesting.
+        The default implementation returns None, which means the adapter
+        will call get_signals() on each trading day.
+
+        Args:
+            all_dates: List of trading dates (YYYY-MM-DD) in the simulation
+            engine: SQLAlchemy database engine
+
+        Returns:
+            Dict mapping date_str -> List[Signal], or None to fall back
+            to per-day get_signals() calls.
+        """
+        return None
+
+    def get_precomputed_price_cache(self) -> Optional[Dict[str, Dict[str, float]]]:
+        """Return a price cache populated by precompute_signals().
+
+        When precompute_signals() loads ticker data, it can optionally
+        store a price cache here so the adapter doesn't need to load
+        prices a second time.
+
+        Returns:
+            Dict mapping ticker_lower -> {date_str -> close_price}, or None.
+        """
+        return None
+
+    def get_rotation_config(self) -> RotationConfig:
+        """Return the rotation/risk configuration for this strategy.
+
+        The adapter reads this to determine exit priority, sizing method,
+        stop levels, and rotation behavior. Override to customize.
+        """
+        return RotationConfig()
+
+    def score_holding(self, ticker: str, as_of_date: str, engine: Engine,
+                      entry_price: float, market_cap: float, sector: str,
+                      side: str = "long") -> float:
+        """Re-score an existing holding during daily rotation.
+
+        Called when re_score_holdings is True in RotationConfig.
+        Return 0.0 to keep the original entry score.
+
+        Args:
+            ticker: Stock symbol
+            as_of_date: Current trading date
+            engine: SQLAlchemy database engine
+            entry_price: Price at entry
+            market_cap: Market cap at entry
+            sector: Sector at entry
+            side: "long" or "short"
+
+        Returns:
+            Current score for this holding (0.0 = keep original).
+        """
+        return 0.0
 
 
 # ── Shared DB Utilities ──────────────────────────────────────────────
