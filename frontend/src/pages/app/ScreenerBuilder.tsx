@@ -86,10 +86,20 @@ function createEmptyCondition(): FilterCondition {
 
 function convertFiltersToBackend(filters: FilterGroup): Record<string, any> {
   const indicatorFilters: Record<string, any>[] = [];
+  let regimeValue: string | undefined;
 
   for (const cond of filters.conditions) {
     const spec = getFilterByKey(cond.filterKey);
     if (!spec) continue;
+
+    // Sector Regime — emitted as a top-level `regime` key (not an indicator
+    // filter). Consumed by apply_quant_filters in parsers.py.
+    if (spec.key === 'regime') {
+      if (typeof cond.value === 'string' && cond.value.trim()) {
+        regimeValue = cond.value.trim();
+      }
+      continue;
+    }
 
     // Translate frontend catalog `key` → backend column name produced by
     // `add_all_ta_features` (e.g. `sma_50` → `trend_sma_slow`, `rsi` → `momentum_rsi`).
@@ -184,6 +194,7 @@ function convertFiltersToBackend(filters: FilterGroup): Record<string, any> {
 
   return {
     indicator_filters: indicatorFilters,
+    ...(regimeValue ? { regime: regimeValue } : {}),
     sort_by: 'score',
     sort_order: 'desc',
     max_results: 50,
@@ -1630,13 +1641,23 @@ export default function ScreenerBuilder() {
             const customFilter = customFilters.find((f: FilterSpec) => f.key === filterKey);
             const spec = customFilter || getFilterByKey(filterKey);
             if (spec) {
+              // Categorical filters with fixed `options` (e.g. Sector Regime
+              // BULL/BEAR) default to `eq` against their first option so a
+              // freshly added row carries a persisted value.
+              const hasOptions = spec.type === 'categorical' && (spec.options?.length ?? 0) > 0;
               last.operator =
                 spec.type === 'number'
                   ? 'gte'
                   : spec.type === 'cross'
                     ? 'crossed_above'
-                    : 'is_true';
-              last.value = spec.type === 'number' ? 0 : spec.type === 'boolean' ? true : null;
+                    : hasOptions
+                      ? 'eq'
+                      : 'is_true';
+              last.value =
+                spec.type === 'number' ? 0
+                  : spec.type === 'boolean' ? true
+                  : hasOptions ? spec.options![0].value
+                  : null;
             }
             conditions[conditions.length - 1] = last;
             return { ...prev, conditions };

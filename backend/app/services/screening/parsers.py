@@ -293,12 +293,14 @@ def apply_quant_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFra
     if regime_target is not None and "ticker" in df.columns:
         # Imported lazily: the Markov modules pull in statsmodels/arch which are
         # heavy and irrelevant for scans that don't use the regime filter.
-        from app.services.markov.regime_model import SectorRegimeManager
+        from app.services.markov.regime_model import get_shared_regime_manager
         from app.services.data_service import DataService
 
         target = str(regime_target).strip().upper()  # normalize 'bull'/'BEAR'
         if target in ("BULL", "BEAR"):
-            rm = SectorRegimeManager()
+            # Evaluate against the process-wide trained manager (the same one
+            # the markov router trains via train_all), not a fresh empty one.
+            rm = get_shared_regime_manager()
             keep = []
             for ticker in df["ticker"]:
                 meta = DataService.get_ticker_metadata(ticker)

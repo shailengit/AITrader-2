@@ -5,6 +5,7 @@ Two-state model with jump penalty lambda to prevent chattering.
 GJR-GARCH with Student-t for volatility overlay.
 """
 import logging
+import threading
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -297,3 +298,20 @@ class SectorRegimeManager:
         if etf_ticker is None:
             etf_ticker = sector.upper()
         return self.get_regime(etf_ticker, date)
+
+
+# Lazily-initialized process-wide manager so the screener's regime filter and
+# the markov router evaluate against the SAME trained regime state. `train_all`
+# (called by the router on retrain) populates this instance's `models`.
+_shared_regime_manager: Optional["SectorRegimeManager"] = None
+_shared_regime_manager_lock = threading.Lock()
+
+
+def get_shared_regime_manager() -> "SectorRegimeManager":
+    """Return the process-wide trained SectorRegimeManager (lazy singleton)."""
+    global _shared_regime_manager
+    if _shared_regime_manager is None:
+        with _shared_regime_manager_lock:
+            if _shared_regime_manager is None:
+                _shared_regime_manager = SectorRegimeManager()
+    return _shared_regime_manager
