@@ -76,7 +76,7 @@ const tools = [
   },
 ]
 
-export default function Landing() {
+export default function Welcome() {
   const { isDarkMode } = useTheme()
 
   const colors = {
