@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.models.strategy_lab import StrategySession
+from app.services.deployments_registry import deploy_strategy as registry_deploy
 from app.services.strategy_lab_models import list_ollama_models
 from app.services.strategy_lab_session import (
     create_session as svc_create_session,
@@ -592,26 +593,16 @@ def deploy(
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to load strategy: {e}")
 
-    # Update alpaca_runner.py to use the new class
+    # Register the deployment in the deployments registry (replaces the
+    # alpaca_runner.py file-rewrite path). The stored strategy_path is the
+    # absolute path, loadable by _load_active_strategy_class.
     class_name = strategy_class.__name__
-    alpaca_runner_path = repo_root / "backend" / "app" / "services" / "alpaca_runner.py"
-    if alpaca_runner_path.exists():
-        text = alpaca_runner_path.read_text()
-        import re
-        # Replace the import line
-        new_import = f"from app.services.strategies.{full_path.stem} import {class_name}"
-        text = re.sub(
-            r"from app\.services\.strategies\.\w+ import \w+",
-            new_import,
-            text,
-        )
-        # Replace the instantiation line too (was always GoldenCrossStrategy)
-        text = re.sub(
-            r"strategy\s*=\s*\w+\(\)",
-            f"strategy = {class_name}()",
-            text,
-        )
-        alpaca_runner_path.write_text(text)
+    registry_deploy(
+        strategy_path=str(full_path),
+        params={},
+        metrics_snapshot={},
+        db=db,
+    )
 
     # Record deployment
     from app.models.strategy_lab import StrategyDeployment

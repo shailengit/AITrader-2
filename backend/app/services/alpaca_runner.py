@@ -277,16 +277,53 @@ class StrategyRunner:
         return result
 
 
+def _load_active_strategy_class() -> Strategy:
+    """Load the active strategy from the deployments registry.
+
+    Falls back to the default Golden Cross strategy when the registry has no
+    active deployment, so the production cron keeps working.
+    """
+    from importlib.util import spec_from_file_location, module_from_spec
+
+    from app.services.deployments_registry import get_active_deployment
+    from app.db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        d = get_active_deployment(db)
+        if d is None:
+            from app.services.strategies.golden_cross_rotation_v2 import GoldenCrossRotationV2
+            return GoldenCrossRotationV2()
+
+        path = d.strategy_path
+        spec = spec_from_file_location("active_strategy", path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not create import spec for {path}")
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        # Find the Strategy subclass exported by the file
+        cls = None
+        for name in dir(mod):
+            obj = getattr(mod, name)
+            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
+                cls = obj
+                break
+        if cls is None:
+            raise ImportError(f"No Strategy subclass found in {path}")
+        return cls()
+    finally:
+        db.close()
+
+
 def main():
-    """Entry point — runs the default Golden Cross strategy."""
+    """Entry point — runs the active strategy (default Golden Cross if none deployed)."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
 
-    from app.services.strategies.golden_cross_rotation_v2 import GoldenCrossRotationV2
-
-    strategy = GoldenCrossRotationV2()
+    strategy = _load_active_strategy_class()
     runner = StrategyRunner(strategy)
     result = runner.run_daily()
 
