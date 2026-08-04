@@ -14,15 +14,16 @@ def _cleanup_hypotheses():
     rows that were created during it, so the suite stays idempotent and never
     removes production data.
     """
-    from app.db.database import SessionLocal, engine
-    from sqlalchemy import text
+    from app.db.database import engine
+    from sqlalchemy import text, bindparam
     with engine.connect() as conn:
         pre_ids = {row[0] for row in conn.execute(text("SELECT id FROM hypotheses"))}
     yield
     with engine.begin() as conn:
         if pre_ids:
             conn.execute(
-                text("DELETE FROM hypotheses WHERE id NOT IN :pre_ids"),
+                text("DELETE FROM hypotheses WHERE id NOT IN :pre_ids")
+                .bindparams(bindparam("pre_ids", expanding=True)),
                 {"pre_ids": list(pre_ids)},
             )
         else:
