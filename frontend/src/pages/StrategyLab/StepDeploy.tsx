@@ -88,7 +88,7 @@ export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: Step
               <div>
                 <div className="slab-eyebrow">Side effects</div>
                 <div className="slab-mono slab-mono--md slab-mono--dim" style={{ marginTop: 4 }}>
-                  updates alpaca_runner.py import
+                  records the deployment in the deployments registry
                 </div>
               </div>
             </div>
@@ -318,8 +318,8 @@ function ConfirmModal({
         </div>
         <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <p className="slab-prose">
-            This will update <span className="slab-mono">alpaca_runner.py</span> to
-            import <span className="slab-mono" style={{ color: "var(--slab-gold)" }}>{strategyName}</span>.
+            This will record <span className="slab-mono" style={{ color: "var(--slab-gold)" }}>{strategyName}</span> in
+            the deployments registry as the active strategy for paper trading.
             Any active deployment will be deactivated.
           </p>
           <div
