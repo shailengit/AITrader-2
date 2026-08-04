@@ -26,6 +26,7 @@ import { ProgressMetric } from '../components/ui/Metric'
 import { useTheme } from '../context/ThemeContext'
 import { recordAppReferrer } from '../components/layout/Layout'
 import { CandleStickChart } from '../components/quantgen/CandleStickChart'
+import { SaveHypothesisPopover } from '../components/shared/SaveHypothesisPopover'
 
 interface Sector {
   ticker: string
@@ -491,7 +492,15 @@ export default function SectorRotation() {
                       >
                         {index + 1}
                       </div>
-                      {isSelected && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                      <div className="flex items-center gap-2">
+                        {isSelected && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                        <SaveHypothesisPopover
+                          source="sectors"
+                          ticker={sector.ticker}
+                          sector={sector.name}
+                          sourceMeta={{ page: 'sectors', tile: sector.ticker, perf_3m: sector.perf_3m }}
+                        />
+                      </div>
                     </div>
 
                     <h3 className="text-2xl font-bold mb-1 tracking-tight" style={{ color: colors.text }}>{sector.ticker}</h3>
