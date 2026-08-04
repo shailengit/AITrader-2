@@ -76,11 +76,20 @@ export default function FilterRow({
   const handleFilterSelect = (filterKey: string) => {
     const spec = getFilterByKey(filterKey);
     if (!spec) return;
+    const hasOptions = spec.type === 'categorical' && (spec.options?.length ?? 0) > 0;
     onChange({
       ...condition,
       filterKey,
-      operator: spec.type === 'number' ? 'gte' : spec.type === 'cross' ? 'crossed_above' : 'is_true',
-      value: spec.type === 'number' ? 0 : spec.type === 'boolean' ? true : null,
+      operator:
+        spec.type === 'number' ? 'gte'
+          : spec.type === 'cross' ? 'crossed_above'
+          : hasOptions ? 'eq'
+          : 'is_true',
+      value:
+        spec.type === 'number' ? 0
+          : spec.type === 'boolean' ? true
+          : hasOptions ? spec.options![0].value
+          : null,
       referenceFilterKey: undefined,
       lookbackDays: undefined,
       compareToIndicator: false,
@@ -401,6 +410,25 @@ export default function FilterRow({
         );
 
       case 'categorical':
+        // Categorical filters that declare fixed `options` (e.g. Sector Regime
+        // BULL/BEAR) render a dropdown storing the selection in condition.value.
+        // Filters without options (e.g. legacy `sector`) fall back to the text
+        // placeholder — they have no value-editing UI.
+        if (filterSpec.options && filterSpec.options.length > 0) {
+          return (
+            <select
+              value={String(condition.value ?? filterSpec.options[0].value)}
+              onChange={(e) => onChange({ ...condition, value: e.target.value })}
+              style={selectStyle(colors)}
+            >
+              {filterSpec.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          );
+        }
         return (
           <span style={{ fontSize: 12, color: colors.muted, fontStyle: 'italic' }}>
             Categorical filter

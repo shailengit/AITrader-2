@@ -288,6 +288,30 @@ def apply_quant_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFra
             if max_val is not None:
                 df = df[df[col] <= max_val]
 
+    # Sector regime (BULL/BEAR) — filter by Markov sector-ETF regime.
+    regime_target = filters.get("regime")
+    if regime_target is not None and "ticker" in df.columns:
+        # Imported lazily: the Markov modules pull in statsmodels/arch which are
+        # heavy and irrelevant for scans that don't use the regime filter.
+        from app.services.markov.regime_model import SectorRegimeManager
+        from app.services.data_service import DataService
+
+        target = str(regime_target).strip().upper()  # normalize 'bull'/'BEAR'
+        if target in ("BULL", "BEAR"):
+            rm = SectorRegimeManager()
+            keep = []
+            for ticker in df["ticker"]:
+                meta = DataService.get_ticker_metadata(ticker)
+                if not meta or not meta.get("sector"):
+                    continue
+                # as_of_date is not available here; the manager evaluates at its
+                # current (most recently trained) state, matching how the rest of
+                # the platform consumes regime state.
+                regime = rm.get_ticker_regime(ticker, meta["sector"], date=None)
+                if regime.get("regime") == target:
+                    keep.append(ticker)
+            df = df[df["ticker"].isin(keep)]
+
     # Sort (limit removed — scoring will rank and cap downstream)
     sort_by = filters.get("sort_by", "ticker")
     sort_order = filters.get("sort_order", "asc")
