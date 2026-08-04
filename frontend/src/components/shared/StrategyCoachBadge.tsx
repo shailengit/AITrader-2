@@ -30,10 +30,14 @@ export function StrategyCoachBadge({ strategyPath }: { strategyPath: string }) {
     ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(16,185,129,.15)', color: '#10B981', fontSize: 11, fontWeight: 600 }}>DEPLOYED</span>
     : <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,.05)', color: 'inherit', fontSize: 11, opacity: .7 }}>BACKTESTED</span>;
 
+  // live_pnl / regime attribution total_pnl are DOLLARS (JournalTrade.pnl is
+  // Numeric $). backtested.total_return is a fractional return (1.0 = 100%).
+  // Keep each in its native unit rather than mislabeling dollars as percents.
   const displayPnl = s.is_deployed ? (s.live_pnl ?? 0) : (s.backtested?.total_return ?? 0);
   const pnlColor = displayPnl >= 0 ? '#10B981' : '#EF4444';
+  const fmtDollars = (v: number) => `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const pnlText = s.is_deployed
-    ? `${s.live_pnl >= 0 ? '+' : ''}${(s.live_pnl * 100).toFixed(1)}% live`
+    ? `${s.live_pnl >= 0 ? '+' : ''}${fmtDollars(s.live_pnl ?? 0)} live`
     : s.backtested?.total_return != null
       ? `${s.backtested.total_return >= 0 ? '+' : ''}${(s.backtested.total_return * 100).toFixed(1)}% backtested`
       : 'no data';
@@ -58,7 +62,7 @@ export function StrategyCoachBadge({ strategyPath }: { strategyPath: string }) {
               {Object.entries(s.regime_attribution).map(([regime, agg]) => (
                 <div key={regime} style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>{regime}</span>
-                  <span>{agg.n_trades} trades · {(agg.win_rate * 100).toFixed(0)}% win · {(agg.total_pnl * 100).toFixed(1)}% P&L</span>
+                  <span>{agg.n_trades} trades · {(agg.win_rate * 100).toFixed(0)}% win · {fmtDollars(agg.total_pnl)} P&L</span>
                 </div>
               ))}
             </div>
