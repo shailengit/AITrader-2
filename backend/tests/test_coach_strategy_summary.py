@@ -21,14 +21,17 @@ def test_summary_for_unknown_strategy_returns_backtested_fallback():
 
 def test_summary_for_deployed_strategy_returns_live_data(db_session):
     """End-to-end: seed an active deployment + journal strategy + a winning fill,
-    then assert the summary surfaces live data (not the backtested fallback)."""
-    from app.models.deployment import Deployment, DeploymentStatus
+    then assert the summary surfaces live data (not the backtested fallback).
 
+    The deployment is stored under an ABSOLUTE path (as Task 1.3's deploy
+    endpoint writes it) while the endpoint is called with a RELATIVE path, to
+    cover the path-mismatch bug in aggregate_strategy_summary."""
     strategy_path = "strategies/_test_dummy.py"
+    abs_path = "/abs/path/to/strategies/_test_dummy.py"
     stem = "_test_dummy"
 
-    # 1. Active deployment for this strategy path.
-    deploy_strategy(strategy_path=strategy_path, params={}, metrics_snapshot={}, db=db_session)
+    # 1. Active deployment for this strategy path (stored absolute).
+    deploy_strategy(strategy_path=abs_path, params={}, metrics_snapshot={}, db=db_session)
 
     # 2. JournalStrategy keyed by file stem (matches the endpoint's mapping).
     strategy = JournalStrategy(kind="quantgen", name=stem, params={})

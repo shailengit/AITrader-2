@@ -1,13 +1,21 @@
 from typing import Dict, Any
+from pathlib import Path
+
 from sqlalchemy.orm import Session
 
 from app.services.deployments_registry import get_active_deployment
 from app.services.coach.journal import list_fills_for_strategy, list_runs_for_strategy
 
 
+def _path_stem(p: str) -> str:
+    return Path(p).stem
+
+
 def aggregate_strategy_summary(strategy_path: str, db: Session) -> Dict[str, Any]:
     active = get_active_deployment(db)
-    is_deployed_this = active is not None and active.strategy_path == strategy_path
+    # The deployments registry stores an ABSOLUTE path while the coach endpoint
+    # is called with a RELATIVE path; compare on the strategy file stem.
+    is_deployed_this = active is not None and _path_stem(active.strategy_path) == _path_stem(strategy_path)
 
     fills = list_fills_for_strategy(strategy_path, db=db) if is_deployed_this else []
     runs = list_runs_for_strategy(strategy_path, db=db)
