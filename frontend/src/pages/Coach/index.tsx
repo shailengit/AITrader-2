@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '../../components/ui/Card';
 import { KPICards } from './KPICards';
@@ -15,9 +16,15 @@ export default function CoachIndex() {
   const [latest, setLatest] = useState<ReportDetail | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
+  // The Command Center links here with ?strategy=<strategy_path>. It is a file
+  // path (e.g. "strategies/<file>.py"), not a UUID. The overview endpoint only
+  // filters by a UUID strategy_id, so we reflect the filter in the query key /
+  // header chip but cannot pass the path through without a 422. See task report.
+  const strategyFilter = searchParams.get('strategy');
 
   const overview = useQuery({
-    queryKey: ['coach-overview', range],
+    queryKey: ['coach-overview', range, strategyFilter],
     queryFn: () => coachApi.overview({ period_start: range.start, period_end: range.end }),
   });
 
@@ -61,7 +68,15 @@ export default function CoachIndex() {
   return (
     <div className="mx-auto max-w-[1280px] space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-100">Trade Coach</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold text-zinc-100">Trade Coach</h1>
+          {strategyFilter && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'rgba(16,185,129,.1)' }}>
+              <span style={{ fontSize: 12 }}>Strategy: {strategyFilter}</span>
+              <Link to="/coach" style={{ fontSize: 12, opacity: .7, textDecoration: 'none' }} title="Clear strategy filter">×</Link>
+            </div>
+          )}
+        </div>
         <DateRangePicker value={range} onChange={setRange} />
       </div>
 
