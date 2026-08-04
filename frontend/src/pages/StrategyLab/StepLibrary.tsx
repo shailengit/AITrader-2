@@ -5,6 +5,7 @@ import {
   ArrowUp, ArrowDown, CheckCircle, XCircle, Play, Trash2,
 } from "lucide-react";
 import { strategyLabApi } from "../../lib/strategyLab";
+import { StrategyCoachBadge } from "../../components/shared/StrategyCoachBadge";
 
 interface StrategyClassItem {
   name: string;
@@ -242,6 +243,7 @@ function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
                 {entry.description}
               </div>
             )}
+            <StrategyCoachBadge strategyPath={(entry.path.split("/services/")[1] ?? entry.path)} />
           </div>
         </div>
       </td>
