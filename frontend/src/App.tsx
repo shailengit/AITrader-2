@@ -22,17 +22,17 @@ function App() {
     <QueryProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={
-            <ErrorBoundary>
-              <CommandCenter />
-            </ErrorBoundary>
-          } />
-          <Route path="welcome" element={
-            <ErrorBoundary>
-              <Welcome />
-            </ErrorBoundary>
-          } />
           <Route element={<Layout />}>
+            <Route path="/" element={
+              <ErrorBoundary>
+                <CommandCenter />
+              </ErrorBoundary>
+            } />
+            <Route path="welcome" element={
+              <ErrorBoundary>
+                <Welcome />
+              </ErrorBoundary>
+            } />
             <Route path="sectors" element={
               <ErrorBoundary>
                 <SectorRotation />

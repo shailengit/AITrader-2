@@ -11,6 +11,14 @@ LOG_FILE="$LOG_DIR/earnings_sync.log"
 
 mkdir -p "$LOG_DIR"
 
+# Load DB + API credentials from the project .env (authoritative; required
+# under launchd where the clean environment has no shell exports).
+if [ -f "$PROJECT_DIR/backend/.env" ]; then
+    set -a
+    source "$PROJECT_DIR/backend/.env"
+    set +a
+fi
+
 # Load Finnhub key from zshrc if available
 if [ -f "$HOME/.zshrc" ]; then
     export FINNHUB_API_KEY=$(grep 'FINNHUB_API_KEY=' "$HOME/.zshrc" | tail -1 | cut -d'=' -f2-)
