@@ -2,6 +2,7 @@
 
 import os
 import sys
+import types
 
 # Ensure backend is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -15,65 +16,102 @@ os.environ.setdefault("DB_NAME", "sp1500_1d")
 
 import pytest
 from app.services.alpaca_runner import StrategyRunner
+from app.services.strategy_base import Strategy, ExitCheck
+
+
+class _DummyAlpaca:
+    """Stand-in for AlpacaClient so tests never touch the live API."""
+    def get_positions(self):
+        return []
+    def get_account(self):
+        return {"equity": "100000.00"}
+    def submit_market_order(self, *args, **kwargs):
+        return {"id": "dummy"}
+    def submit_bracket_order(self, *args, **kwargs):
+        return {"id": "dummy"}
+
+
+class _FakeStrategy(Strategy):
+    """Concrete Strategy for tests."""
+    def __init__(self, signals=None):
+        self._signals = signals or []
+    def get_name(self):
+        return "FakeStrategy"
+    def get_signals(self, as_of_date, engine):
+        return self._signals
+    def should_exit(self, ticker, as_of_date, engine, side):
+        return ExitCheck(should_close=False, reason="")
+    @property
+    def max_holdings(self):
+        return 5
+    @property
+    def sizing_pcts(self):
+        return [0.2]
+
+
+class _FakeConn:
+    """Context-manager connection whose execute().scalar() returns a value."""
+    def __init__(self, scalar_value):
+        self._value = scalar_value
+    def __enter__(self):
+        return self
+    def __exit__(self, *exc):
+        return False
+    def execute(self, *args, **kwargs):
+        return types.SimpleNamespace(scalar=lambda: self._value)
+
+
+class _FakeEngine:
+    """Engine stub for get_latest_date / crisis-query tests."""
+    def __init__(self, scalar_value):
+        self._conn = _FakeConn(scalar_value)
+    def connect(self):
+        return self._conn
 
 
 @pytest.fixture
-def runner():
-    """Create a StrategyRunner instance for testing."""
-    return StrategyRunner()
+def runner(monkeypatch):
+    """A StrategyRunner with the live Alpaca client replaced by a dummy."""
+    monkeypatch.setattr("app.services.alpaca_runner.AlpacaClient", _DummyAlpaca)
+    return StrategyRunner(strategy=_FakeStrategy())
 
 
-def test_scan_and_rank(runner):
-    """Test that scan_and_rank returns top candidates with valid data."""
-    as_of = runner.get_latest_date()
-    candidates = runner.scan_and_rank(as_of)
-    assert len(candidates) > 0, "Should find at least some candidates"
-    assert len(candidates) <= 5, "Should return at most 5 candidates"
-    for c in candidates:
-        assert "ticker" in c
-        assert "score" in c
-        assert "angle" in c
-        assert c["score"] > 0, "Score should be positive"
-        assert len(c["ticker"]) > 0, "Ticker should not be empty"
-
-
-def test_scan_and_rank_sorted(runner):
-    """Test that candidates are sorted by score descending."""
-    as_of = runner.get_latest_date()
-    candidates = runner.scan_and_rank(as_of)
-    if len(candidates) >= 2:
-        for i in range(len(candidates) - 1):
-            assert candidates[i]["score"] >= candidates[i + 1]["score"], \
-                f"Candidates not sorted at index {i}: {candidates[i]['score']} < {candidates[i+1]['score']}"
-
-
-def test_check_death_cross(runner):
-    """Test death cross detection returns a boolean or numpy bool."""
-    result = runner.check_death_cross("AAPL", "2024-01-01")
-    import numpy as np
-    assert isinstance(result, (bool, np.bool_))
-
-
-def test_crisis_override(runner):
-    """Test crisis override check returns a boolean or numpy bool."""
-    result = runner.check_crisis_override("2024-01-01")
-    import numpy as np
-    assert isinstance(result, (bool, np.bool_))
-
-
-def test_get_latest_date(runner):
-    """Test that latest date is a valid date string."""
+def test_get_latest_date(runner, monkeypatch):
+    """get_latest_date returns the DB date as a YYYY-MM-DD string."""
+    monkeypatch.setattr(runner, "engine", _FakeEngine("2024-06-15"))
     date = runner.get_latest_date()
-    assert len(date) == 10, f"Date should be YYYY-MM-DD format, got {date}"
-    parts = date.split("-")
-    assert len(parts) == 3
-    assert len(parts[0]) == 4  # Year
-    assert 1 <= int(parts[1]) <= 12  # Month
-    assert 1 <= int(parts[2]) <= 31  # Day
+    assert date == "2024-06-15"
+    assert len(date) == 10
 
 
-def test_get_all_tickers(runner):
-    """Test that ticker list is non-empty."""
-    tickers = runner.get_all_tickers()
-    assert len(tickers) > 0, "Should find tickers in the database"
-    assert len(tickers) > 100, "Should find at least 100 tickers"
+def test_get_latest_date_falls_back_to_today_when_null(runner, monkeypatch):
+    """When the DB has no data, get_latest_date returns today's date."""
+    monkeypatch.setattr(runner, "engine", _FakeEngine(None))
+    import datetime
+    date = runner.get_latest_date()
+    assert len(date) == 10
+    assert date == datetime.datetime.now().strftime("%Y-%m-%d")
+
+
+def test_check_crisis_override_returns_bool(runner):
+    """check_crisis_override returns a bool (False on any DB error)."""
+    import numpy as np
+    result = runner.check_crisis_override("2024-01-01")
+    assert isinstance(result, (bool, np.bool_))
+
+
+def test_run_daily_returns_no_candidates(runner):
+    """run_daily with no signals reports no_candidates."""
+    runner.strategy._signals = []
+    result = runner.run_daily()
+    assert result["status"] == "no_candidates"
+    assert "strategy" in result
+    assert result["strategy"] == "FakeStrategy"
+
+
+def test_run_daily_crisis_goes_to_cash(runner, monkeypatch):
+    """run_daily in crisis mode closes everything and reports completed_crisis."""
+    monkeypatch.setattr(runner, "check_crisis_override", lambda as_of: True)
+    result = runner.run_daily()
+    assert result["status"] == "completed_crisis"
+    assert result["crisis_mode"] is True

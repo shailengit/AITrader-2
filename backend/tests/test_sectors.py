@@ -9,7 +9,12 @@ from app.utils.security import sanitize_ticker
 
 def test_sanitize_ticker_rejects_injection():
     """Verify that SQL injection attempts are blocked at the utility level."""
+    # Short injection (passes the length check) so it is rejected via the
+    # forbidden-character branch, not the too-long branch.
     with pytest.raises(ValueError, match="forbidden"):
+        sanitize_ticker("AAPL;DROP")
+    # A longer realistic injection is also rejected (via the too-long branch).
+    with pytest.raises(ValueError):
         sanitize_ticker("AAPL; DROP TABLE stock_metadata")
 
 
