@@ -7,7 +7,7 @@ GJR-GARCH with Student-t for volatility overlay.
 import logging
 import threading
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 import numpy as np
@@ -233,6 +233,31 @@ class SectorRegimeManager:
         self.jump_penalty = jump_penalty
         self.models: Dict[str, JumpModel] = {}
         self.last_updated: Optional[str] = None
+        self._train_lock = threading.Lock()
+
+    def ensure_trained(self) -> bool:
+        """Lazily train all Jump Models on first use (just-in-time).
+
+        The Jump Models live only in memory and are empty after a server
+        restart, which made Command Center's "Today's Regime" report UNKNOWN
+        until a manual retrain ran. This trains all 11 sector ETFs on demand
+        so the card resolves to BULL/BEAR without manual action. No-op once
+        models are trained (per-process).
+
+        Returns:
+            True if training was triggered (or models were already trained).
+        """
+        if self.models and all(m.is_trained for m in self.models.values()):
+            return True
+        with self._train_lock:
+            # Double-checked under the lock: another request may have trained
+            # while this one was waiting to acquire it.
+            if self.models and all(m.is_trained for m in self.models.values()):
+                return True
+            end = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            start = (datetime.now() - timedelta(days=int(365.25 * 3 + 35))).strftime('%Y-%m-%d')
+            self.train_all(start, end)
+        return True
 
     def train_all(
         self, start_date: str, end_date: str

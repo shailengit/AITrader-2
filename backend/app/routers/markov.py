@@ -1,4 +1,5 @@
 """Markov Chain Trader API router."""
+import asyncio
 import logging
 import threading
 import time
@@ -283,6 +284,7 @@ def _do_scan(request: ScanRequest):
         progress_callback=_progress,
     )
 
+    rm.ensure_trained()
     result['sector_status'] = rm.get_all_regimes()
     result['cached_models'] = _models_trained()
     result['retraining'] = _retraining.is_set()
@@ -419,6 +421,14 @@ async def retrain_models(request: RetrainRequest):
 
 @router.get("/regimes")
 async def get_regimes():
-    """Get current regime state for all sector ETFs."""
+    """Get current regime state for all sector ETFs.
+
+    Trains the Jump Models just-in-time on first call if none are trained
+    (e.g. after a server restart) so "Today's Regime" resolves to BULL/BEAR
+    instead of UNKNOWN. Training is CPU-bound, so it runs in a thread pool
+    executor to avoid blocking the event loop.
+    """
     rm, _, _ = _get_managers()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, rm.ensure_trained)
     return {"sector_status": rm.get_all_regimes()}
