@@ -266,8 +266,10 @@ def _run_strategy_class(
         # Downsample equity curve
         equity_curve = result_data.get("daily_equity", [])
         if len(equity_curve) > 500:
-            step = len(equity_curve) / 498
-            indices = [0] + [int(i * step) for i in range(1, 498)] + [len(equity_curve) - 1]
+            n = len(equity_curve)
+            step = n / 498
+            # Clamp to n-1: float rounding of 498*(n/498) can land exactly on n.
+            indices = [0] + [min(int(i * step), n - 1) for i in range(1, 498)] + [n - 1]
             equity_curve = [equity_curve[i] for i in sorted(set(indices))]
 
         return {

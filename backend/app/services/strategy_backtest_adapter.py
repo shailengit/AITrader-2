@@ -56,11 +56,18 @@ class StrategyBacktestAdapter:
         end: str = "2026-07-08",
         capital: float = 100_000.0,
         max_holdings: Optional[int] = None,
+        precomputed_signals: Optional[Dict[str, List[Signal]]] = None,
+        price_cache: Optional[Dict[str, Dict[str, float]]] = None,
     ) -> Dict[str, Any]:
         """Run the daily simulation. Returns trades, daily_equity, summary.
 
         All risk/exit parameters are read from the strategy's RotationConfig.
         The strategy is the single source of truth for its behavior.
+
+        `precomputed_signals` and `price_cache` may be passed in to skip the
+        expensive per-run precompute (useful for batch runs that share a fixed
+        end date and only vary the start date). When omitted, they are computed
+        as before.
         """
         from collections import OrderedDict
 
@@ -81,57 +88,58 @@ class StrategyBacktestAdapter:
             return {"trades": [], "daily_equity": [], "summary": _empty_summary(capital)}
 
         # ── 2a. Precompute signals (if strategy supports it) ──────────────
-        logger.info("Attempting precompute_signals for %d dates...", len(all_dates))
-        precomputed_signals: Optional[Dict[str, List[Signal]]] = None
-        try:
-            precomputed_signals = self.strategy.precompute_signals(all_dates, db_engine)
-            if precomputed_signals is not None:
-                logger.info(
-                    "Using precomputed signals (%d dates with signals)",
-                    sum(1 for v in precomputed_signals.values() if v),
-                )
-        except Exception as e:
-            logger.warning("precompute_signals failed (falling back to per-day): %s", e)
-            precomputed_signals = None
+        if precomputed_signals is None:
+            logger.info("Attempting precompute_signals for %d dates...", len(all_dates))
+            try:
+                precomputed_signals = self.strategy.precompute_signals(all_dates, db_engine)
+                if precomputed_signals is not None:
+                    logger.info(
+                        "Using precomputed signals (%d dates with signals)",
+                        sum(1 for v in precomputed_signals.values() if v),
+                    )
+            except Exception as e:
+                logger.warning("precompute_signals failed (falling back to per-day): %s", e)
+                precomputed_signals = None
 
         # ── 2b. Pre-fetch price cache for all tickers ────────────────────
-        strategy_price_cache = self.strategy.get_precomputed_price_cache()
-        if strategy_price_cache is not None:
-            logger.info("Using strategy-provided price cache (%d tickers)", len(strategy_price_cache))
-            price_cache = strategy_price_cache
-        else:
-            logger.info("Building price cache for %d dates...", len(all_dates))
-            with db_engine.connect() as conn:
-                res = conn.execute(text(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema = 'public'"
-                ))
-                skip = {
-                    "stock_metadata", "stock_financials_quarterly",
-                    "stock_financials_yearly",
-                    "xlb", "xlc", "xle", "xlf", "xli", "xlk", "xlp",
-                    "xlre", "xlu", "xlv", "xly",
-                }
-                all_tickers = [row[0] for row in res if row[0] not in skip]
+        if price_cache is None:
+            strategy_price_cache = self.strategy.get_precomputed_price_cache()
+            if strategy_price_cache is not None:
+                logger.info("Using strategy-provided price cache (%d tickers)", len(strategy_price_cache))
+                price_cache = strategy_price_cache
+            else:
+                logger.info("Building price cache for %d dates...", len(all_dates))
+                with db_engine.connect() as conn:
+                    res = conn.execute(text(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema = 'public'"
+                    ))
+                    skip = {
+                        "stock_metadata", "stock_financials_quarterly",
+                        "stock_financials_yearly",
+                        "xlb", "xlc", "xle", "xlf", "xli", "xlk", "xlp",
+                        "xlre", "xlu", "xlv", "xly",
+                    }
+                    all_tickers = [row[0] for row in res if row[0] not in skip]
 
-            price_cache: Dict[str, Dict[str, float]] = {}
-            for ticker in all_tickers:
-                try:
-                    from app.utils.security import get_safe_table_name
-                    safe = get_safe_table_name(ticker)
-                    with db_engine.connect() as conn:
-                        df = pd.read_sql(
-                            f'SELECT "Date", "Close" FROM "{safe}" '
-                            f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
-                            f'ORDER BY "Date" DESC LIMIT 3000',
-                            conn,
-                        )
-                    cache: Dict[str, float] = {}
-                    for _, row in df.iterrows():
-                        cache[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
-                    price_cache[ticker] = cache
-                except Exception:
-                    continue
+                price_cache: Dict[str, Dict[str, float]] = {}
+                for ticker in all_tickers:
+                    try:
+                        from app.utils.security import get_safe_table_name
+                        safe = get_safe_table_name(ticker)
+                        with db_engine.connect() as conn:
+                            df = pd.read_sql(
+                                f'SELECT "Date", "Close" FROM "{safe}" '
+                                f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
+                                f'ORDER BY "Date" DESC LIMIT 3000',
+                                conn,
+                            )
+                        cache: Dict[str, float] = {}
+                        for _, row in df.iterrows():
+                            cache[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
+                        price_cache[ticker] = cache
+                    except Exception:
+                        continue
 
         def get_price(ticker: str, date_str: str) -> float:
             tc = price_cache.get(ticker.lower(), {})
