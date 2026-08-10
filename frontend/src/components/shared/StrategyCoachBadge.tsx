@@ -19,7 +19,7 @@ export function StrategyCoachBadge({ strategyPath }: { strategyPath: string }) {
 
   useEffect(() => {
     fetch(`/api/coach/strategy/${encodeURIComponent(strategyPath)}/summary`)
-      .then(r => r.json())
+      .then(r => (r.ok ? r.json() : null))
       .then(setS)
       .catch(() => setS(null));
   }, [strategyPath]);
@@ -52,7 +52,7 @@ export function StrategyCoachBadge({ strategyPath }: { strategyPath: string }) {
         <span style={{ color: pnlColor, fontWeight: 600 }}>{pnlText}</span>
         <span style={{ opacity: .6 }}>· {s.n_live_trades} trades</span>
         <span style={{ opacity: .6 }}>· regime: {s.current_regime}</span>
-        {s.drift.alert && <span style={{ color: '#F59E0B' }}>⚠ drift</span>}
+        {s.drift?.alert && <span style={{ color: '#F59E0B' }}>⚠ drift</span>}
       </div>
       {expanded && (
         <div style={{ padding: 12, marginTop: 6, borderRadius: 8, background: 'rgba(255,255,255,.02)', fontSize: 12 }}>

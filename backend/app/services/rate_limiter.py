@@ -72,8 +72,14 @@ def add_rate_limit_middleware(app, rate: float = DEFAULT_RATE, burst: float = DE
             # Skip rate limiting for docs/static endpoints
             if request.url.path in ("/docs", "/redoc", "/openapi.json", "/", "/api/health"):
                 return await call_next(request)
-            
+
             client_ip = _get_client_ip(request)
+            # Skip rate limiting for local development clients — the app's own
+            # frontend (Markov JIT training, coach summaries, strategy classes)
+            # legitimately bursts past the token bucket on page load.
+            if client_ip in ("127.0.0.1", "::1", "localhost"):
+                return await call_next(request)
+
             if not _check_rate_limit(client_ip, rate, burst):
                 logger.warning("Rate limit exceeded for %s", client_ip)
                 from starlette.responses import JSONResponse
