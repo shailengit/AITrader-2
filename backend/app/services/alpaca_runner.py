@@ -292,8 +292,8 @@ def _load_active_strategy_class() -> Strategy:
     try:
         d = get_active_deployment(db)
         if d is None:
-            from app.services.strategies.golden_cross_rotation_v2 import GoldenCrossRotationV2
-            return GoldenCrossRotationV2()
+            from app.services.strategies.golden_cross_rotation_original import GoldenCrossRotationOriginal
+            return GoldenCrossRotationOriginal()
 
         path = d.strategy_path
         spec = spec_from_file_location("active_strategy", path)
