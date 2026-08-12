@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
+// Ports are configurable via env so this app can run alongside AITrader-1
+// (which uses 5174 / 8001) without colliding. Defaults: 5173 / 8000.
+//   VITE_PORT=5175 VITE_API_TARGET=http://localhost:8001 npm run dev
+const port = Number(process.env.VITE_PORT) || 5173;
+const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8000';
+
 export default defineConfig({
   plugins: [
     react(),
@@ -14,10 +20,10 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
+    port,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: apiTarget,
         changeOrigin: true,
         ws: true,
         proxyTimeout: 300000,  // 5 min — code gen can take 60-90s

@@ -42,12 +42,16 @@ app = FastAPI(
 )
 
 # CORS configuration from environment
+# FRONTEND_PORT lets you run this app on a different port (e.g. alongside
+# AITrader-1) without editing code — set FRONTEND_PORT=5175 and start the
+# frontend with VITE_PORT=5175.
+_FRONTEND_PORT = os.getenv("FRONTEND_PORT", "5173")
 _DEFAULT_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:5173",
+    f"http://localhost:{_FRONTEND_PORT}",
     "http://localhost:5174",
     "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
+    f"http://127.0.0.1:{_FRONTEND_PORT}",
     "http://127.0.0.1:5174",
 ]
 
@@ -146,10 +150,13 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    # PORT lets you run this backend on a different port (e.g. alongside
+    # AITrader-1, which uses 8001). Default is 8000.
+    _port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=_port,
         reload=True,
         log_level="info"
     )
