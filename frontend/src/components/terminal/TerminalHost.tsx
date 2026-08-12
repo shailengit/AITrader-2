@@ -149,9 +149,41 @@ export function TerminalHost() {
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    term.open(containerRef.current);
-    setTimeout(() => fitAddon.fit(), 50);
     termRef.current = term;
+
+    // Only open/fit once the container actually has dimensions. Opening xterm
+    // on a 0x0 container (e.g. the panel is minimized or not yet laid out)
+    // leaves its renderer uninitialized and crashes on the first write with
+    // "Cannot read properties of undefined (reading 'dimensions')".
+    const safeFit = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 10 || rect.height < 10) return;
+      try {
+        fitAddon.fit();
+      } catch {
+        // container not ready — ignore
+      }
+    };
+
+    let opened = false;
+    const openTerminal = () => {
+      if (opened) return true;
+      const el = containerRef.current;
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 10 || rect.height < 10) return false; // not laid out yet
+      try {
+        term.open(el);
+        safeFit();
+        opened = true;
+        openSocket();
+        return true;
+      } catch {
+        return false;
+      }
+    };
 
     const openSocket = () => {
       const ws = new WebSocket(`${WS_BASE}?session=${sessionId}`);
@@ -227,17 +259,23 @@ export function TerminalHost() {
     };
 
     const observer = new ResizeObserver(() => {
-      fitAddon.fit();
-      const dims = fitAddon.proposeDimensions();
-      if (dims && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows })
-        );
+      // Open the terminal once the container has real dimensions (e.g. the
+      // panel is restored from minimized). Subsequent resizes just fit.
+      if (openTerminal()) {
+        safeFit();
+        const dims = fitAddon.proposeDimensions();
+        if (dims && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(
+            JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows })
+          );
+        }
       }
     });
     if (containerRef.current) observer.observe(containerRef.current);
 
-    openSocket();
+    // Try to open immediately; if the container isn't laid out yet, the
+    // ResizeObserver will open it once it has dimensions.
+    openTerminal();
 
     return () => {
       intentionallyClosedRef.current = true;
@@ -303,8 +341,12 @@ export function TerminalHost() {
           position: "fixed",
           left: panelState.minimized ? panelState.x : panelState.x + 10,
           top: panelState.minimized ? panelState.y : panelState.y + 36, // below title bar
-          width: panelState.minimized ? 0 : panelState.width - 20,
-          height: panelState.minimized ? 0 : panelState.height - 50, // minus title + resize handle margin
+          // Never let the xterm mount be 0x0 — opening xterm on a zero-size
+          // container leaves its renderer uninitialized and crashes on the
+          // first write ("Cannot read properties of undefined (reading
+          // 'dimensions')"). Use 1px when minimized (hidden by overflow).
+          width: panelState.minimized ? 1 : panelState.width - 20,
+          height: panelState.minimized ? 1 : panelState.height - 50, // minus title + resize handle margin
           zIndex: 998,
         };
 

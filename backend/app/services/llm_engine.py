@@ -127,66 +127,47 @@ RULES:
    ```
 6. When creating the Portfolio (e.g., `vbt.Portfolio.from_signals`), you MUST pass the Open/High/Low/Close data if available to enable realistic inspection.
    - Example: `vbt.Portfolio.from_signals(close, ..., open=data['Open'], high=data['High'], low=data['Low'])`
-7. **CRITICAL - OPTIMIZATION COMPATIBILITY**: Strategy code MUST work for both single backtests AND multi-parameter optimization. VectorBT uses scalar Series for single parameters but DataFrames with MultiIndex columns for optimization grids. Standard Python operators (`>`, `<`, `&`, `|`) fail on DataFrames with "cannot join with no overlapping index names".
+7. **CRITICAL - OPTIMIZATION COMPATIBILITY**: Strategy code MUST work for both single backtests AND multi-parameter optimization. This project uses **vectorbt 1.0.0**. The `.vbt.gt()/.lt()` accessor methods, `vbt.combine_logic()`, and the `jitted=True` kwarg DO NOT EXIST in this version — do NOT use them. Instead, use **plain pandas operators** (`>`, `<`, `&`, `|`) on operands that have been broadcast to the same shape.
 
-   **A. Comparison Operators**
-   Always use `.vbt` accessor methods instead of raw operators:
-
-   | Standard | VectorBT Method |
-   |----------|-----------------|
-   | `a > b`  | `a.vbt.gt(b)`   |
-   | `a < b`  | `a.vbt.lt(b)`   |
-   | `a == b` | `a.vbt.eq(b)`   |
-   | `a & b`  | `vbt.combine_logic(a, b, combine_func=np.logical_and)` |
-   | `a | b`  | `vbt.combine_logic(a, b, combine_func=np.logical_or)` |
-
-   WRONG (fails in optimization):
+   **A. Parameterized Indicators**
+   Call every parameterized indicator with `.run()` and pass parameters as variables (VBT converts them to grids during optimization):
    ```python
-   entries = (fast_ma.ma > slow_ma.ma) & (rsi.rsi < 30)
-   exits = (rsi.rsi > 70) | (close < stop_loss)
+   fast_ma = vbt.MA.run(close, window=fast_window).ma
+   slow_ma = vbt.MA.run(close, window=slow_window).ma
+   rsi = vbt.RSI.run(close, window=rsi_period).rsi
    ```
 
-   CORRECT (works in both):
+   **B. Broadcast operands to the same shape**
+   During optimization, parameterized indicators become DataFrames with MultiIndex columns while non-parameterized operands stay Series. Comparing them directly raises "Operands are not aligned" / "Can only compare identically-labeled DataFrame objects". Define this helper and broadcast every non-parameterized operand against the parameterized one:
    ```python
-   entries = vbt.combine_logic(
-       fast_ma.ma.vbt.gt(slow_ma.ma),
-       rsi.rsi.vbt.lt(30),
-       combine_func=np.logical_and
-   )
-   exits = vbt.combine_logic(
-       rsi.rsi.vbt.gt(70),
-       close.vbt.lt(stop_loss),
-       combine_func=np.logical_or
-   )
+   def _bc(s, ref):
+       # Broadcast s to match ref's shape/columns for safe &/| with MultiIndex columns.
+       if isinstance(s, pd.Series) and isinstance(ref, (pd.DataFrame, pd.Series)) and hasattr(ref, 'columns') and ref.columns.nlevels > 1:
+           return pd.DataFrame(np.broadcast_to(s.values[:, None], ref.shape), index=ref.index, columns=ref.columns)
+       if isinstance(s, pd.DataFrame) and isinstance(ref, pd.DataFrame):
+           if s.columns.nlevels != ref.columns.nlevels or s.columns.tolist() != ref.columns.tolist():
+               return pd.DataFrame(np.broadcast_to(s.values, ref.shape), index=ref.index, columns=ref.columns)
+       return s
    ```
 
-   **B. Parameterized Indicators**
-   To support optimization, call every indicator with `.run()` and pass parameters as variables (which VBT will convert to grids during optimization):
+   **C. Use plain operators on broadcast operands**
    ```python
-   fast_ma = vbt.MA.run(close, window=fast_window)
-   slow_ma = vbt.MA.run(close, window=slow_window)
-   rsi = vbt.RSI.run(close, window=rsi_period)
+   ef_bc = fast_ma
+   es_bc = _bc(slow_ma, fast_ma)
+   close_bc = _bc(close, fast_ma)
+   entries = (ef_bc > es_bc) & (close_bc > ef_bc)
+   exits = ef_bc < es_bc
    ```
 
-   **C. Portfolio Broadcast Flags**
-   Always pass these kwargs to `vbt.Portfolio.from_signals` so it can handle parameter grids:
+   **D. Portfolio**
+   Always pass `broadcast_kwargs={'keep_pd': True}` to `vbt.Portfolio.from_signals`. Do NOT pass `jitted=True` (not a valid kwarg in vectorbt 1.0.0):
    ```python
    pf = vbt.Portfolio.from_signals(
        close,
        entries=entries,
        exits=exits,
        broadcast_kwargs={'keep_pd': True},
-       jitted=True
    )
-   ```
-
-   **D. Data Alignment**
-   If combining indicators that may have different parameter-grid shapes, align them explicitly with `vbt.base.widgets.indexing.broadcast`:
-   ```python
-   close_bc, fast_ma_bc, slow_ma_bc = vbt.base.widgets.indexing.broadcast(
-       close, fast_ma.ma, slow_ma.ma
-   )
-   entries = fast_ma_bc.vbt.gt(slow_ma_bc)
    ```
 
 8. **CRITICAL - CONTINUOUS SIGNALS FOR WALK-FORWARD**: For True Walk-Forward Optimization to work with short test windows, you MUST generate a signal EVERY DAY, not just on crossover events.
@@ -297,11 +278,15 @@ close = data['Close']
 
 # Calculate moving averages
 fast_ma = vbt.MA.run(close, window=fast_window)
-slow_ma = vbt.MA.run(close, window=slow_window)
+slow_ma = vbt.MA.run(close, window=slow_window).ma
 
-# Generate continuous signals for True WFO
-entries = fast_ma.ma.vbt.gt(slow_ma.ma)
-exits = fast_ma.ma.vbt.lt(slow_ma.ma)
+# Broadcast non-parameterized operands to match fast_ma (see rule 7)
+ef_bc = fast_ma
+es_bc = _bc(slow_ma, fast_ma)
+
+# Generate continuous signals for True WFO (plain operators on broadcast operands)
+entries = ef_bc > es_bc
+exits = ef_bc < es_bc
 
 # Create portfolio with OHLC data
 pf = vbt.Portfolio.from_signals(
@@ -312,9 +297,7 @@ pf = vbt.Portfolio.from_signals(
     high=data['High'],
     low=data['Low'],
     direction='longonly',
-    freq='1d',
     broadcast_kwargs={'keep_pd': True},
-    jitted=True
 )
 
 # Print total return
@@ -325,7 +308,7 @@ When fixing errors:
 - Analyze the error message.
 - Fix the specific line or logic causing it.
 - Return the full corrected code.
-- If the error mentions "cannot join with no overlapping index names", convert comparison operators to VBT methods as shown in rule 7.
+- If the error mentions "cannot join with no overlapping index names", "Operands are not aligned", or "Can only compare identically-labeled", broadcast the operands to the same shape with the `_bc()` helper and use plain operators, as shown in rule 7.
 """
 
 CHAT_SYSTEM_PROMPT = """You are an expert Python developer specializing in the `vectorbt` library for quantitative trading.
@@ -585,17 +568,15 @@ def fix_strategy_code(current_code: str, error_context: str) -> str:
 
     # Check for VBT comparison error and add specific guidance
     vbt_hint = ""
-    if "cannot join with no overlapping index names" in error_context.lower():
+    if any(k in error_context.lower() for k in ("cannot join with no overlapping index names", "operands are not aligned", "can only compare identically-labeled", "no attribute 'gt'", "no attribute 'lt'", "combine_logic", "jitted")):
         vbt_hint = """
 
-CRITICAL: This error is caused by using comparison operators (>, <, &, |) with VectorBT indicators.
-You MUST replace them with VBT comparison methods:
-- Replace `(a > b)` with `a.vbt.gt(b)`
-- Replace `(a < b)` with `a.vbt.lt(b)`
-- Replace `(cond1) & (cond2)` with `vbt.combine_logic(cond1, cond2, combine_func=np.logical_and)`
-- Replace `(cond1) | (cond2)` with `vbt.combine_logic(cond1, cond2, combine_func=np.logical_or)`
-- Also add `broadcast_kwargs={'keep_pd': True}` and `jitted=True` to `vbt.Portfolio.from_signals(...)`
-See the SYSTEM PROMPT rule #7 for the complete list of methods.
+CRITICAL: This project uses vectorbt 1.0.0. The `.vbt.gt()/.lt()` accessors, `vbt.combine_logic()`, and `jitted=True` DO NOT EXIST in this version.
+Fix the code to use plain pandas operators on broadcast operands:
+- Call parameterized indicators with `.run()`: `fast_ma = vbt.MA.run(close, window=fast_window).ma`
+- Define the `_bc(s, ref)` broadcast helper (see SYSTEM PROMPT rule #7) and broadcast every non-parameterized operand against the parameterized one.
+- Use plain operators: `entries = (ef_bc > es_bc) & (close_bc > ef_bc)`
+- Pass `broadcast_kwargs={'keep_pd': True}` to `vbt.Portfolio.from_signals(...)` and do NOT pass `jitted=True`.
 """
 
     # Try to find a matching lesson for additional guidance

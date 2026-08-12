@@ -13,6 +13,7 @@ Features:
 
 import sys
 import io
+import math
 import contextlib
 import traceback
 import logging
@@ -308,6 +309,12 @@ class CodeExecutor:
         # Import SafeDataService for strategy execution
         from app.services.data_service import SafeDataService, safe_get_data
 
+        # vectorbt 1.0.0 requires a global frequency for time-based metrics.
+        try:
+            vbt.settings.array_wrapper.freq = "D"
+        except Exception:
+            pass
+
         exec_globals = {
             "vbt": vbt,
             "pd": pd,
@@ -354,6 +361,15 @@ class CodeExecutor:
         finally:
             stdout_buffer.close()
 
+
+def _json_safe(v: Any) -> Any:
+    """Coerce non-finite floats (inf/-inf/nan) to None so JSON serialization
+    never fails with 'Out of range float values are not JSON compliant'."""
+    if isinstance(v, float) and not math.isfinite(v):
+        return None
+    return v
+
+
 def _serialize_pandas_object(obj: Any) -> Any:
     """Convert pandas objects to JSON-serializable Python objects.
 
@@ -366,6 +382,9 @@ def _serialize_pandas_object(obj: Any) -> Any:
         return None
 
     if isinstance(obj, (int, float, str, bool)):
+        # JSON cannot represent non-finite floats (inf/-inf/nan) — coerce to None.
+        if isinstance(obj, float) and not math.isfinite(obj):
+            return None
         return obj
 
     if isinstance(obj, pd.Series):
@@ -379,16 +398,17 @@ def _serialize_pandas_object(obj: Any) -> Any:
                     result[flattened_key] = value
                 else:
                     result[str(key)] = value
-            # Replace NaN with None and convert to proper types
-            return {k: (v if pd.notna(v) else None) for k, v in result.items()}
+            # Replace NaN/inf with None and convert to proper types
+            return {k: _json_safe(v) for k, v in result.items()}
         else:
             # Single index Series
             dict_obj = obj.astype(object).where(pd.notnull(obj), None).to_dict()
-            return {str(k): v for k, v in dict_obj.items()}
+            return {str(k): _json_safe(v) for k, v in dict_obj.items()}
 
     if isinstance(obj, pd.DataFrame):
         # Convert DataFrame to dict
-        return obj.astype(object).where(pd.notnull(obj), None).to_dict(orient='dict')
+        d = obj.astype(object).where(pd.notnull(obj), None).to_dict(orient='dict')
+        return {str(k): {str(k2): _json_safe(v2) for k2, v2 in v.items()} for k, v in d.items()}
 
     if isinstance(obj, (list, tuple)):
         return [_serialize_pandas_object(item) for item in obj]
@@ -399,7 +419,7 @@ def _serialize_pandas_object(obj: Any) -> Any:
     # For numpy types and other types
     try:
         if hasattr(obj, 'item'):
-            return obj.item()
+            return _json_safe(obj.item())
         return str(obj)
     except Exception:
         return str(obj)

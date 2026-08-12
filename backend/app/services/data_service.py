@@ -305,6 +305,25 @@ class DataService:
             logger.error(f"DataFrame missing required columns. Have: {df.columns.tolist()}")
             return None
 
+        # Set a frequency on the DatetimeIndex. vectorbt 1.0.0 requires a
+        # frequency for time-based metrics and optimization (otherwise it
+        # raises "Index frequency is None. Pass it as `freq`..."). Daily
+        # stock data is business days; minute data is minute-frequency.
+        if df.index.freq is None:
+            try:
+                # Use "D" (calendar day) — a fixed-duration offset that
+                # vectorbt/pandas can convert to a timedelta. "B" (business
+                # day) is NOT a fixed duration and raises
+                # "invalid unit abbreviation: B" in timedelta parsing.
+                df.index.freq = "D" if frequency == "daily" else "min"
+            except Exception:
+                # Irregular index (e.g. missing holidays) — fall back to
+                # inferring a regular frequency; if that fails, leave as-is.
+                try:
+                    df.index.freq = df.index.inferred_freq
+                except Exception:
+                    pass
+
         return df
 
 

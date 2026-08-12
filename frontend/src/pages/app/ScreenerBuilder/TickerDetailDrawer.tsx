@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { request } from '@/lib/api';
 import {
   X,
   TrendingUp,
@@ -171,14 +172,11 @@ export default function TickerDetailDrawer({
     const params = new URLSearchParams();
     if (asOfDate) params.set('as_of_date', asOfDate);
 
-    fetch(`/api/screener/ticker/${encodeURIComponent(ticker)}?${params}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json: TickerDetail) => {
+    request<TickerDetail>(
+      `/screener/ticker/${encodeURIComponent(ticker)}?${params}`,
+      { signal: controller.signal },
+    )
+      .then((json) => {
         setData(json);
         setLoading(false);
       })
@@ -238,15 +236,11 @@ export default function TickerDetailDrawer({
       params.set('overrides', JSON.stringify(overrides));
     }
 
-    fetch(
-      `/api/screener/chart-data/${encodeURIComponent(ticker)}?${params.toString()}`,
+    request<ChartBar[]>(
+      `/screener/chart-data/${encodeURIComponent(ticker)}?${params.toString()}`,
       { signal: controller.signal },
     )
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json: ChartBar[]) => {
+      .then((json) => {
         setChartBars(Array.isArray(json) ? json : []);
         setChartLoading(false);
       })

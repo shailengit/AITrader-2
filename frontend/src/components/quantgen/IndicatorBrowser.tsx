@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { quantgen } from '@/lib/api';
 import { Search, Plus, ChevronDown, ChevronRight, Code2 } from 'lucide-react';
 
 interface IndicatorParam {
@@ -47,8 +48,7 @@ export function IndicatorBrowser({ onInsertSnippet }: IndicatorBrowserProps) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    fetch('/api/indicators/catalog')
-      .then(r => r.json())
+    quantgen.indicatorCatalog()
       .then(data => {
         if (data.success && data.data?.indicators) {
           setIndicators(data.data.indicators);

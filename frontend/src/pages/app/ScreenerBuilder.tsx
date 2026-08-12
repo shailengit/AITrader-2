@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { request } from '@/lib/api';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -525,8 +526,7 @@ export default function ScreenerBuilder() {
       const tickers = (restoredResults ?? []).map((r) => r.ticker);
       // Fire-and-forget the live refetch. Only overwrite the
       // persisted results if the backend returns a non-empty list.
-      fetch(`/api/screener/results/${restoredScanId}`)
-        .then((res) => (res.ok ? res.json() : null))
+      request<{ results?: ScanResult[] }>(`/screener/results/${restoredScanId}`)
         .then((data) => {
           if (data && Array.isArray(data.results) && data.results.length > 0) {
             setScanResults(data.results);
@@ -534,12 +534,10 @@ export default function ScreenerBuilder() {
             if (cutoffDate && isCutoffEligible(cutoffDate) && data.results.length > 0) {
               const newTickers = data.results.map((r: ScanResult) => r.ticker);
               setReturnLoading(true);
-              fetch('/api/screener/backtest-hold', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tickers: newTickers, as_of_date: cutoffDate }),
-              })
-                .then((r) => (r.ok ? r.json() : null))
+              request<{ ticker_results?: { ticker: string; return_pct: number }[] }>(
+                '/screener/backtest-hold',
+                { method: 'POST', body: { tickers: newTickers, as_of_date: cutoffDate } },
+              )
                 .then((bd) => {
                   if (bd && Array.isArray(bd.ticker_results)) {
                     const next: Record<string, number> = {};
@@ -736,10 +734,9 @@ export default function ScreenerBuilder() {
       }));
 
     try {
-      const res = await fetch('/api/screener/scan', {
+      const data = await request<{ scan_id: string }>('/screener/scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           mode: 'quant_strategy',
           use_ai: useAi,
           cutoff_date: cutoffDate || undefined,
@@ -757,15 +754,8 @@ export default function ScreenerBuilder() {
             .filter((c) => c.dataKey)
             .map((c) => ({ dataKey: c.dataKey, params: c.params })),
           custom_composites: customCompositesList.length > 0 ? customCompositesList : undefined,
-        }),
+        },
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to start scan');
-      }
-
-      const data = await res.json();
       const id = data.scan_id;
       setScanId(id);
 
@@ -790,18 +780,15 @@ export default function ScreenerBuilder() {
               if (isCutoffEligible(cutoffDate)) {
                 (async () => {
                   try {
-                    const r = await fetch(`/api/screener/results/${id}`);
-                    const d = await r.json();
+                    const d = await request<{ results?: any[] }>(`/screener/results/${id}`);
                     const tickers = (d.results || []).map((x: any) => x.ticker);
                     if (tickers.length > 0) {
                       setReturnLoading(true);
-                      const br = await fetch('/api/screener/backtest-hold', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tickers, as_of_date: cutoffDate }),
-                      });
-                      if (br.ok) {
-                        const bd = await br.json();
+                      const bd = await request<{ ticker_results?: { ticker: string; return_pct: number }[] }>(
+                        '/screener/backtest-hold',
+                        { method: 'POST', body: { tickers, as_of_date: cutoffDate } },
+                      );
+                      {
                         const returns: Record<string, number> = {};
                         for (const tr of bd.ticker_results || []) {
                           returns[tr.ticker] = tr.return_pct;
@@ -836,8 +823,7 @@ export default function ScreenerBuilder() {
 
   const fetchResults = async (id: string) => {
     try {
-      const res = await fetch(`/api/screener/results/${id}`);
-      const data = await res.json();
+      const data = await request<{ results?: ScanResult[] }>(`/screener/results/${id}`);
       setScanResults(data.results || []);
     } catch {
       // ignore
@@ -847,10 +833,9 @@ export default function ScreenerBuilder() {
   const pollFallback = async (id: string) => {
     const poll = async () => {
       try {
-        const res = await fetch(`/api/screener/status/${id}`);
-        const data = await res.json();
+        const data = await request<{ progress?: number; status?: string; error?: string }>(`/screener/status/${id}`);
 
-        setScanProgress(data.progress);
+        setScanProgress(data.progress ?? 0);
 
         if (data.status === 'running') {
           setTimeout(poll, 1000);
@@ -862,18 +847,15 @@ export default function ScreenerBuilder() {
           if (isCutoffEligible(cutoffDate)) {
             (async () => {
               try {
-                const r = await fetch(`/api/screener/results/${id}`);
-                const d = await r.json();
+                const d = await request<{ results?: any[] }>(`/screener/results/${id}`);
                 const tickers = (d.results || []).map((x: any) => x.ticker);
                 if (tickers.length > 0) {
                   setReturnLoading(true);
-                  const br = await fetch('/api/screener/backtest-hold', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tickers, as_of_date: cutoffDate }),
-                  });
-                  if (br.ok) {
-                    const bd = await br.json();
+                  const bd = await request<{ ticker_results?: { ticker: string; return_pct: number }[] }>(
+                    '/screener/backtest-hold',
+                    { method: 'POST', body: { tickers, as_of_date: cutoffDate } },
+                  );
+                  {
                     const returns: Record<string, number> = {};
                     for (const tr of bd.ticker_results || []) {
                       returns[tr.ticker] = tr.return_pct;

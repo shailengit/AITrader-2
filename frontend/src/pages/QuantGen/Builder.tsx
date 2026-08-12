@@ -21,10 +21,9 @@ import { OptimizationConfig } from "@/components/quantgen";
 import { IndicatorBrowser } from '@/components/quantgen/IndicatorBrowser';
 import { TerminalRedirectBanner } from '../../components/shared/TerminalRedirectBanner';
 import { SectorRegime, fetchRegimes, summarizeRegimes } from "../../lib/regime";
+import { quantgen } from "@/lib/api";
 
 import { useTheme } from "../../context/ThemeContext";
-
-const API_URL = "/api";
 
 interface ParamRange {
   name: string;
@@ -546,8 +545,7 @@ export default function Builder() {
   useEffect(() => {
     const applyExportedDates = async () => {
       try {
-        const res = await fetch("/api/latest-date");
-        const data = await res.json();
+        const data = await quantgen.latestDate();
         const latest = data.data?.latest_date || "2024-01-01";
 
         setOptConfig((prev) => ({
@@ -661,8 +659,7 @@ export default function Builder() {
   useEffect(() => {
     if (!loadSlug) return;
     setIsLoadingStrategy(true);
-    fetch(`/api/strategy-catalog/${loadSlug}`)
-      .then(r => r.json())
+    quantgen.strategyBySlug(loadSlug)
       .then(data => {
         if (data.success && data.data) {
           setCode(data.data.code);
@@ -687,8 +684,7 @@ export default function Builder() {
 
   const loadStrategies = async () => {
     try {
-      const res = await fetch(`${API_URL}/strategies`);
-      const data = await res.json();
+      const data = await quantgen.listStrategies();
       const list = data.data?.strategies || data.strategies || [];
       setStrategies(Array.isArray(list) ? list : []);
     } catch (e) {
@@ -701,17 +697,12 @@ export default function Builder() {
     setIsGenerating(true);
     setStructuredError(null);
     try {
-      const res = await fetch(`${API_URL}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: strategyPrompt,
-          tickers: tickers.split(",").map((t) => t.trim()),
-          start_date: optConfig.wfo.start_date,
-          end_date: optConfig.wfo.end_date,
-        }),
+      const data = await quantgen.generate({
+        prompt: strategyPrompt,
+        tickers: tickers.split(",").map((t) => t.trim()),
+        start_date: optConfig.wfo.start_date,
+        end_date: optConfig.wfo.end_date,
       });
-      const data = await res.json();
       if (data.success && data.data?.code) {
         let generatedCode = replaceDatesInCode(data.data.code, optConfig.wfo.start_date, optConfig.wfo.end_date);
         generatedCode = replaceTickerInCode(generatedCode, tickers.split(",")[0].trim());
@@ -761,10 +752,8 @@ export default function Builder() {
     setStructuredError(null);
     try {
       const tickerList = tickers.split(",").map((t) => t.trim()).filter(Boolean);
-      let endpoint = `${API_URL}/run`;
       let body: any = { code, tickers: tickerList };
       if (runMode === "optimize") {
-        endpoint = `${API_URL}/optimize`;
         const strategy_params: Record<
           string,
           { start: number; stop: number; step: number }
@@ -779,32 +768,21 @@ export default function Builder() {
         });
         body = { code, strategy_params, config: optConfig, tickers: tickerList };
       }
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok)
-        throw new Error(
-          `HTTP ${res.status}: ${(await res.text()) || res.statusText}`,
-        );
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error(
-          `Expected JSON but got ${contentType}: ${(await res.text()).substring(0, 200)}`,
-        );
-      }
-      const data = await res.json();
+      const data =
+        runMode === "optimize"
+          ? await quantgen.optimize(body as import("@/lib/api").OptimizePayload)
+          : await quantgen.run(body as import("@/lib/api").RunPayload);
       if (data.output) setOutput(data.output);
       if (data.data?.output) setOutput(data.data.output);
-      if (data.error) {
+      const err = data.error;
+      if (err) {
         // Parse structured error details if available
-        const details = data.error?.details;
+        const details = err.details;
         if (details && typeof details === "object") {
           setStructuredError({
             type: details.type || "UNKNOWN",
             category: details.category || "execution",
-            message: details.message || data.error?.message || "Unknown error",
+            message: details.message || err.message || "Unknown error",
             line: details.line,
             line_content: details.line_content,
             traceback: details.traceback,
@@ -813,9 +791,7 @@ export default function Builder() {
             related_lesson: details.related_lesson,
           });
         }
-        setOutput(
-          (prev) => prev + `\n\nERROR:\n${data.error.message || data.error}`,
-        );
+        setOutput((prev) => prev + `\n\nERROR:\n${err.message || err}`);
       }
       if (
         data.data?.stats ||
@@ -890,19 +866,11 @@ export default function Builder() {
 
   const saveStrategy = async (name: string) => {
     try {
-      const res = await fetch(`${API_URL}/strategies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, code }),
-      });
-      if (res.ok) {
-        const safeName = name.endsWith(".py") ? name : `${name}.py`;
-        setCurrentFilename(safeName);
-        setOutput((prev) => prev + `\nSaved to ${safeName}`);
-        loadStrategies();
-      } else {
-        setErrorToast(`Failed to save: ${await res.text()}`);
-      }
+      await quantgen.saveStrategy(name, code);
+      const safeName = name.endsWith(".py") ? name : `${name}.py`;
+      setCurrentFilename(safeName);
+      setOutput((prev) => prev + `\nSaved to ${safeName}`);
+      loadStrategies();
     } catch (e: any) {
       setErrorToast(`Failed: ${e.message}`);
     }
@@ -910,11 +878,7 @@ export default function Builder() {
 
   const handleLoad = async (name: string) => {
     try {
-      const res = await fetch(
-        `${API_URL}/strategies/${encodeURIComponent(name)}`,
-      );
-      if (!res.ok) throw new Error("Failed to load");
-      const data = await res.json();
+      const data = await quantgen.loadStrategy(name);
       if (data.data?.code) {
         let loadedCode = data.data.code;
         loadedCode = replaceDatesInCode(loadedCode, optConfig.wfo.start_date, optConfig.wfo.end_date);
@@ -934,12 +898,8 @@ export default function Builder() {
       message: `Delete ${name}?`,
       onConfirm: async () => {
         try {
-          const res = await fetch(
-            `${API_URL}/strategies/${encodeURIComponent(name)}`,
-            { method: "DELETE" },
-          );
-          if (res.ok) loadStrategies();
-          else setErrorToast("Failed to delete strategy");
+          await quantgen.deleteStrategy(name);
+          loadStrategies();
         } catch {
           setErrorToast("Failed to delete strategy");
         }

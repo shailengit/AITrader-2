@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { request } from '@/lib/api';
 import { Search, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { idFromCatalog, formatOverlayLabel } from '../../../../data/indicatorMap';
 
@@ -49,8 +50,7 @@ export default function IndicatorPickerPanel({ onAdd, alreadyAdded }: IndicatorP
   }, [expandedIdx]);
 
   useEffect(() => {
-    fetch('/api/indicators/catalog')
-      .then((r) => r.json())
+    request<{ success?: boolean; data?: { indicators?: CatalogIndicator[] } }>('/indicators/catalog')
       .then((data) => {
         if (data.success && data.data?.indicators) {
           setIndicators(data.data.indicators);

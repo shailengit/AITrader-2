@@ -27,8 +27,8 @@ export interface LivePnl {
   total_unrealized_pl_pct?: number;
 }
 
+import { request } from "@/lib/api";
+
 export async function fetchLivePnl(): Promise<LivePnl> {
-  const res = await fetch('/api/alpaca/live');
-  if (!res.ok) throw new Error(`alpaca live fetch failed: ${res.status}`);
-  return res.json();
+  return request<LivePnl>('/alpaca/live');
 }

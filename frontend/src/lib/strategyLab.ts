@@ -1,5 +1,7 @@
 // Typed client for /api/strategy-lab/*
 
+import { request } from "@/lib/api";
+
 export interface ModelVariant {
   name: string;
   type: "cloud" | "local";
@@ -127,52 +129,22 @@ export interface DeploymentListItem {
   session_id: string;
 }
 
-const base = "/api/strategy-lab";
+const base = "/strategy-lab";
 
 async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-  return res.json() as Promise<T>;
+  return request<T>(url);
 }
 
 async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
-  const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
-  if (!res.ok) {
-    // Try to parse the error body so the UI can show a useful message
-    // instead of a bare "POST ... -> 502".
-    let detail: unknown = null;
-    try {
-      detail = await res.json();
-    } catch {
-      detail = await res.text().catch(() => null);
-    }
-    const err = new Error(`POST ${url} -> ${res.status}`);
-    (err as Error & { detail?: unknown; status?: number }).detail = detail;
-    (err as Error & { detail?: unknown; status?: number }).status = res.status;
-    throw err;
-  }
-  return res.json() as Promise<T>;
+  return request<T>(url, { method: "POST", body, timeoutMs });
 }
 
 async function patchJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`PATCH ${url} -> ${res.status}`);
-  return res.json() as Promise<T>;
+  return request<T>(url, { method: "PATCH", body });
 }
 
 async function deleteJson(url: string): Promise<void> {
-  const res = await fetch(url, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error(`DELETE ${url} -> ${res.status}`);
+  await request(url, { method: "DELETE" });
 }
 
 export const strategyLabApi = {

@@ -229,7 +229,12 @@ class SimpleEMACross(Strategy):
             if tl not in self._price_cache:
                 pc = {}
                 for _, row in df.iterrows():
-                    pc[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
+                    _c = row["Close"]
+                    try:
+                        pc[str(pd.Timestamp(row["Date"]))[:10]] = float(_c)
+                    except (TypeError, ValueError):
+                        # NULL/NaT Close (pandas infers NULLs as datetime) — skip.
+                        continue
                 self._price_cache[tl] = pc
 
             mc = meta_cache.get(ticker.lower(), 0.0)

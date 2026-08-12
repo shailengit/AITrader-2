@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { request } from '@/lib/api';
 
 interface Props {
   source: 'sectors' | 'screener' | 'markov';
@@ -17,14 +18,13 @@ export function SaveHypothesisPopover({ source, ticker, sector, regime, convicti
   const save = async () => {
     setSaving(true);
     try {
-      await fetch('/api/hypotheses', {
+      await request('/hypotheses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           source, ticker, sector, regime, conviction,
           why: why || `Saved from ${source}`,
           source_meta: sourceMeta,
-        }),
+        },
       });
       setOpen(false);
       setWhy('');

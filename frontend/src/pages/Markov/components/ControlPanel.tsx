@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { request } from "@/lib/api";
 
 export interface ScanParams {
   model: "xgboost" | "lstm";
@@ -56,22 +57,19 @@ export default function ControlPanel({ onScan, loading, initialValues }: Control
     if (!retraining) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/api/markov/retrain-status");
-        if (res.ok) {
-          const data: RetrainProgress = await res.json();
-          setRetrainProgress(data);
-          if (!data.running) {
-            clearInterval(interval);
-            setRetraining(false);
-            setRetrainMsg("Retraining complete!");
-            // Clear completion message after 5s
-            if (retrainMsgTimer.current) clearTimeout(retrainMsgTimer.current);
-            retrainMsgTimer.current = setTimeout(() => setRetrainMsg(null), 5000);
-          } else if (data.stale) {
-            clearInterval(interval);
-            setRetraining(false);
-            setRetrainMsg("Retrain process stopped responding. Please try again.");
-          }
+        const data = await request<RetrainProgress>("/markov/retrain-status");
+        setRetrainProgress(data);
+        if (!data.running) {
+          clearInterval(interval);
+          setRetraining(false);
+          setRetrainMsg("Retraining complete!");
+          // Clear completion message after 5s
+          if (retrainMsgTimer.current) clearTimeout(retrainMsgTimer.current);
+          retrainMsgTimer.current = setTimeout(() => setRetrainMsg(null), 5000);
+        } else if (data.stale) {
+          clearInterval(interval);
+          setRetraining(false);
+          setRetrainMsg("Retrain process stopped responding. Please try again.");
         }
       } catch {
         // ignore polling errors
@@ -95,18 +93,14 @@ export default function ControlPanel({ onScan, loading, initialValues }: Control
     setRetrainMsg(null);
     setRetrainProgress(null);
     try {
-      const res = await fetch("/api/markov/retrain", {
+      await request("/markov/retrain", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           model: retrainModel,
           threshold: threshold / 100,
           max_tickers: maxResults,
-        }),
+        },
       });
-      if (!res.ok) {
-        throw new Error(`Retrain request failed: ${res.status} ${res.statusText}`);
-      }
       setRetrainMsg(`${retrainModel === "xgboost" ? "XGBoost" : "LSTM"} retraining started in background.`);
     } catch (e) {
       setRetraining(false);

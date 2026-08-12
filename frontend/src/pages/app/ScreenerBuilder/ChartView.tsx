@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { request } from '@/lib/api';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
@@ -247,14 +248,11 @@ export default function ChartView({
     setMetaData(null);
     const params = new URLSearchParams();
     if (fromDate) params.set('as_of_date', fromDate);
-    fetch(`/api/screener/ticker/${encodeURIComponent(ticker)}?${params}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json: TickerDetail) => {
+    request<TickerDetail>(
+      `/screener/ticker/${encodeURIComponent(ticker)}?${params}`,
+      { signal: controller.signal },
+    )
+      .then((json) => {
         setMetaData(json);
         setMetaLoading(false);
       })
@@ -319,15 +317,11 @@ export default function ChartView({
     if (cols.length) params.set('indicators', cols.join(','));
     if (Object.keys(overrides).length) params.set('overrides', JSON.stringify(overrides));
 
-    fetch(
-      `/api/screener/chart-data/${encodeURIComponent(ticker)}?${params.toString()}`,
+    request<ChartBar[]>(
+      `/screener/chart-data/${encodeURIComponent(ticker)}?${params.toString()}`,
       { signal: controller.signal },
     )
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json: ChartBar[]) => {
+      .then((json) => {
         setChartBars(Array.isArray(json) ? json : []);
         setChartLoading(false);
       })

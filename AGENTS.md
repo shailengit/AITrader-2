@@ -102,20 +102,16 @@ Set `use_ai=true` for Agno multi-agent team analysis with natural language repor
 
 ### Quant Strategy Filter System
 
-The Quant Strategy screener supports a two-phase natural language workflow:
+The Quant Strategy screener applies structured filters deterministically to the full S&P 1500 universe. There is **no** `POST /api/screener/parse-filters` endpoint and no `parse_quant_filters()`/`apply_quant_filters()` functions — the filter system is driven directly by the `filters` object the frontend sends in the scan request.
 
-1. **Parse Phase:** `POST /api/screener/parse-filters` sends the user's prompt to a lightweight LLM (`parse_quant_filters()`) which extracts structured `QuantFilters` JSON.
-2. **Review Phase:** The frontend displays editable controls for each parsed filter (ATH proximity, RSI range, volume ratio, SMA relations, sort order, max results).
-3. **Scan Phase:** The user clicks "Start Scan" with the confirmed filters. Both AI and non-AI paths apply the filters deterministically to the full S&P 1500 universe.
+**Scan flow:**
+1. The frontend builds a `filters` object (`{ indicator_filters: [...] }`) from the user's filter controls.
+2. `POST /api/screener/scan` (mode `quant_strategy`) starts a scan; the worker (`technical_screener` in `agno_screener.py`) computes indicators per ticker and applies the filters.
+3. Results stream via `/api/screener/stream/{scan_id}` and are fetched via `/api/screener/results/{scan_id}`.
 
 **Key functions:**
-- `backend/app/services/agno_screener.py:parse_quant_filters()` — LLM-based prompt parser
-- `backend/app/services/agno_screener.py:apply_quant_filters()` — Deterministic DataFrame filter engine
-- `backend/app/routers/screener.py:parse_filters()` — FastAPI endpoint
-
-**Important:** The `prompt` parameter to `run_quant_strategy_screener` was previously accepted but never used. The filter system fixes this by either:
-- Using `parse_quant_filters()` to turn the prompt into structured filters (non-AI path)
-- Passing both the prompt and confirmed filters to the Agno agent team (AI path)
+- `backend/app/services/agno_screener.py:technical_screener()` — parallel worker that computes indicators and applies `filters`
+- `backend/app/routers/screener.py:scan()` — FastAPI endpoint that starts the scan
 
 ### Database Access Pattern
 
@@ -266,32 +262,31 @@ window_configs = calculate_window_configs(
 
 **Lesson:** True WFO must always step 1 day at a time regardless of split method. The step calculation that works for standard WFO (step = test_len) breaks True WFO's continuous trading model.
 
-### VectorBT Optimization Requires Special Comparison Syntax
+### VectorBT Optimization Requires Broadcasting (vectorbt 1.0.0)
 
-**Problem:** Strategy backtest works fine, but optimization fails with "cannot join with no overlapping index names" error.
+**Problem:** Strategy backtest works fine, but optimization fails with "Operands are not aligned" / "Can only compare identically-labeled DataFrame objects".
 
-**Root Cause:** When using single parameter values, VBT creates simple Series that can be compared with operators (`>`, `<`, `&`, `|`). When optimizing with multiple parameter combinations, VBT creates DataFrames with MultiIndex columns that cannot be directly compared with operators.
+**Root Cause:** This project uses **vectorbt 1.0.0**. The `.vbt.gt()/.lt()` accessors, `vbt.combine_logic()`, and the `jitted=True` kwarg **DO NOT EXIST** in this version. During optimization, parameterized indicators become DataFrames with MultiIndex columns while non-parameterized operands stay Series, so comparing them directly fails.
 
-**Solution:** Use `.vbt` accessor methods and `vbt.combine_logic` instead of operators:
+**Solution:** Use VBT indicators (`.run()`) and broadcast every non-parameterized operand to the parameterized one's shape with a `_bc()` helper, then use plain operators:
 
 ```python
-# WRONG - Works for backtest, fails for optimization:
-entries = (fast_ma.ma > slow_ma.ma) & (rsi.rsi < 30)
+def _bc(s, ref):
+    # Broadcast s to match ref's shape/columns for safe &/| with MultiIndex columns.
+    if isinstance(s, pd.Series) and isinstance(ref, (pd.DataFrame, pd.Series)) and hasattr(ref, 'columns') and ref.columns.nlevels > 1:
+        return pd.DataFrame(np.broadcast_to(s.values[:, None], ref.shape), index=ref.index, columns=ref.columns)
+    if isinstance(s, pd.DataFrame) and isinstance(ref, pd.DataFrame):
+        if s.columns.nlevels != ref.columns.nlevels or s.columns.tolist() != ref.columns.tolist():
+            return pd.DataFrame(np.broadcast_to(s.values, ref.shape), index=ref.index, columns=ref.columns)
+    return s
 
-# CORRECT - Works for both backtest and optimization:
-entries = vbt.combine_logic(
-    fast_ma.ma.vbt.gt(slow_ma.ma),
-    rsi.rsi.vbt.lt(30),
-    combine_func=np.logical_and
-)
-
-# Standard Operation | VectorBT Method
-# ------------------ | -----------------------------
-# a > b              | a.vbt.gt(b)
-# a < b              | a.vbt.lt(b)
-# a == b             | a.vbt.eq(b)
-# a & b              | vbt.combine_logic(a, b, combine_func=np.logical_and)
-# a | b              | vbt.combine_logic(a, b, combine_func=np.logical_or)
+fast_ma = vbt.MA.run(close, window=fast_window).ma
+slow_ma = vbt.MA.run(close, window=slow_window).ma
+ef_bc = fast_ma
+es_bc = _bc(slow_ma, fast_ma)
+close_bc = _bc(close, fast_ma)
+entries = (ef_bc > es_bc) & (close_bc > ef_bc)
+exits = ef_bc < es_bc
 ```
 
 **Portfolio.from_signals flags for optimization:**
@@ -301,15 +296,14 @@ pf = vbt.Portfolio.from_signals(
     entries=entries,
     exits=exits,
     broadcast_kwargs={'keep_pd': True},  # Crucial for optimization/WFO
-    jitted=True
 )
 ```
 
 **Lesson:**
-- Strategy code must use `.vbt.gt()`, `.vbt.lt()`, and `vbt.combine_logic` to work with optimization
-- Never use `&`, `|`, `<`, or `>` with VBT indicators during signal generation
-- Always add `broadcast_kwargs={'keep_pd': True}` and `jitted=True` to `Portfolio.from_signals`
-- The backend now catches this error and provides a helpful message explaining how to fix the code
+- Use VBT indicators (`.run()`) for parameterized indicators so params broadcast during optimization
+- Broadcast non-parameterized operands to the parameterized one with `_bc()`
+- Use plain operators (`>`, `<`, `&`, `|`) on broadcast operands — do NOT use `.vbt.gt()`, `vbt.combine_logic()`, or `jitted=True` (they don't exist in vectorbt 1.0.0)
+- Always add `broadcast_kwargs={'keep_pd': True}` to `Portfolio.from_signals`
 
 ### Agno Agent API Version Sensitivity
 

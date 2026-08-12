@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { clearAppReferrer } from '@/components/layout/Layout';
+import { quantgen } from '@/lib/api';
 
 interface Strategy {
   id: string;
@@ -76,8 +77,7 @@ export default function Library() {
   useEffect(() => {
     if (activeTab !== 'builtin') return;
     setIsLoadingBuiltin(true);
-    fetch('/api/strategy-catalog')
-      .then(r => r.json())
+    quantgen.strategyCatalog()
       .then(data => {
         if (data.success && data.data) {
           setBuiltinStrategies(data.data.strategies_by_category || {});

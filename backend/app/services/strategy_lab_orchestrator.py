@@ -447,8 +447,20 @@ def run_batch(
         """Persist one run's result to the DB. Called from worker threads."""
         try:
             from app.db.database import SessionLocal
-            from app.models.strategy_lab import StrategyExperiment
+            from app.models.strategy_lab import StrategyExperiment, StrategySession
             with SessionLocal() as db:
+                # The placeholder session id "_" maps to a random UUID that does
+                # NOT exist in strategy_sessions, so the FK on
+                # strategy_experiments.session_id would fail. Ensure a real
+                # session row exists first (create a placeholder if needed).
+                if db.get(StrategySession, _db_session_id) is None:
+                    db.add(StrategySession(
+                        id=_db_session_id,
+                        name="(batch)",
+                        prompt="",
+                        model_id="",
+                    ))
+                    db.commit()
                 exp = StrategyExperiment(
                     session_id=_db_session_id,
                     batch_id=uuid.UUID(batch_id),
@@ -486,9 +498,9 @@ def run_batch(
 
                 for fut in as_completed(futures):
                     try:
-                        result = fut.result(timeout=120)
+                        result = fut.result(timeout=600)
                     except TimeoutError:
-                        logger.warning("Experiment timed out after 120s")
+                        logger.warning("Experiment timed out after 600s")
                         continue
                     except Exception as run_err:
                         logger.exception("Run failed: %s", run_err)

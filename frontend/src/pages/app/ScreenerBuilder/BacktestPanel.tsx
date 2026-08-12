@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { request } from "@/lib/api";
 import { useTheme } from "../../../context/ThemeContext";
 import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
@@ -171,16 +172,10 @@ export default function BacktestPanel({ tickers, asOfDate, customFilters }: Back
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/screener/backtest-hold", {
+      const json = await request<BacktestResponse>("/screener/backtest-hold", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tickers, as_of_date: asOfDate }),
+        body: { tickers, as_of_date: asOfDate },
       });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => null);
-        throw new Error(errBody?.detail || `Server error (${res.status})`);
-      }
-      const json: BacktestResponse = await res.json();
       setData(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Backtest unavailable — backend offline");
@@ -214,22 +209,16 @@ export default function BacktestPanel({ tickers, asOfDate, customFilters }: Back
         ? { kind: "custom", filters: customFilters ?? {} }
         : { kind: "dormant_giant" };
     try {
-      const res = await fetch("/api/screener/backtest-exit", {
+      const json = await request<BacktestExitResponse>("/screener/backtest-exit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           as_of_date: asOfDate,
           top_n: exitTopN,
           sizing: { mode: "equal_weight" },
           screener: screenerPayload,
           exit_rules: exitRules,
-        }),
+        },
       });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => null);
-        throw new Error(errBody?.detail || `Server error (${res.status})`);
-      }
-      const json: BacktestExitResponse = await res.json();
       setExitData(json);
     } catch (err) {
       setExitError(err instanceof Error ? err.message : "Exit-rule backtest unavailable — backend offline");

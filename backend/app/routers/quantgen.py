@@ -179,6 +179,21 @@ class StrategyModel(BaseModel):
     code: str
 
 
+
+def _json_safe(value):
+    """Recursively coerce non-finite floats (inf/-inf/nan) to None so the
+    response never fails JSON serialization with 'Out of range float values
+    are not JSON compliant'."""
+    if isinstance(value, float):
+        import math
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 @router.get("/ticker-info/{ticker}")
 async def get_ticker_info(ticker: str):
     """
@@ -431,7 +446,7 @@ async def run_strategy_endpoint(request: RunRequest):
                 logger.warning("Coach quantgen /run hook failed: %s", _e)
             return {
                 "success": True,
-                "data": {
+                "data": _json_safe({
                     "output": result.get("output", ""),
                     "stats": result.get("stats", {}),
                     "equity": result.get("equity", []),
@@ -440,7 +455,7 @@ async def run_strategy_endpoint(request: RunRequest):
                     "benchmark_drawdown": result.get("benchmark_drawdown", {}),
                     "trades": result.get("trades", []),
                     "indicators": result.get("indicators", [])
-                },
+                }),
                 "message": "Strategy executed successfully"
             }
         else:

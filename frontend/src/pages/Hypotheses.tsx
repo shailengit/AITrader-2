@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { request } from '@/lib/api';
 
 interface Hypothesis {
   id: string;
@@ -17,15 +18,14 @@ export default function Hypotheses() {
   const [status, setStatus] = useState<string>('');
 
   useEffect(() => {
-    const url = status ? `/api/hypotheses?status=${status}` : '/api/hypotheses';
-    fetch(url).then(r => r.json()).then(setRows);
+    const url = status ? `/hypotheses?status=${status}` : '/hypotheses';
+    request<Hypothesis[]>(url).then(setRows);
   }, [status]);
 
   const archive = async (id: string) => {
-    await fetch(`/api/hypotheses/${id}`, {
+    await request(`/hypotheses/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'archived' }),
+      body: { status: 'archived' },
     });
     setRows(rs => rs.filter(r => r.id !== id));
   };

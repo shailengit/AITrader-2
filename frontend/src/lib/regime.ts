@@ -10,10 +10,10 @@ export interface RegimeResponse {
   sector_status: SectorRegime[];
 }
 
+import { request } from "@/lib/api";
+
 export async function fetchRegimes(): Promise<SectorRegime[]> {
-  const res = await fetch('/api/markov/regimes');
-  if (!res.ok) throw new Error(`regime fetch failed: ${res.status}`);
-  const data: RegimeResponse = await res.json();
+  const data = await request<RegimeResponse>('/markov/regimes');
   return data.sector_status ?? [];
 }
 

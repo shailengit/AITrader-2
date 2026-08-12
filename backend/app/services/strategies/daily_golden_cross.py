@@ -351,7 +351,11 @@ class DailyGoldenCrossRotation(Strategy):
             if ticker_lower not in self._price_cache:
                 pc: Dict[str, float] = {}
                 for _, row in df.iterrows():
-                    pc[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
+                    try:
+            pc[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
+        except (TypeError, ValueError):
+            # NULL/NaT Close (pandas infers NULLs as datetime) — skip.
+            continue
                 self._price_cache[ticker_lower] = pc
 
             # Market cap & sector

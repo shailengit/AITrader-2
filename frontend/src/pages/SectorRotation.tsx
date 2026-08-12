@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { request } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp,
@@ -126,8 +127,7 @@ export default function SectorRotation() {
 
   const checkDbStatus = async () => {
     try {
-      const res = await fetch('/api/db-status')
-      const data = await res.json()
+      const data = await request<{ connected: boolean }>('/db-status')
       setIsDbConnected(data.connected)
     } catch {
       setIsDbConnected(false)
@@ -175,10 +175,8 @@ export default function SectorRotation() {
     try {
       setLoading(true)
       const qs = buildQueryParams()
-      const url = qs ? `/api/sectors?${qs}` : '/api/sectors'
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to fetch sectors')
-      const data = await res.json()
+      const url = qs ? `/sectors?${qs}` : '/sectors'
+      const data = await request<Sector[]>(url)
       setSectors(data)
       if (data.length > 0) {
         const restored = savedState?.selectedSector
@@ -197,10 +195,8 @@ export default function SectorRotation() {
   const fetchStocks = async (sectorTicker: string) => {
     try {
       const qs = buildQueryParams()
-      const url = qs ? `/api/stocks/${sectorTicker}?${qs}` : `/api/stocks/${sectorTicker}`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to fetch stocks')
-      const data = await res.json()
+      const url = qs ? `/stocks/${sectorTicker}?${qs}` : `/stocks/${sectorTicker}`
+      const data = await request<Stock[]>(url)
       setStocks(data)
     } catch (err) {
       console.error(err)
@@ -211,10 +207,8 @@ export default function SectorRotation() {
     try {
       setLoadingTopLeaders(true)
       const qs = buildQueryParams()
-      const url = qs ? `/api/top-momentum-leaders?${qs}` : '/api/top-momentum-leaders'
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to fetch top momentum leaders')
-      const data = await res.json()
+      const url = qs ? `/top-momentum-leaders?${qs}` : '/top-momentum-leaders'
+      const data = await request<Stock[]>(url)
       setTopLeaders(data)
     } catch (err) {
       console.error('Failed to fetch top momentum leaders:', err)
@@ -234,9 +228,7 @@ export default function SectorRotation() {
     try {
       setIsChartLoading(true)
       setChartTicker(ticker)
-      const res = await fetch(`/api/ohlcv/${ticker}`)
-      if (!res.ok) throw new Error('Failed to fetch OHLCV')
-      const data = await res.json()
+      const data = await request<any[]>(`/ohlcv/${ticker}`)
       
       const processedData = data.map((d: any, i: number) => {
         const result = { ...d }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { request } from '@/lib/api';
 
 interface DriftHit {
   strategy_path: string;
@@ -19,15 +20,14 @@ export function DriftAlertStrip() {
   useEffect(() => {
     // List strategies via the Strategy Lab class registry, then reuse the Coach
     // summary endpoint per strategy to detect live-equity drift.
-    fetch('/api/strategy-lab/strategy-classes')
-      .then(r => r.json())
-      .then(async (classes: StrategyClassItem[]) => {
+    request<StrategyClassItem[]>('/strategy-lab/strategy-classes')
+      .then(async (classes) => {
         // Coach summary expects a relative "strategies/<file>.py" path; derive it
         // from the absolute class path (same as StrategyCoachBadge in StepLibrary).
         const settled = await Promise.allSettled(
           classes.map((item) => {
             const rel = item.path.split('/services/')[1] ?? item.path;
-            return fetch(`/api/coach/strategy/${encodeURIComponent(rel)}/summary`).then(r => r.json());
+            return request<any>(`/coach/strategy/${encodeURIComponent(rel)}/summary`);
           })
         );
         const drifted = settled

@@ -11,6 +11,7 @@ import {
 import { TrendingDown, Activity, DollarSign, ArrowLeft, Trash2 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { clearAppReferrer } from '@/components/layout/Layout';
+import { quantgen } from '@/lib/api';
 import { CandleStickChart } from '@/components/quantgen/CandleStickChart';
 import { SectorRegime, fetchRegimes } from '@/lib/regime';
 import { IndicatorPanel } from '@/components/quantgen/IndicatorPanel';
@@ -202,8 +203,7 @@ export default function Dashboard() {
     const fetchTickerInfo = async () => {
       setTickerInfoLoading(true);
       try {
-        const res = await fetch(`/api/ticker-info/${primaryTicker}`);
-        const json = await res.json();
+        const json = await quantgen.tickerInfo(primaryTicker);
         if (json.success && json.data) {
           setTickerInfo(json.data);
         }
@@ -221,8 +221,7 @@ export default function Dashboard() {
     setResearchMode(mode as 'simulated' | 'live');
     setResearchData(null);
     setResearchLoading(true);
-    fetch(`/api/research/${primaryTicker}?mode=${mode}`)
-      .then((res) => res.json())
+    quantgen.researchTicker(primaryTicker, mode)
       .then((json) => {
         if (json.success && json.data) {
           setResearchData(json.data);

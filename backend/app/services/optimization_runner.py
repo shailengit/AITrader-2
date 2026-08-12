@@ -172,6 +172,13 @@ def run_optimization(code: str, strategy_params: dict, config: dict, tickers: Op
             with contextlib.redirect_stdout(output_buffer), contextlib.redirect_stderr(output_buffer):
                 # Build execution globals with required imports
                 from app.services.data_service import SafeDataService, safe_get_data
+                # vectorbt 1.0.0 requires a global frequency for time-based
+                # metrics/optimization; otherwise it raises
+                # "Index frequency is None. Pass it as `freq`...".
+                try:
+                    vbt.settings.array_wrapper.freq = "D"
+                except Exception:
+                    pass
                 exec_globals = {
                     "vbt": vbt,
                     "pd": pd,

@@ -81,13 +81,12 @@
   --border-hover: rgba(0, 0, 0, 0.1);
 }
 
-/* Reset */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
+/* Reset
+   NOTE: Do NOT add an unlayered `* { margin:0; padding:0 }` reset here.
+   Tailwind v4 emits its own preflight reset inside `@layer base`, so an
+   unlayered reset would outrank every `@layer utilities` spacing class
+   (mb-*, mt-*, p-*, py-*, px-*...) and silently zero them out. That was
+   the root cause of "spacing utilities not applied". Rely on preflight. */
 html {
   font-size: 16px;
   scroll-behavior: smooth;

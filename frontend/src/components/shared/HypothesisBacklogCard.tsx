@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { request } from '@/lib/api';
 
 interface H {
   id: string;
@@ -13,8 +14,7 @@ export function HypothesisBacklogCard() {
   const [rows, setRows] = useState<H[]>([]);
 
   useEffect(() => {
-    fetch('/api/hypotheses?status=open&limit=5')
-      .then(r => r.json())
+    request<H[]>('/hypotheses?status=open&limit=5')
       .then(setRows)
       .catch(() => {});
   }, []);

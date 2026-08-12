@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { request } from '@/lib/api';
 
 interface Summary {
   strategy_path: string;
@@ -18,8 +19,7 @@ export function StrategyCoachBadge({ strategyPath }: { strategyPath: string }) {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/coach/strategy/${encodeURIComponent(strategyPath)}/summary`)
-      .then(r => (r.ok ? r.json() : null))
+    request<Summary | null>(`/coach/strategy/${encodeURIComponent(strategyPath)}/summary`)
       .then(setS)
       .catch(() => setS(null));
   }, [strategyPath]);

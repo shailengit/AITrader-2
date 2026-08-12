@@ -1,5 +1,7 @@
 // Typed client for /api/coach/*
 
+import { request } from "@/lib/api";
+
 export interface KPISet {
   total_pnl: number;
   win_rate: number;
@@ -76,25 +78,14 @@ export interface ReportDetail extends ReportSummary {
   completion_tokens: number | null;
 }
 
-const base = '/api/coach';
+const base = '/coach';
 
 async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-  return res.json() as Promise<T>;
+  return request<T>(url);
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`POST ${url} -> ${res.status}: ${text}`);
-  }
-  return res.json() as Promise<T>;
+  return request<T>(url, { method: 'POST', body });
 }
 
 export const coachApi = {
@@ -130,14 +121,10 @@ export const coachApi = {
   createTrade: (body: Partial<Trade> & { ticker: string; qty: number; entry_px: number; entry_at: string }) =>
     postJson<Trade>(`${base}/trades`, body),
   patchTrade: (id: string, body: Partial<Trade>) =>
-    fetch(`${base}/trades/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then((r) => r.json() as Promise<Trade>),
+    request<Trade>(`${base}/trades/${id}`, { method: 'PATCH', body }),
   closeTrade: (id: string, body: { exit_px?: number; exit_at?: string } = {}) =>
     postJson<Trade>(`${base}/trades/${id}/close`, body),
-  deleteTrade: (id: string) => fetch(`${base}/trades/${id}`, { method: 'DELETE' }),
+  deleteTrade: (id: string) => request(`${base}/trades/${id}`, { method: 'DELETE' }),
   listStrategies: () => getJson<Strategy[]>(`${base}/strategies`),
   createStrategy: (body: {
     kind: Strategy['kind'];
@@ -146,14 +133,10 @@ export const coachApi = {
     notes?: string;
   }) => postJson<Strategy>(`${base}/strategies`, body),
   patchStrategy: (id: string, body: Partial<Strategy>) =>
-    fetch(`${base}/strategies/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then((r) => r.json() as Promise<Strategy>),
+    request<Strategy>(`${base}/strategies/${id}`, { method: 'PATCH', body }),
   generateReport: (body: { period_start?: string; period_end?: string; strategy_id?: string; model?: string }) =>
     postJson<ReportDetail>(`${base}/report`, body),
   listReports: (limit = 20) => getJson<ReportSummary[]>(`${base}/reports?limit=${limit}`),
   getReport: (id: string) => getJson<ReportDetail>(`${base}/reports/${id}`),
-  deleteReport: (id: string) => fetch(`${base}/reports/${id}`, { method: 'DELETE' }),
+  deleteReport: (id: string) => request(`${base}/reports/${id}`, { method: 'DELETE' }),
 };

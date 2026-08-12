@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { request } from '@/lib/api'
 import { Calendar as CalendarIcon, Clock, DollarSign, TrendingUp, AlertCircle, Loader2 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 
@@ -59,9 +60,7 @@ export default function EarningsCalendar() {
       future.setDate(future.getDate() + days)
       const to = future.toISOString().split('T')[0]
 
-      const res = await fetch(`/api/earnings/calendar?from=${today}&to=${to}`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
+      const data = await request<EarningsEvent[]>(`/earnings/calendar?from=${today}&to=${to}`)
       setEvents(data || [])
     } catch (e: any) {
       setError(e.message || 'Failed to load earnings calendar')

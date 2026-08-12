@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { request } from "@/lib/api";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import ControlPanel, { ScanParams } from "./components/ControlPanel";
@@ -76,22 +77,19 @@ export default function MarkovPage() {
     if (loading) {
       pollRef.current = setInterval(async () => {
         try {
-          const res = await fetch("/api/markov/scan-status");
-          if (res.ok) {
-            const data: ScanProgress = await res.json();
-            setProgress(data);
-            // Stale detection: if the backend stopped responding or
-            // the process crashed (SIGSEGV in PyTorch LSTM kernels),
-            // the status is frozen at running=true with zero progress.
-            // Reset so the user gets an actionable error.
-            if (data.stale) {
-              setLoading(false);
-              setError(
-                "The scan process stopped responding — " +
-                "LSTM training crashed the backend (OpenMP / PyTorch segfault). " +
-                "Please try again; the server should have auto-restarted."
-              );
-            }
+          const data = await request<ScanProgress>("/markov/scan-status");
+          setProgress(data);
+          // Stale detection: if the backend stopped responding or
+          // the process crashed (SIGSEGV in PyTorch LSTM kernels),
+          // the status is frozen at running=true with zero progress.
+          // Reset so the user gets an actionable error.
+          if (data.stale) {
+            setLoading(false);
+            setError(
+              "The scan process stopped responding — " +
+              "LSTM training crashed the backend (OpenMP / PyTorch segfault). " +
+              "Please try again; the server should have auto-restarted."
+            );
           }
         } catch {
           // Connection refused / server restarting — check if we went idle
@@ -187,21 +185,16 @@ export default function MarkovPage() {
     );
 
     try {
-      const res = await fetch("/api/markov/scan", {
+      const data = await request<any>("/markov/scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           model: params.model,
           threshold: params.threshold,
           min_conviction: params.minConviction,
           max_results: params.maxResults,
           end_date: params.asOfDate || undefined,
-        }),
+        },
       });
-      if (!res.ok) {
-        throw new Error(`Scan request failed: ${res.status} ${res.statusText}`);
-      }
-      const data = await res.json();
       if (data.signals != null) setSignals(data.signals);
       if (data.sector_status != null) setSectors(data.sector_status);
       if (data.total_scanned != null) setTotalScanned(data.total_scanned);
