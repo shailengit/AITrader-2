@@ -20,9 +20,9 @@ TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 mkdir -p "$LOG_DIR"
 
 # Load environment variables
-if [ -f "$PROJECT_DIR/backend/.env" ]; then
+if [ -f "$PROJECT_DIR/.env" ]; then
     set -a
-    source "$PROJECT_DIR/backend/.env"
+    source "$PROJECT_DIR/.env"
     set +a
 fi
 

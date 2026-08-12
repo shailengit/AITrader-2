@@ -13,9 +13,9 @@ mkdir -p "$LOG_DIR"
 
 # Load DB + API credentials from the project .env (authoritative; required
 # under launchd where the clean environment has no shell exports).
-if [ -f "$PROJECT_DIR/backend/.env" ]; then
+if [ -f "$PROJECT_DIR/.env" ]; then
     set -a
-    source "$PROJECT_DIR/backend/.env"
+    source "$PROJECT_DIR/.env"
     set +a
 fi
 

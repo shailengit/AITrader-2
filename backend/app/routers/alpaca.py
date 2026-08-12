@@ -66,7 +66,7 @@ def get_live(
     if not _is_configured():
         return {
             "configured": False,
-            "reason": "Alpaca API keys are not set in backend/.env",
+            "reason": "Alpaca API keys are not set in the root .env",
         }
 
     try:

@@ -9,16 +9,17 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env — check backend/ first, then project root
+# Load .env — single source of truth is the repo-root .env.
+# (Fall back to backend/.env only if the root one is missing.)
+_env_root = Path(__file__).resolve().parent.parent.parent / ".env"
 _env_backend = Path(__file__).resolve().parent.parent / ".env"
-_env_root = _env_backend.parent / ".env"
-for p in (_env_backend, _env_root):
+for p in (_env_root, _env_backend):
     if p.exists():
         load_dotenv(dotenv_path=p, override=True)
         logging.info("Loaded environment from: %s", p)
         break
 else:
-    logging.warning("No .env file found at %s or %s", _env_backend, _env_root)
+    logging.warning("No .env file found at %s or %s", _env_root, _env_backend)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware

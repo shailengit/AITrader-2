@@ -60,7 +60,7 @@ export default function CommandCenter() {
             <div style={{ fontSize: 14, opacity: .7 }}>Loading live P&L…</div>
           ) : !live.configured ? (
             <div style={{ fontSize: 14, opacity: .7 }}>
-              Alpaca not configured — add keys to backend/.env
+              Alpaca not configured — add keys to the root .env
             </div>
           ) : (
             <>

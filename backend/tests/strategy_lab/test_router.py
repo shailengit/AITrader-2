@@ -7,7 +7,7 @@ import pytest
 from dotenv import load_dotenv
 
 # Set up env before importing app
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from fastapi.testclient import TestClient
