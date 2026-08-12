@@ -28,7 +28,6 @@ from datetime import datetime
 import signal
 
 import matplotlib.pyplot as plt
-import vectorbt as vbt
 import pandas as pd
 import numpy as np
 
@@ -38,9 +37,6 @@ from app.services.indicator_extractor import extract_indicators
 from app.services.signal_extractor import extract_ticker_from_code
 from app.services.true_wfo_implementation import extract_dates_from_code
 from app.services.wfo_metrics import compute_ohlcv_from_data
-
-# Import Markov signal provider for regime-aware backtesting
-from app.services.markov.signal_provider import MarkovSignalProvider
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -303,6 +299,8 @@ class CodeExecutor:
     @staticmethod
     def execute_with_timeout(code: str, timeout_seconds: int = MAX_EXECUTION_TIME) -> Tuple[Any, str]:
         """Execute code with timeout and stdout capture"""
+        import vectorbt as vbt  # lazy: heavy import, only needed when running a strategy
+        from app.services.markov.signal_provider import MarkovSignalProvider  # lazy: pulls in torch
         stdout_buffer = io.StringIO()
 
         # Define execution globals
@@ -478,6 +476,7 @@ class StatsExtractor:
     @staticmethod
     def extract_benchmark_comparison(pf) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         """Extract benchmark comparison data. Returns (strategy_drawdown, benchmark_drawdown, bench_stats)."""
+        import vectorbt as vbt  # lazy: heavy import
         try:
             if not hasattr(pf, 'close'):
                 return {}, {}, {}

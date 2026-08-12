@@ -1,11 +1,11 @@
 """VectorBT Helpers Module"""
-import vectorbt as vbt
 
 
 def get_indicator_list():
     """
     Returns a list of built-in vectorbt indicators and their basic usage.
     """
+    import vectorbt as vbt  # lazy: heavy import
     indicators = [
         {
             "name": "MA (Moving Average)",

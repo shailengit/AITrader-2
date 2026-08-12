@@ -23,12 +23,12 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import vectorbt as vbt
 
 DEFAULT_WINDOW = 14
 
 
 def _demarker_apply(high, low, window: int) -> np.ndarray:
+    import vectorbt as vbt  # lazy: heavy import
     # VectorBT may pass inputs as 1-D or 2-D (n, 1) columns; flatten for pd.Series.
     high_arr = np.asarray(high).reshape(-1)
     low_arr = np.asarray(low).reshape(-1)

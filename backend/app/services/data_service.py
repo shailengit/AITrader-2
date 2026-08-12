@@ -54,17 +54,27 @@ class DataService:
 
     @staticmethod
     def get_available_tickers() -> List[str]:
-        """Get list of all available tickers in the database."""
+        """Get list of all available tickers in the database.
+
+        Prefers the consolidated `ohlcv` table; falls back to listing the
+        per-ticker tables if `ohlcv` is empty (e.g. before backfill).
+        """
         try:
-            query = text("""
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = 'public'
-                AND table_name NOT IN ('stock_metadata', 'stock_financials_quarterly', 'stock_financials_yearly')
-            """)
             with engine.connect() as conn:
-                result = conn.execute(query)
-                return [row[0].upper() for row in result]
+                # Prefer the consolidated table.
+                rows = conn.execute(text(
+                    "SELECT DISTINCT ticker FROM ohlcv ORDER BY ticker"
+                )).fetchall()
+                if rows:
+                    return [r[0].upper() for r in rows]
+                # Fallback: per-ticker tables.
+                rows = conn.execute(text("""
+                    SELECT table_name
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                    AND table_name NOT IN ('stock_metadata', 'stock_financials_quarterly', 'stock_financials_yearly')
+                """)).fetchall()
+                return [r[0].upper() for r in rows]
         except Exception as e:
             logger.error(f"Error getting available tickers: {e}")
             return []
@@ -102,35 +112,45 @@ class DataService:
         target_engine = DataService._get_engine(frequency)
 
         try:
-            # Build query with optional date filters
-            base_query = f'''
-                SELECT "Date", "Open", "High", "Low", "Close", "Volume"
-                FROM "{table_name}"
-            '''
-
+            # Prefer the consolidated `ohlcv` table (single-table schema).
+            # Fall back to the per-ticker table if the ticker isn't in `ohlcv`
+            # yet (e.g. before backfill, or minute data which lives in sp1500_1m).
             conditions = []
-            params = {}
+            params = {"ticker": ticker.lower()}
 
             if start_date:
                 conditions.append('"Date" >= :start_date')
                 params['start_date'] = start_date
-
             if end_date:
                 conditions.append('"Date" <= :end_date')
                 params['end_date'] = end_date
 
-            if conditions:
-                base_query += " WHERE " + " AND ".join(conditions)
+            where = (" AND " + " AND ".join(conditions)) if conditions else ""
+            limit_sql = f" LIMIT {limit}" if limit else ""
 
-            base_query += ' ORDER BY "Date" ASC'
-
-            if limit:
-                base_query += f" LIMIT {limit}"
-
-            query = text(base_query)
+            ohlcv_query = text(f'''
+                SELECT "Date", "Open", "High", "Low", "Close", "Volume"
+                FROM ohlcv
+                WHERE ticker = :ticker{where}
+                ORDER BY "Date" ASC{limit_sql}
+            ''')
 
             with target_engine.connect() as conn:
-                df = pd.read_sql(query, conn, params=params)
+                df = pd.read_sql(ohlcv_query, conn, params=params)
+
+            if df.empty:
+                # Fallback: per-ticker table (legacy schema).
+                base_query = f'''
+                    SELECT "Date", "Open", "High", "Low", "Close", "Volume"
+                    FROM "{table_name}"
+                '''
+                if conditions:
+                    base_query += " WHERE " + " AND ".join(conditions)
+                base_query += ' ORDER BY "Date" ASC'
+                if limit:
+                    base_query += f" LIMIT {limit}"
+                with target_engine.connect() as conn:
+                    df = pd.read_sql(text(base_query), conn, params=params)
 
             if df.empty:
                 logger.warning(f"No data found for ticker {ticker} ({frequency})")

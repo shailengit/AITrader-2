@@ -1,4 +1,3 @@
-import vectorbt as vbt
 import pandas as pd
 import numpy as np
 import io
@@ -61,6 +60,7 @@ def run_optimization(code: str, strategy_params: dict, config: dict, tickers: Op
     Uses vectorbt's built-in broadcasting when arrays are passed to
     indicator .run() methods. Based on Pattern #5 from CONTEXT.md.
     """
+    import vectorbt as vbt  # lazy: heavy import (numba compile) only on first optimize
     output_buffer = io.StringIO()
     result = {
         "mode": config.get("mode", "simple"),

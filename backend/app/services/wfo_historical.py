@@ -24,7 +24,6 @@ from typing import Dict, Any, List, Optional, Tuple
 
 import pandas as pd
 import numpy as np
-import vectorbt as vbt
 
 from app.services.true_wfo_implementation import (
     extract_dates_from_code,
@@ -308,6 +307,7 @@ def _optimize_on_window(
     output_buffer: io.StringIO
 ) -> Tuple[Optional[Dict], Optional[float]]:
     """Optimize strategy parameters on a single window."""
+    import vectorbt as vbt  # lazy: heavy import
     from app.services.data_service import SafeDataService, safe_get_data
 
     try:
@@ -364,6 +364,7 @@ def _optimize_on_window(
 
 def _run_test_window(code: str, output_buffer: io.StringIO) -> Optional[Dict]:
     """Run strategy on test window with best parameters."""
+    import vectorbt as vbt  # lazy: heavy import
     from app.services.data_service import SafeDataService, safe_get_data
 
     try:
