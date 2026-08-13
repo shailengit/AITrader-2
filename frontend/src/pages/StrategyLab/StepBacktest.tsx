@@ -6,6 +6,7 @@ import {
   strategyLabApi,
   type ExperimentRow,
 } from "../../lib/strategyLab";
+import { LiveActivity } from "./LiveActivity";
 
 interface StepBacktestProps {
   strategyClassPath: string;
@@ -229,6 +230,13 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
               isRunning={isRunning}
               batchId={batchId}
               startTime={batchStartTime}
+            />
+
+            <LiveActivity
+              rows={experiments}
+              nRuns={nRuns}
+              isRunning={isRunning}
+              winnerMetric={winnerMetric}
             />
 
             {isDone && progress.failed > 0 && progress.completed === 0 && (
