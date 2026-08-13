@@ -299,9 +299,11 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* TerminalHost — sibling of Outlet so route changes inside the shell
-          never unmount the terminal. */}
-      <TerminalHost />
+      {/* Terminal is only shown on its dedicated /terminal page (via
+          TerminalHost in fullpage mode). We deliberately do NOT render a
+          floating terminal on every page — it blocks content and the app
+          already has a dedicated AI Terminal page in the nav. */}
+      {location.pathname === "/terminal" && <TerminalHost />}
     </div>
   );
 }

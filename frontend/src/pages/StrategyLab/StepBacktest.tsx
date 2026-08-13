@@ -119,6 +119,10 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
       setExperiments([]);
       setSelectedWinner(null);
       setProgress({ completed: 0, total: nRuns, failed: 0 });
+      // Record the wall-clock start immediately so the ETA shows an
+      // "estimating…" state during the initial (slower) data precompute,
+      // then a rate-based estimate once runs begin completing.
+      setBatchStartTime(Date.now());
       hasAutoPicked.current = false;
       saveBatchState(r.batch_id, strategyClassPath, nRuns, endDate, startDateMin, startDateMax);
     },
