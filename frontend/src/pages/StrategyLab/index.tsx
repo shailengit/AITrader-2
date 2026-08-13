@@ -53,39 +53,35 @@ export default function StrategyLabPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
         >
-          {activeStep === 0 ? (
-            <StepLibrary key="step-0" onSelectStrategy={handleSelectStrategy} />
-          ) : activeStep === 1 && selectedStrategyPath ? (
-            <StepBacktest
-              key={`step-1-${selectedStrategyPath}`}
-              strategyClassPath={selectedStrategyPath}
-              onWinnerPicked={handleWinnerPicked}
-            />
-          ) : activeStep === 2 && selectedStrategyPath && selectedExperimentId ? (
-            <StepDeploy
-              key={`step-2-${selectedStrategyPath}`}
-              strategyClassPath={selectedStrategyPath}
-              experimentId={selectedExperimentId}
-              onDeployed={() => {}}
-            />
-          ) : (
-            <StepNoStrategy key="step-no-strategy" />
+          {/* All steps stay mounted so their state (form inputs, fetched
+              data, running batch) is preserved when switching tabs. Inactive
+              steps are hidden with display:none rather than unmounted. Each
+              step is keyed by strategy so selecting a different strategy
+              resets it, while tab switches keep the same key and state. */}
+          <div style={{ display: activeStep === 0 ? "block" : "none" }}>
+            <StepLibrary onSelectStrategy={handleSelectStrategy} />
+          </div>
+          {selectedStrategyPath && (
+            <div style={{ display: activeStep === 1 ? "block" : "none" }}>
+              <StepBacktest
+                key={selectedStrategyPath}
+                strategyClassPath={selectedStrategyPath}
+                onWinnerPicked={handleWinnerPicked}
+              />
+            </div>
+          )}
+          {selectedStrategyPath && selectedExperimentId && (
+            <div style={{ display: activeStep === 2 ? "block" : "none" }}>
+              <StepDeploy
+                key={selectedStrategyPath}
+                strategyClassPath={selectedStrategyPath}
+                experimentId={selectedExperimentId}
+                onDeployed={() => {}}
+              />
+            </div>
           )}
         </motion.div>
       </main>
-    </div>
-  );
-}
-
-function StepNoStrategy() {
-  return (
-    <div className="slab-page-body">
-      <div className="slab-eyebrow slab-eyebrow--gold mb-3">// 01 · Backtest</div>
-      <h1 className="slab-display slab-h2 mb-3">Select a strategy first.</h1>
-      <p className="slab-lede">
-        Pick a strategy from the library or use the terminal to generate one with Claude Code.
-        Generated strategies live in <span className="slab-mono">backend/app/services/strategies/</span>.
-      </p>
     </div>
   );
 }

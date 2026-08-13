@@ -42,12 +42,15 @@ const STORAGE_KEY_SESSION = "terminal_session_id";
 const STORAGE_KEY_PANEL = "terminal_panel_state";
 
 function defaultPanelState(): PanelState {
+  // Start minimized (a small pill in the corner) so the terminal never
+  // blocks page content on load. Click the pill to expand; the expanded
+  // panel is draggable (title bar) and resizable (corner handle).
   return {
-    x: Math.max(0, window.innerWidth - 620),
-    y: Math.max(0, window.innerHeight - 420),
+    x: Math.max(0, window.innerWidth - 240),
+    y: Math.max(0, window.innerHeight - 80),
     width: 600,
     height: 400,
-    minimized: false,
+    minimized: true,
   };
 }
 

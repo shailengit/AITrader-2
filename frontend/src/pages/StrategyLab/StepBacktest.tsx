@@ -81,6 +81,9 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
   const [progress, setProgress] = useState(isResumed ? { completed: 0, total: savedBatch!.nRuns, failed: 0 } : { completed: 0, total: 0, failed: 0 });
   const [selectedWinner, setSelectedWinner] = useState<string | null>(null);
   const [equityExperimentId, setEquityExperimentId] = useState<string | null>(null);
+  // When the batch first shows progress, record the wall-clock start so we
+  // can estimate time remaining from the observed completion rate.
+  const [batchStartTime, setBatchStartTime] = useState<number | null>(null);
   const [winnerMetric, setWinnerMetric] = useState<WinnerMetric>("bear");
   const winnerMetricRef = useRef<WinnerMetric>("bear");
   const hasAutoPicked = useRef(false);
@@ -129,6 +132,9 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
         setExperiments(rows);
         const completed = rows.filter((r) => r.status === "completed").length;
         const failed = rows.filter((r) => r.status === "failed").length;
+        if (batchStartTime === null && (completed + failed) > 0) {
+          setBatchStartTime(Date.now());
+        }
         setProgress({ completed, total: nRuns, failed });
         if (completed + failed >= nRuns) {
           if (pollRef.current) clearInterval(pollRef.current);
@@ -218,6 +224,7 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
               failed={progress.failed}
               isRunning={isRunning}
               batchId={batchId}
+              startTime={batchStartTime}
             />
 
             {isDone && progress.failed > 0 && progress.completed === 0 && (
@@ -399,10 +406,38 @@ function ConfigForm(props: {
 }
 
 // ── Live ticker ──────────────────────────────────────────────────────
-function LiveTicker({ completed, total, failed, isRunning, batchId }: {
+function formatEta(seconds: number): string {
+  if (!isFinite(seconds) || seconds < 0) return "estimating…";
+  const s = Math.round(seconds);
+  if (s < 60) return `~${s}s left`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r > 0 ? `~${m}m ${r}s left` : `~${m}m left`;
+}
+
+function LiveTicker({ completed, total, failed, isRunning, batchId, startTime }: {
   completed: number; total: number; failed: number; isRunning: boolean; batchId: string;
+  startTime: number | null;
 }) {
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Estimate time remaining from the observed completion rate. The first
+  // run includes data precompute (slower), so the estimate is conservative
+  // early and refines as runs complete. Earlier start dates mean more data
+  // to precompute, which the observed rate naturally accounts for.
+  const done = completed + failed;
+  const remaining = total - done;
+  let etaLabel: string | null = null;
+  if (isRunning && startTime != null) {
+    const elapsedSec = (Date.now() - startTime) / 1000;
+    const rate = elapsedSec > 0 ? done / elapsedSec : 0; // runs per second
+    if (rate > 0 && remaining > 0) {
+      etaLabel = formatEta(remaining / rate);
+    } else if (done === 0) {
+      etaLabel = "estimating…";
+    }
+  }
+
   return (
     <div className="slab-panel" style={{ maxWidth: 1280 }}>
       <div className="slab-panel__head">
@@ -436,6 +471,11 @@ function LiveTicker({ completed, total, failed, isRunning, batchId }: {
             <span className="slab-status__dot" />
             {isRunning ? "Running" : "Complete"}
           </span>
+          {isRunning && etaLabel && (
+            <div className="slab-mono slab-mono--xs slab-mono--dim" style={{ marginTop: 6, whiteSpace: "nowrap" }}>
+              {etaLabel} · {done}/{total} done
+            </div>
+          )}
         </div>
       </div>
       <div style={{ height: 2, background: "var(--border)" }}>

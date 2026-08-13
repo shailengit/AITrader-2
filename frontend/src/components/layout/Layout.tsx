@@ -212,9 +212,9 @@ export default function Layout() {
             AK
           </div>
           <div style={{ overflow: "hidden" }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>Alex Kaushik</div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>Shailendra Kaushik</div>
             <div style={{ fontSize: 10, color: "var(--subtle)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              alex@tradecraft.io
+              shailendra@tradecraft.io
             </div>
           </div>
         </div>
