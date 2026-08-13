@@ -180,6 +180,19 @@ class StrategyValidator:
             # Syntax validation
             cls.validate_ast_syntax(code)
 
+            # Required entry points (4-function template). Missing build_config
+            # or a required function fails every run at import/execution.
+            if 'def build_config' not in code and 'CONFIG' not in code:
+                validation_result["errors"].append(
+                    "Missing build_config() function or CONFIG attribute — the engine requires it."
+                )
+            _required = ['def precompute', 'def entry_score', 'def holding_score', 'def exit_check']
+            _missing = [f for f in _required if f not in code]
+            if _missing:
+                validation_result["errors"].append(
+                    "Missing required function(s): " + ", ".join(_missing)
+                )
+
             # VectorBT API validation
             cls.validate_vectorbt_api(code)
 

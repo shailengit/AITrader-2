@@ -375,3 +375,18 @@ minutes per run. Follow these rules:
   vectorized signal mask.
 - Reference `golden_cross_rotation_v2.py` as the canonical optimized
   example (its `precompute_signals` is fully vectorized).
+
+**Common codegen bugs to avoid (these fail every run):**
+- **Never return a bare `bool` where a dict/object is expected.** A common
+  failure is `AttributeError: 'bool' object has no attribute 'get'` — e.g. a
+  function that should return a dict (or `None`) instead returns `True`/`False`.
+  Always return the correct type; use `None` for "no result".
+- **Indentation must be valid Python.** `IndentationError: unexpected indent`
+  fails at import. Use 4-space indentation consistently; never mix tabs/spaces.
+- **Always define `build_config()` (or a `CONFIG` attribute).** The engine
+  requires it; `Module has no build_config() function and no CONFIG attribute`
+  means it's missing. Provide a complete `build_config(as_of, end, capital)`
+  that returns a `StrategyConfig`.
+- **Validate before shipping:** after writing a strategy, run
+  `python -m py_compile <file>` (syntax), import it, and run a single short
+  backtest to confirm it executes before presenting it to the user.
