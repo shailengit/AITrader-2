@@ -13,15 +13,15 @@ interface MetricProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const metricSizes: Record<MetricSize, { value: string; label: string }> = {
-  lg: { value: 'text-5xl font-bold', label: 'text-sm text-zinc-500 mt-1' },
-  md: { value: 'text-2xl font-semibold', label: 'text-xs text-zinc-500 mt-0.5' },
-  sm: { value: 'text-lg font-medium', label: 'text-xs text-zinc-500 mt-0' },
+  lg: { value: 'text-5xl font-bold text-[var(--foreground)]', label: 'text-sm text-[var(--muted)] mt-1' },
+  md: { value: 'text-2xl font-semibold text-[var(--foreground)]', label: 'text-xs text-[var(--muted)] mt-0.5' },
+  sm: { value: 'text-lg font-medium text-[var(--foreground)]', label: 'text-xs text-[var(--muted)] mt-0' },
 }
 
 const changeStyles = {
-  positive: 'text-emerald-400',
-  negative: 'text-red-400',
-  neutral: 'text-zinc-400',
+  positive: 'text-[var(--good)]',
+  negative: 'text-[var(--bad)]',
+  neutral: 'text-[var(--muted)]',
 }
 
 export const Metric = forwardRef<HTMLDivElement, MetricProps>(
@@ -41,9 +41,9 @@ export const Metric = forwardRef<HTMLDivElement, MetricProps>(
     return (
       <div ref={ref} className={`${className}`} {...props}>
         <div className="flex items-baseline gap-1">
-          {prefix && <span className="text-zinc-500">{prefix}</span>}
+          {prefix && <span className="text-[var(--muted)]">{prefix}</span>}
           <span className={`${sizes.value} text-white tabular-nums`}>{value}</span>
-          {suffix && <span className="text-zinc-400">{suffix}</span>}
+          {suffix && <span className="text-[var(--muted)]">{suffix}</span>}
         </div>
         {label && <p className={sizes.label}>{label}</p>}
         {change && (
@@ -67,16 +67,16 @@ interface ProgressMetricProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const progressColors = {
-  emerald: 'bg-emerald-500',
-  blue: 'bg-blue-500',
-  purple: 'bg-purple-500',
+  emerald: 'bg-[var(--accent)]',
+  blue: 'bg-[var(--accent)]',
+  purple: 'bg-[var(--accent)]',
   zinc: 'bg-zinc-500',
 }
 
 const progressTextColors = {
-  emerald: 'text-emerald-400',
-  blue: 'text-blue-400',
-  purple: 'text-purple-400',
+  emerald: 'text-[var(--accent)]',
+  blue: 'text-[var(--accent)]',
+  purple: 'text-[var(--accent)]',
   zinc: 'text-zinc-400',
 }
 

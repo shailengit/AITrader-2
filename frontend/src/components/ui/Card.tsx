@@ -10,13 +10,11 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ variant = 'base', hover = false, children, className = '', ...props }, ref) => {
-    const { isDarkMode } = useTheme()
-
-    // Theme-aware background colors
+    // Theme-aware surfaces from the design tokens.
     const bgColors = {
-      base: isDarkMode ? '#272729' : '#ffffff',
-      raised: isDarkMode ? '#2a2a2d' : '#fafafc',
-      overlay: isDarkMode ? '#28282a' : '#ededf2',
+      base: 'var(--surface)',
+      raised: 'var(--surface-raised)',
+      overlay: 'var(--surface-overlay)',
     }
 
     return (
@@ -25,6 +23,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         className={`rounded-xl ${hover ? 'transition-colors' : ''} ${className}`}
         style={{
           backgroundColor: bgColors[variant],
+          border: '1px solid var(--border)',
+          color: 'var(--foreground)',
         }}
         {...props}
       >
@@ -50,19 +50,17 @@ const dataCardAccentColors = {
 
 export const DataCard = forwardRef<HTMLDivElement, DataCardProps>(
   ({ accentColor = 'apple', active = false, children, className = '', ...props }, ref) => {
-    const { isDarkMode } = useTheme()
 
-    const accent = isDarkMode
-      ? dataCardAccentColors[accentColor]
-      : accentColor === 'white' ? '#1d1d1f' : dataCardAccentColors[accentColor]
+    const accent = accentColor === 'white' ? 'var(--foreground)' : dataCardAccentColors[accentColor]
 
     return (
       <div
         ref={ref}
         className={`rounded-lg p-6 border ${active ? 'shadow-[rgba(0,0,0,0.22)_3px_5px_30px_0px]' : ''} ${className}`}
         style={{
-          backgroundColor: isDarkMode ? '#0a0a0a' : '#ffffff',
-          borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#d2d2d7',
+          backgroundColor: 'var(--surface)',
+          borderColor: 'var(--border)',
+          color: 'var(--foreground)',
           borderTopColor: accent,
           borderTopWidth: 3,
         }}
@@ -86,25 +84,25 @@ interface StatCardProps extends HTMLAttributes<HTMLDivElement> {
 
 export const StatCard = forwardRef<HTMLDivElement, StatCardProps>(
   ({ label, value, change, changeType = 'neutral', suffix, className = '', ...props }, ref) => {
-    const { isDarkMode } = useTheme()
 
     const changeColors = {
-      positive: isDarkMode ? 'text-[#34c759]' : 'text-[#248a3d]',
-      negative: isDarkMode ? 'text-[#ff3b30]' : 'text-[#dc2626]',
-      neutral: isDarkMode ? 'text-white/48' : 'text-[#6e6e73]',
+      positive: 'text-[var(--good)]',
+      negative: 'text-[var(--bad)]',
+      neutral: 'text-[var(--muted)]',
     }
 
-    const textColor = isDarkMode ? '#ffffff' : '#1d1d1f'
-    const mutedColor = isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)'
-    const bgColor = isDarkMode ? '#272729' : '#ffffff'
-    const hoverBg = isDarkMode ? '#2a2a2d' : '#fafafc'
+    const textColor = 'var(--foreground)'
+    const mutedColor = 'var(--muted)'
+    const bgColor = 'var(--surface)'
+    const hoverBg = 'var(--surface-raised)'
 
     return (
       <div
         ref={ref}
-        className={`rounded-lg p-6 text-center transition-colors ${className}`}
+        className={`rounded-lg p-6 text-center transition-colors border border-[var(--border)] ${className}`}
         style={{
           backgroundColor: bgColor,
+          color: textColor,
         }}
         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverBg}
         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = bgColor}

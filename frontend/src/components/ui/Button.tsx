@@ -11,10 +11,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-emerald-500 text-black font-semibold hover:bg-emerald-400 shadow-glow',
-  secondary: 'bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 border border-zinc-700',
-  ghost: 'bg-transparent text-zinc-400 font-medium hover:bg-zinc-800 hover:text-zinc-200',
-  destructive: 'bg-red-500 text-white font-semibold hover:bg-red-600',
+  primary: 'bg-[var(--accent)] text-[var(--accent-ink)] font-semibold hover:opacity-90',
+  secondary: 'bg-[var(--surface)] text-[var(--foreground)] font-medium hover:bg-[var(--surface-raised)] border border-[var(--border)]',
+  ghost: 'bg-transparent text-[var(--muted)] font-medium hover:bg-[var(--surface-raised)] hover:text-[var(--foreground)]',
+  destructive: 'bg-[var(--bad)] text-white font-semibold hover:opacity-90',
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -34,7 +34,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     disabled,
     ...props
   }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-canvas disabled:opacity-50 disabled:cursor-not-allowed'
+    const baseStyles = 'inline-flex items-center justify-center transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-[var(--canvas)] disabled:opacity-50 disabled:cursor-not-allowed'
 
     return (
       <button

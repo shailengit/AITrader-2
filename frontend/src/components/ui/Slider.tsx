@@ -1,5 +1,4 @@
 import { useId } from 'react';
-import { useTheme } from '../../context/ThemeContext';
 
 interface SliderProps {
   value: number;
@@ -18,14 +17,13 @@ interface SliderProps {
 export default function Slider({
   value, onChange, min, max, step = 1, ariaLabel, disabled = false,
 }: SliderProps) {
-  const { isDarkMode } = useTheme();
   const id = useId();
   const colors = {
-    track: isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
-    fill: '#10B981',
-    thumb: '#10B981',
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
+    track: 'var(--surface-overlay)',
+    fill: 'var(--accent)',
+    thumb: 'var(--accent)',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
   };
   const pct = ((value - min) / (max - min)) * 100;
 

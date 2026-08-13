@@ -11,16 +11,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={className}>
         {label && (
-          <label className="block text-sm text-zinc-400 uppercase tracking-wider mb-2">
+          <label className="block text-sm text-[var(--muted)] uppercase tracking-wider mb-2">
             {label}
           </label>
         )}
         <input
           ref={ref}
-          className={`w-full bg-zinc-900 border border-zinc-700 rounded-md px-4 py-3 text-zinc-300 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors ${error ? 'border-red-500' : ''}`}
+          className={`w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-4 py-3 text-[var(--foreground)] placeholder-[var(--subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] transition-colors ${error ? 'border-red-500' : ''}`}
           {...props}
         />
-        {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+        {error && <p className="text-[var(--bad)] text-sm mt-1">{error}</p>}
       </div>
     )
   }
@@ -38,16 +38,16 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className={className}>
         {label && (
-          <label className="block text-sm text-zinc-400 uppercase tracking-wider mb-2">
+          <label className="block text-sm text-[var(--muted)] uppercase tracking-wider mb-2">
             {label}
           </label>
         )}
         <textarea
           ref={ref}
-          className={`w-full bg-zinc-900 border border-zinc-700 rounded-md px-4 py-3 text-zinc-300 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors resize-none ${error ? 'border-red-500' : ''}`}
+          className={`w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-4 py-3 text-[var(--foreground)] placeholder-[var(--subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] transition-colors resize-none ${error ? 'border-red-500' : ''}`}
           {...props}
         />
-        {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+        {error && <p className="text-[var(--bad)] text-sm mt-1">{error}</p>}
       </div>
     )
   }
@@ -73,14 +73,14 @@ export const Toggle = forwardRef<HTMLButtonElement, ToggleProps>(
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex items-center gap-4 p-5 bg-[#272729] border border-white/10 rounded-lg w-full text-left transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`relative inline-flex items-center gap-4 p-5 bg-[var(--surface)] border border-[var(--border)] rounded-lg w-full text-left transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <div className="flex-1">
-          {label && <div className="text-[17px] font-semibold text-white tracking-[-0.374px]">{label}</div>}
-          {description && <div className="text-[14px] text-white/48 mt-1 tracking-[-0.224px]">{description}</div>}
+          {label && <div className="text-[17px] font-semibold text-[var(--foreground)] tracking-[-0.374px]">{label}</div>}
+          {description && <div className="text-[14px] text-[var(--muted)] mt-1 tracking-[-0.224px]">{description}</div>}
         </div>
         <div
-          className={`w-12 h-7 rounded-full transition-colors ${checked ? 'bg-[#0071e3]' : 'bg-white/20'}`}
+          className={`w-12 h-7 rounded-full transition-colors ${checked ? 'bg-[var(--accent)]' : 'bg-[var(--surface-overlay)]'}`}
         >
           <div
             className={`w-5 h-5 mt-1 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}
