@@ -38,6 +38,9 @@ class DailyGoldenCrossRotation(Strategy):
     def __init__(self):
         super().__init__()
         self._price_cache: Optional[Dict[str, Dict[str, float]]] = None
+        # Date-indexed Close series per ticker, populated by precompute_signals
+        # so should_exit() avoids a DB query per holding per day.
+        self._close_cache: Dict[str, pd.Series] = {}
         # Market cap normalization constants (set during precompute_signals)
         self._cap_min: float = 0.0
         self._cap_range: float = 1.0
@@ -208,6 +211,27 @@ class DailyGoldenCrossRotation(Strategy):
             return ExitCheck()
 
         try:
+            # Use the Date-indexed Close cache (populated by precompute_signals)
+            # to avoid a DB query per holding per day.
+            close = self._close_cache.get(ticker.lower())
+            if close is not None:
+                close_up_to = close[close.index <= as_of_date]
+                if len(close_up_to) < 50:
+                    return ExitCheck()
+                ema20 = close_up_to.ewm(span=20, adjust=False).mean()
+                ema200 = close_up_to.rolling(window=200).mean()
+                last_ema20 = ema20.iloc[-1]
+                last_ema200 = ema200.iloc[-1]
+                if pd.isna(last_ema20) or pd.isna(last_ema200):
+                    return ExitCheck()
+                if last_ema20 < last_ema200:
+                    return ExitCheck(should_close=True, reason="Death Cross")
+                spread_pct = (last_ema20 - last_ema200) / last_ema200
+                if spread_pct < 0.001 and close_up_to.iloc[-1] < last_ema20:
+                    return ExitCheck(should_close=True, reason="Death Cross Warning")
+                return ExitCheck()
+
+            # Fallback: load from DB (per-day mode, no precompute cache).
             from app.utils.security import get_safe_table_name
             safe = get_safe_table_name(ticker)
             with engine.connect() as conn:
@@ -221,24 +245,15 @@ class DailyGoldenCrossRotation(Strategy):
             df = df.sort_values("Date").reset_index(drop=True)
             ema20 = df["Close"].ewm(span=20, adjust=False).mean()
             ema200 = df["Close"].rolling(window=200).mean()
-
             last_ema20 = ema20.iloc[-1]
             last_ema200 = ema200.iloc[-1]
-
             if pd.isna(last_ema20) or pd.isna(last_ema200):
                 return ExitCheck()
-
-            # Death cross: EMA20 crossed below EMA200
             if last_ema20 < last_ema200:
                 return ExitCheck(should_close=True, reason="Death Cross")
-
-            # Death cross warning: EMA20 within 0.1% of EMA200 and underwater
             spread_pct = (last_ema20 - last_ema200) / last_ema200
-            if spread_pct < 0.001:
-                # Check if position is underwater by comparing to entry price
-                # (approximate: check if close is below ema20)
-                if df["Close"].iloc[-1] < last_ema20:
-                    return ExitCheck(should_close=True, reason="Death Cross Warning")
+            if spread_pct < 0.001 and df["Close"].iloc[-1] < last_ema20:
+                return ExitCheck(should_close=True, reason="Death Cross Warning")
 
         except Exception:
             pass
@@ -353,6 +368,9 @@ class DailyGoldenCrossRotation(Strategy):
                 _c = df["Close"].astype(float).to_numpy()
                 _fin = np.isfinite(_c)
                 self._price_cache[ticker_lower] = dict(zip(_d[_fin], _c[_fin]))
+            self._close_cache[ticker_lower] = pd.Series(
+                df["Close"].astype(float).to_numpy(), index=df["Date"].astype(str).str[:10]
+            )
 
             # Market cap & sector
             mc, sector = meta_cache.get(ticker.lower(), (0.0, "Unknown"))

@@ -62,6 +62,9 @@ class GoldenCrossRotationOriginal(Strategy):
 
     def __init__(self):
         self._price_cache: Optional[Dict[str, Dict[str, float]]] = None
+        # Close series per ticker (Date-indexed), populated by precompute_signals
+        # so should_exit() doesn't re-query the DB for every holding every day.
+        self._close_cache: Dict[str, pd.Series] = {}
 
     def get_precomputed_price_cache(self) -> Optional[Dict[str, Dict[str, float]]]:
         return self._price_cache
@@ -264,6 +267,10 @@ class GoldenCrossRotationOriginal(Strategy):
                 self._price_cache = {}
             if ticker_lower not in self._price_cache:
                 self._price_cache[ticker_lower] = dict(zip(df["Date"].astype(str).str[:10], close))
+            # Cache the Date-indexed Close series for fast should_exit lookups.
+            self._close_cache[ticker_lower] = pd.Series(
+                close.to_numpy(), index=df["Date"].astype(str).str[:10]
+            )
 
             mc, sector = meta_cache.get(ticker_lower, (0.0, "Unknown"))
 
@@ -344,8 +351,25 @@ class GoldenCrossRotationOriginal(Strategy):
         return result
 
     def should_exit(self, ticker: str, as_of_date: str, engine: Engine, side: str = "long") -> ExitCheck:
-        """Original exit rule: death cross (EMA20 below EMA200)."""
+        """Original exit rule: death cross (EMA20 below EMA200).
+
+        Uses the Date-indexed Close cache populated by precompute_signals to
+        avoid a DB query per holding per day. Falls back to a DB load if the
+        cache isn't populated (e.g. per-day mode).
+        """
         try:
+            close = self._close_cache.get(ticker.lower())
+            if close is not None:
+                close_up_to = close[close.index <= as_of_date]
+                if len(close_up_to) < 50:
+                    return ExitCheck(should_close=False)
+                ema20 = close_up_to.ewm(span=20, adjust=False).mean()
+                ema200 = close_up_to.rolling(window=200).mean()
+                if pd.notna(ema20.iloc[-1]) and pd.notna(ema200.iloc[-1]) and ema20.iloc[-1] < ema200.iloc[-1]:
+                    return ExitCheck(should_close=True, reason="Death Cross")
+                return ExitCheck(should_close=False)
+
+            # Fallback: load from DB (per-day mode, no precompute cache).
             safe = get_safe_table_name(ticker)
             with engine.connect() as conn:
                 df = pd.read_sql(

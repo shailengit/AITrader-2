@@ -145,6 +145,7 @@ def _run_one(
     batch_id: str = "",
     precomputed_signals: Optional[Dict[str, List[Any]]] = None,
     price_cache: Optional[Dict[str, Dict[str, float]]] = None,
+    strategy_instance: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Run a single backtest. Returns a dict with status/kpis/error/start_date/end_date.
 
@@ -167,6 +168,7 @@ def _run_one(
             strategy_class_path, as_of, end_date, run_index, started_at,
             precomputed_signals=precomputed_signals,
             price_cache=price_cache,
+            strategy_instance=strategy_instance,
         )
 
     # Legacy mode: write code_text to temp file and run via StrategyEngine
@@ -287,10 +289,10 @@ def _precompute_for_batch(
         signals = strategy.precompute_signals(all_dates, db_engine)
         price_cache = strategy.get_precomputed_price_cache()
         logger.info("Batch precompute done for %d dates (reused across runs)", len(all_dates))
-        return signals, price_cache
+        return signals, price_cache, strategy
     except Exception as e:
         logger.warning("Batch precompute failed (will precompute per-run): %s", e)
-        return None, None
+        return None, None, None
 
 
 def _run_strategy_class(
@@ -301,11 +303,13 @@ def _run_strategy_class(
     started_at: str,
     precomputed_signals: Optional[Dict[str, List[Any]]] = None,
     price_cache: Optional[Dict[str, Dict[str, float]]] = None,
+    strategy_instance: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Run a backtest using a Strategy subclass file.
 
     precomputed_signals / price_cache may be passed in (computed once for the
     full batch date range) to skip the expensive per-run precompute.
+    strategy_instance may be the precomputed instance (carries its caches).
     """
     from app.services.strategy_backtest_adapter import StrategyBacktestAdapter
     from app.services.strategy_base import Strategy
@@ -353,8 +357,11 @@ def _run_strategy_class(
                 "start_date": as_of, "end_date": end_date,
             }
 
-        # Run the backtest (reuse precomputed signals/price cache if provided)
-        adapter = StrategyBacktestAdapter(strategy_class())
+        # Run the backtest (reuse precomputed signals/price cache if provided).
+        # Reuse the precomputed strategy instance so its caches (e.g. the
+        # should_exit close cache) are available during the simulation.
+        strategy = strategy_instance if strategy_instance is not None else strategy_class()
+        adapter = StrategyBacktestAdapter(strategy)
         result_data = adapter.run(
             as_of=as_of, end=end_date,
             precomputed_signals=precomputed_signals,
@@ -602,9 +609,9 @@ def run_batch(
             # Precompute signals + price cache ONCE for the full batch range
             # (runs share the end date and only vary the start date), so the
             # expensive precompute isn't repeated for every run.
-            batch_signals, batch_price_cache = None, None
+            batch_signals, batch_price_cache, batch_strategy = None, None, None
             if strategy_class_path:
-                batch_signals, batch_price_cache = _precompute_for_batch(
+                batch_signals, batch_price_cache, batch_strategy = _precompute_for_batch(
                     strategy_class_path, start_date_min, end_date
                 )
 
@@ -618,7 +625,7 @@ def run_batch(
                     fut = ex.submit(
                         _run_one, code_text, _db_session_id, as_of, end_date, i + 1,
                         strategy_class_path, batch_id,
-                        batch_signals, batch_price_cache,
+                        batch_signals, batch_price_cache, batch_strategy,
                     )
                     futures.append(fut)
 
