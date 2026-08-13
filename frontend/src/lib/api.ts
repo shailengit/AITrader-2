@@ -24,6 +24,14 @@ const API_BASE: string =
 /** Re-export for code that previously used a literal `"/api"` constant. */
 export const API_URL = API_BASE;
 
+/**
+ * API auth token, injected at build time from the root .env (API_AUTH_TOKEN)
+ * by vite.config.ts. Sent as an `X-API-Token` header on every request so the
+ * backend can authenticate the client. Empty in the rare case it isn't set.
+ */
+export const API_TOKEN: string =
+  (import.meta.env.VITE_API_TOKEN as string | undefined) || "";
+
 export class ApiError extends Error {
   readonly status: number;
   readonly data: unknown;
@@ -105,6 +113,9 @@ export async function request<T = unknown>(
 
   // Build init
   const init: RequestInit = { method, headers: { ...(headers ?? {}) } };
+  if (API_TOKEN) {
+    init.headers = { ...init.headers, "X-API-Token": API_TOKEN };
+  }
   if (body !== undefined) {
     init.headers = { ...init.headers, "Content-Type": "application/json" };
     init.body = JSON.stringify(body);

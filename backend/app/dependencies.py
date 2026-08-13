@@ -137,3 +137,51 @@ def register_exception_handlers(app):
                 }
             }
         )
+
+
+import secrets
+import os
+from fastapi import HTTPException
+from fastapi.security.utils import get_authorization_scheme_param
+
+
+def _expected_token() -> str:
+    """Return the configured API auth token (fail-closed if unset)."""
+    token = os.getenv("API_AUTH_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(
+            status_code=503,
+            detail="API_AUTH_TOKEN is not configured in the root .env. "
+                   "Set it to enable access to this API.",
+        )
+    return token
+
+
+def _token_is_valid(provided: str) -> bool:
+    expected = _expected_token()
+    return bool(provided) and secrets.compare_digest(provided, expected)
+
+
+def require_api_auth(request: "Request"):
+    """Require a valid API token on the request.
+
+    Accepts the token either as an ``X-API-Token`` header or as a
+    ``Bearer`` token in the ``Authorization`` header. Comparison is
+    constant-time to avoid timing side channels. Denies when the token is
+    absent, wrong, or not configured (fail-closed).
+    """
+    provided = request.headers.get("X-API-Token", "")
+    if not provided:
+        auth = request.headers.get("Authorization", "")
+        _, param = get_authorization_scheme_param(auth)
+        provided = param or ""
+    if not _token_is_valid(provided):
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing API token")
+    return True
+
+
+def require_ws_token(token: str) -> bool:
+    """Validate a token passed to a WebSocket (query param) connection."""
+    if not _token_is_valid(token):
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing API token")
+    return True

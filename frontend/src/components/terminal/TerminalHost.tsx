@@ -1,3 +1,4 @@
+import { API_TOKEN } from "../../lib/api";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Terminal } from "xterm";
@@ -186,7 +187,7 @@ export function TerminalHost() {
     };
 
     const openSocket = () => {
-      const ws = new WebSocket(`${WS_BASE}?session=${sessionId}`);
+      const ws = new WebSocket(`${WS_BASE}?session=${sessionId}&token=${encodeURIComponent(API_TOKEN)}`);
       wsRef.current = ws;
 
       ws.onopen = () => {

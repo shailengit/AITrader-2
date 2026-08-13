@@ -21,11 +21,11 @@ for p in (_env_root, _env_backend):
 else:
     logging.warning("No .env file found at %s or %s", _env_root, _env_backend)
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import database
-from app.dependencies import register_exception_handlers
+from app.dependencies import register_exception_handlers, require_api_auth
 from app.services.structured_logging import configure_logging
 from app.services.rate_limiter import add_rate_limit_middleware
 
@@ -34,12 +34,16 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 # Create FastAPI app
+# Interactive docs are off by default (they leak API surface). Set
+# ENABLE_DOCS=true in the root .env to turn them on for local debugging.
+_ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() in ("1", "true", "yes")
 app = FastAPI(
     title="TradeCraft API",
     description="Unified Trading Application - Sector Rotation, AI Screener, and QuantGen",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url="/docs" if _ENABLE_DOCS else None,
+    redoc_url="/redoc" if _ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if _ENABLE_DOCS else None,
 )
 
 # CORS configuration from environment
@@ -104,23 +108,26 @@ async def startup_event():
 from app.routers import sectors, screener, quantgen, health, earnings, markov, coach, strategy_lab, terminal
 from app.routers import hypotheses, coach_strategy, alpaca
 
-# Include routers
+# Include routers. Health stays open (harmless, needed by load checks).
+# Everything else requires the API token. The terminal router is protected
+# inside terminal.py (its WebSocket validates the token as a query param).
+_AUTH = [Depends(require_api_auth)]
 app.include_router(health.router, prefix="/api", tags=["Health"])
-app.include_router(sectors.router, prefix="/api", tags=["Sector Rotation"])
-app.include_router(screener.router, prefix="/api/screener", tags=["AI Screener"])
-app.include_router(quantgen.router, prefix="/api", tags=["QuantGen"])
-app.include_router(earnings.router, prefix="/api", tags=["Earnings"])
-app.include_router(markov.router, prefix="/api", tags=["Markov Chain Trader"])
-app.include_router(coach.router, prefix="/api", tags=["Trade Coach"])
-app.include_router(coach_strategy.router, prefix="/api", tags=["Coach"])
-app.include_router(strategy_lab.router, prefix="/api", tags=["AI Strategy Builder"])
+app.include_router(sectors.router, prefix="/api", tags=["Sector Rotation"], dependencies=_AUTH)
+app.include_router(screener.router, prefix="/api/screener", tags=["AI Screener"], dependencies=_AUTH)
+app.include_router(quantgen.router, prefix="/api", tags=["QuantGen"], dependencies=_AUTH)
+app.include_router(earnings.router, prefix="/api", tags=["Earnings"], dependencies=_AUTH)
+app.include_router(markov.router, prefix="/api", tags=["Markov Chain Trader"], dependencies=_AUTH)
+app.include_router(coach.router, prefix="/api", tags=["Trade Coach"], dependencies=_AUTH)
+app.include_router(coach_strategy.router, prefix="/api", tags=["Coach"], dependencies=_AUTH)
+app.include_router(strategy_lab.router, prefix="/api", tags=["AI Strategy Builder"], dependencies=_AUTH)
 app.include_router(terminal.router, prefix="/api", tags=["Terminal"])
-app.include_router(hypotheses.router, prefix="/api", tags=["Hypotheses"])
-app.include_router(alpaca.router, prefix="/api", tags=["Alpaca"])
+app.include_router(hypotheses.router, prefix="/api", tags=["Hypotheses"], dependencies=_AUTH)
+app.include_router(alpaca.router, prefix="/api", tags=["Alpaca"], dependencies=_AUTH)
 
 
-# Root endpoint
-@app.get("/")
+# Root endpoint (requires the API token; leaks no internal details)
+@app.get("/", dependencies=[Depends(require_api_auth)])
 async def root():
     """Root endpoint with API information."""
     return {
@@ -154,9 +161,13 @@ if __name__ == "__main__":
     # PORT lets you run this backend on a different port (e.g. alongside
     # AITrader-1, which uses 8001). Default is 8000.
     _port = int(os.getenv("PORT", "8000"))
+    # Bind to loopback by default so the API is not reachable from the LAN.
+    # Set HOST=0.0.0.0 in the root .env only if you intentionally want it
+    # reachable from other devices on your network (and keep the API token).
+    _host = os.getenv("HOST", "127.0.0.1")
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
+        host=_host,
         port=_port,
         reload=True,
         log_level="info"

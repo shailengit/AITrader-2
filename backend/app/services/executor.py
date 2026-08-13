@@ -331,7 +331,13 @@ class CodeExecutor:
                 "zip": zip,
                 # Essential builtins
                 "print": print, "str": str, "tuple": tuple, "isinstance": isinstance,
-                "getattr": getattr, "hasattr": hasattr, "type": type, "repr": repr,
+                # NOTE: "getattr", "type", "hasattr" and "__import__" are
+                # deliberately NOT provided here — they are the usual Python
+                # sandbox-escape primitives. The injected modules (vbt/pd/np/
+                # plt) still carry the full runtime, so this sandbox is
+                # defense-in-depth only: strategy execution is gated by the
+                # API auth token and loopback binding, same as the terminal.
+                "hasattr": hasattr, "repr": repr,
                 "sorted": sorted, "reversed": reversed, "slice": slice, "iter": iter,
                 "next": next, "hash": hash, "id": id, "chr": chr, "ord": ord,
                 "bin": bin, "hex": hex, "oct": oct, "divmod": divmod, "pow": pow,

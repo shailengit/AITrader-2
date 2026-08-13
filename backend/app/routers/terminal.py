@@ -3,7 +3,8 @@
 import asyncio
 import json
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from app.dependencies import require_api_auth, require_ws_token
 from app.services.terminal_manager import manager
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,15 @@ async def terminal_ws(websocket: WebSocket, session: str = ""):
     blocking the loop in a synchronous ``read()`` syscall.
     """
     await websocket.accept()
+
+    # Require a valid API token on the WebSocket handshake (query param).
+    token = websocket.query_params.get("token", "")
+    try:
+        require_ws_token(token)
+    except Exception as exc:
+        await websocket.send_json({"type": "error", "message": "Unauthorized: invalid or missing API token"})
+        await websocket.close(code=4401)
+        return
 
     if not session:
         await websocket.send_json({"type": "error", "message": "session parameter required"})
@@ -189,7 +199,7 @@ async def terminal_ws(websocket: WebSocket, session: str = ""):
         logger.info("WebSocket disconnected: session=%s", session)
 
 
-@router.get("/terminal/health")
+@router.get("/terminal/health", dependencies=[Depends(require_api_auth)])
 async def terminal_health():
     """Check if zsh is available."""
     import subprocess

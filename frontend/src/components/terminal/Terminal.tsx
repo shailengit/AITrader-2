@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
+import { API_TOKEN } from '../../lib/api';
 
 interface TerminalComponentProps {
   sessionId: string;
@@ -86,7 +87,7 @@ export function TerminalComponent({ sessionId, onReady, onDisconnected }: Termin
     termRef.current = term;
 
     const openSocket = () => {
-      const ws = new WebSocket(`${WS_BASE}?session=${sessionId}`);
+      const ws = new WebSocket(`${WS_BASE}?session=${sessionId}&token=${encodeURIComponent(API_TOKEN)}`);
       wsRef.current = ws;
 
       ws.onopen = () => {

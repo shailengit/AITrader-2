@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
@@ -9,7 +9,16 @@ import path from 'path'
 const port = Number(process.env.VITE_PORT) || 5173;
 const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8000';
 
+// Read the root .env (single source of truth). The API auth token lives there
+// as API_AUTH_TOKEN and is injected into the client build as VITE_API_TOKEN so
+// the frontend can authenticate every request against the backend.
+const rootEnv = loadEnv('', path.resolve(__dirname, '..'), '');
+const apiToken = (rootEnv.API_AUTH_TOKEN || '').trim();
+
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_API_TOKEN': JSON.stringify(apiToken),
+  },
   plugins: [
     react(),
     tailwindcss()
