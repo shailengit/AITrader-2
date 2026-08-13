@@ -407,46 +407,46 @@ class GoldenCrossRotationV2(Strategy):
             returns = close.pct_change(fill_method=None)
             vol_14 = returns.rolling(14).std()
 
-            # Build price cache entry for this ticker (used by adapter for daily loop)
+            # Build price cache entry for this ticker (used by adapter for daily loop).
+            # Vectorized (dict(zip)) instead of df.iterrows() — much faster.
             ticker_lower = ticker.lower()
             if self._price_cache is None:
                 self._price_cache = {}
             if ticker_lower not in self._price_cache:
-                pc: Dict[str, float] = {}
-                for _, row in df.iterrows():
-                    pc[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
-                self._price_cache[ticker_lower] = pc
+                self._price_cache[ticker_lower] = dict(
+                    zip(df["Date"].astype(str).str[:10], df["Close"].astype(float))
+                )
 
             # Market cap & sector
             mc, sector = meta_cache.get(ticker.lower(), (0.0, "Unknown"))
             if mc < MIN_MARKET_CAP:
                 continue
 
-            # Scan each row for golden crosses that fall on an all_dates date
-            for i in range(1, len(df)):
-                ds = str(pd.Timestamp(df["Date"].iloc[i]))[:10]
-                if ds not in date_set:
-                    continue
+            # Vectorized golden-cross scan (numpy masks instead of a per-row
+            # Python loop). This is the dominant cost of precompute.
+            dates = df["Date"].astype(str).str[:10].to_numpy()
+            ema20v = ema20.to_numpy()
+            ema200v = ema200.to_numpy()
+            vol14v = vol_14.to_numpy()
+            volv = volume.to_numpy()
+            volma50v = vol_ma50.to_numpy()
+            closev = close.to_numpy()
 
-                if not (pd.notna(ema20.iloc[i]) and pd.notna(ema200.iloc[i]) and
-                        pd.notna(ema20.iloc[i - 1]) and pd.notna(ema200.iloc[i - 1])):
-                    continue
+            prev_ok = ~np.isnan(ema20v[:-1]) & ~np.isnan(ema200v[:-1])
+            cur_ok = ~np.isnan(ema20v[1:]) & ~np.isnan(ema200v[1:])
+            cross = prev_ok & cur_ok & (ema20v[:-1] <= ema200v[:-1]) & (ema20v[1:] > ema200v[1:])
+            in_dates = np.array([d in date_set for d in dates[1:]])
+            vol_ok = np.isnan(vol14v[1:]) | (vol14v[1:] <= MAX_VOLATILITY)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                vol_ratio = np.where(volma50v[1:] > 0, volv[1:] / volma50v[1:], 0.0)
+            vol_ratio_ok = vol_ratio >= MIN_VOLUME_RATIO
 
-                if not (ema20.iloc[i - 1] <= ema200.iloc[i - 1] and ema20.iloc[i] > ema200.iloc[i]):
-                    continue
+            mask = cross & in_dates & vol_ok & vol_ratio_ok
+            hit_idx = np.where(mask)[0] + 1  # +1 because we compared [1:] vs [:-1]
 
-                # Volatility filter
-                current_vol = float(vol_14.iloc[i]) if pd.notna(vol_14.iloc[i]) else 0.0
-                if current_vol > MAX_VOLATILITY:
-                    continue
-
-                # Volume confirmation
-                current_vol_ratio = float(volume.iloc[i] / vol_ma50.iloc[i]) if pd.notna(vol_ma50.iloc[i]) and vol_ma50.iloc[i] > 0 else 0.0
-                if current_vol_ratio < MIN_VOLUME_RATIO:
-                    continue
-
-                angle = self._compute_crossover_angle(close, ema20, ema200, i)
-
+            for i in hit_idx:
+                ds = dates[i]
+                angle = self._compute_crossover_angle(close, ema20, ema200, int(i))
                 if ds not in all_candidates:
                     all_candidates[ds] = []
                 all_candidates[ds].append({
@@ -454,7 +454,7 @@ class GoldenCrossRotationV2(Strategy):
                     "angle": angle,
                     "market_cap": mc,
                     "sector": sector,
-                    "price": float(close.iloc[i]),
+                    "price": float(closev[i]),
                     "date": ds,
                 })
 

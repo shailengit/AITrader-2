@@ -344,41 +344,36 @@ class DailyGoldenCrossRotation(Strategy):
             returns = close.pct_change()  # Must match standalone (default fill_method='pad')
             vol_14 = returns.rolling(14).std()
 
-            # Build price cache
+            # Build price cache (vectorized; skip NULL/NaT closes)
             ticker_lower = ticker.lower()
             if self._price_cache is None:
                 self._price_cache = {}
             if ticker_lower not in self._price_cache:
-                pc: Dict[str, float] = {}
-                for _, row in df.iterrows():
-                    try:
-            pc[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
-        except (TypeError, ValueError):
-            # NULL/NaT Close (pandas infers NULLs as datetime) — skip.
-            continue
-                self._price_cache[ticker_lower] = pc
+                _d = df["Date"].astype(str).str[:10].to_numpy()
+                _c = df["Close"].astype(float).to_numpy()
+                _fin = np.isfinite(_c)
+                self._price_cache[ticker_lower] = dict(zip(_d[_fin], _c[_fin]))
 
             # Market cap & sector
             mc, sector = meta_cache.get(ticker.lower(), (0.0, "Unknown"))
 
-            # Scan each row for golden crosses
-            for i in range(1, len(df)):
-                ds = str(pd.Timestamp(df["Date"].iloc[i]))[:10]
-                if ds not in date_set:
-                    continue
-                if not (pd.notna(ema20.iloc[i]) and pd.notna(ema200.iloc[i]) and
-                        pd.notna(ema20.iloc[i - 1]) and pd.notna(ema200.iloc[i - 1])):
-                    continue
-                if not (ema20.iloc[i - 1] <= ema200.iloc[i - 1] and ema20.iloc[i] > ema200.iloc[i]):
-                    continue
+            # Vectorized golden-cross scan (numpy masks instead of a per-row loop)
+            dates = df["Date"].astype(str).str[:10].to_numpy()
+            ema20v = ema20.to_numpy()
+            ema200v = ema200.to_numpy()
+            vol14v = vol_14.to_numpy()
+            closev = close.to_numpy()
+            prev_ok = ~np.isnan(ema20v[:-1]) & ~np.isnan(ema200v[:-1])
+            cur_ok = ~np.isnan(ema20v[1:]) & ~np.isnan(ema200v[1:])
+            cross = prev_ok & cur_ok & (ema20v[:-1] <= ema200v[:-1]) & (ema20v[1:] > ema200v[1:])
+            in_dates = np.array([d in date_set for d in dates[1:]])
+            vol_ok = np.isnan(vol14v[1:]) | (vol14v[1:] <= MAX_VOLATILITY)
+            mask = cross & in_dates & vol_ok
+            hit_idx = np.where(mask)[0] + 1
 
-                # Volatility filter
-                current_vol = float(vol_14.iloc[i]) if pd.notna(vol_14.iloc[i]) else 0.0
-                if current_vol > MAX_VOLATILITY:
-                    continue
-
-                angle = self._compute_crossover_angle(close, ema20, ema200, i)
-
+            for i in hit_idx:
+                ds = dates[i]
+                angle = self._compute_crossover_angle(close, ema20, ema200, int(i))
                 if ds not in all_candidates:
                     all_candidates[ds] = []
                 all_candidates[ds].append({
@@ -386,7 +381,7 @@ class DailyGoldenCrossRotation(Strategy):
                     "angle": angle,
                     "market_cap": mc,
                     "sector": sector,
-                    "price": float(close.iloc[i]),
+                    "price": float(closev[i]),
                     "date": ds,
                 })
 

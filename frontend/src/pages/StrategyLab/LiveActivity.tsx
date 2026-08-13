@@ -123,7 +123,7 @@ export function LiveActivity({ rows, nRuns, isRunning, winnerMetric }: {
           <div>
             <div className="slab-ticker__label">Now processing</div>
             <div className="slab-mono slab-mono--md" style={{ color: "var(--accent)", marginTop: 4 }}>
-              {isRunning ? (nowProcessing ?? "warming up…") : "batch complete"}
+              {isRunning ? (nowProcessing ?? "precomputing signals…") : "batch complete"}
             </div>
           </div>
 
