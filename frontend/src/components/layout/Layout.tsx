@@ -1,7 +1,9 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "../ui/ThemeToggle";
-import { ArrowLeft, BookOpen, Terminal } from "lucide-react";
-import { useTheme } from "../../context/ThemeContext";
+import {
+  ArrowLeft, BookOpen, LayoutGrid, PieChart, Filter, Braces, CalendarDays,
+  Activity, MessageSquare, FlaskConical, Lightbulb, Terminal,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { TerminalHost } from "../terminal/TerminalHost";
 import { RegimeBadge } from "../shared/RegimeBadge";
@@ -47,286 +49,258 @@ export function clearAppReferrer() {
   } catch {}
 }
 
+interface NavItem { to: string; label: string; icon: React.ElementType; match: string; }
+interface NavGroup { label: string; items: NavItem[]; }
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Workspace",
+    items: [
+      { to: "/",            label: "Overview",          icon: LayoutGrid,     match: "/" },
+      { to: "/sectors",     label: "Sector Rotation",   icon: PieChart,       match: "/sectors" },
+      { to: "/screener/build", label: "AI Screener",    icon: Filter,         match: "/screener" },
+      { to: "/quantgen/build", label: "QuantGen",       icon: Braces,         match: "/quantgen" },
+      { to: "/earnings",    label: "Earnings Calendar", icon: CalendarDays,   match: "/earnings" },
+    ],
+  },
+  {
+    label: "Intelligence",
+    items: [
+      { to: "/markov",      label: "Markov Trader",     icon: Activity,       match: "/markov" },
+      { to: "/coach",       label: "Trade Coach",       icon: MessageSquare,  match: "/coach" },
+      { to: "/strategy-lab",label: "Strategy Lab",      icon: FlaskConical,   match: "/strategy-lab" },
+      { to: "/hypotheses",  label: "Hypotheses",        icon: Lightbulb,      match: "/hypotheses" },
+      { to: "/terminal",    label: "AI Terminal",       icon: Terminal,       match: "/terminal" },
+    ],
+  },
+];
+
+function isActive(path: string, match: string): boolean {
+  if (match === "/") return path === "/" || path === "/screener";
+  return path === match || path.startsWith(match + "/");
+}
+
+function currentTitle(path: string): string {
+  const exact = pageTitles[path];
+  if (exact) return exact;
+  if (path.startsWith("/screener")) return "AI Stock Screener";
+  if (path.startsWith("/quantgen")) return "QuantGen Strategy Builder";
+  return "TradeCraft";
+}
+
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const isSectorPage = location.pathname === "/sectors";
-  const { isDarkMode } = useTheme();
   const [referrer, setReferrer] = useState<ReferrerInfo | null>(null);
 
   useEffect(() => {
     setReferrer(getStoredReferrer());
   }, [location.pathname]);
 
-  // Theme-aware colors
-  const colors = {
-    bg: isDarkMode ? "#050505" : "#f5f5f7",
-    headerBg: isDarkMode ? "#0a0a0a" : "#ffffff",
-    text: isDarkMode ? "#ffffff" : "#1d1d1f",
-    muted: isDarkMode ? "rgba(255,255,255,0.7)" : "#6e6e73",
-    border: isDarkMode ? "rgba(255,255,255,0.08)" : "#d2d2d7",
-  };
+  const border = "1px solid var(--border)";
 
   return (
     <div
       style={{
         display: "flex",
-        flexDirection: "column",
         height: "100vh",
-        backgroundColor: colors.bg,
-        color: colors.text,
         overflow: "hidden",
-        transition: "background-color 0.3s ease, color 0.3s ease",
+        backgroundColor: "var(--canvas)",
+        color: "var(--foreground)",
       }}
     >
-      {/* Top Bar */}
-      <header
+      {/* ===================== Sidebar ===================== */}
+      <aside
         style={{
-          height: isSectorPage ? 120 : 64,
-          borderBottom: `1px solid ${colors.border}`,
-          backgroundColor: colors.headerBg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          zIndex: 10,
+          width: 236,
           flexShrink: 0,
-          padding: "0 24px",
-          transition: "background-color 0.3s ease, border-color 0.3s ease",
+          borderRight: border,
+          background: "var(--surface)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          padding: "18px 12px",
         }}
       >
-        {location.pathname !== "/" && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-            <button
-              onClick={() => {
-                clearAppReferrer();
-                navigate("/");
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                border: "none",
-                cursor: "pointer",
-                backgroundColor: "transparent",
-                color: colors.muted,
-                fontSize: "14px",
-                fontWeight: 500,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = colors.text)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = colors.muted)}
-            >
-              <ArrowLeft size={18} />
-              Home
-            </button>
-            {(location.pathname === "/quantgen/dashboard" || location.pathname === "/quantgen/library") && (
-              <button
-                onClick={() => {
-                  clearAppReferrer();
-                  navigate("/quantgen/build");
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  border: `1px solid ${colors.border}`,
-                  cursor: "pointer",
-                  backgroundColor: "transparent",
-                  color: "#10B981",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                }}
-              >
-                <ArrowLeft size={18} />
-                Back to Builder
-              </button>
-            )}
-            {(location.pathname === "/quantgen/build" ||
-              location.pathname.startsWith("/screener/build/chart/")) &&
-              referrer && (
-                <button
-                  onClick={() => {
-                    clearAppReferrer();
-                    navigate(referrer.path);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "8px 16px",
-                    borderRadius: "8px",
-                    border: `1px solid ${colors.border}`,
-                    cursor: "pointer",
-                    backgroundColor: "transparent",
-                    color: "#10B981",
-                    fontSize: "14px",
-                    fontWeight: 600,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
-                >
-                  <ArrowLeft size={18} />
-                  Back to {referrer.label}
-                </button>
-              )}
-            {location.pathname !== "/terminal" && (
-              <button
-                onClick={() => {
-                  clearAppReferrer();
-                  navigate("/terminal");
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  border: `1px solid ${colors.border}`,
-                  cursor: "pointer",
-                  backgroundColor: "transparent",
-                  color: "#10B981",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                }}
-              >
-                <Terminal size={18} />
-                AI Terminal
-              </button>
-            )}
-          </div>
-        )}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "20px",
-            flex: 1,
-            justifyContent: "center",
-          }}
-        >
-          {/* Logo Icon */}
+        {/* Brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "2px 8px 4px" }}>
           <div
             style={{
-              width: isSectorPage ? 64 : 36,
-              height: isSectorPage ? 64 : 36,
-              borderRadius: 16,
-              background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 20px rgba(16, 185, 129, 0.3)",
+              width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+              background: "linear-gradient(135deg, var(--accent), var(--accent-dark))",
+              display: "grid", placeItems: "center",
+              fontWeight: 800, fontSize: 12, color: "#06231a",
+              boxShadow: "0 6px 20px var(--accent-glow)",
             }}
           >
-            <svg
-              width={isSectorPage ? 36 : 20}
-              height={isSectorPage ? 36 : 20}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2.5"
-            >
-              <path d="M3 12h18M12 3v18" />
-            </svg>
+            TC
           </div>
-
-          {/* Title */}
           <div>
-            <h1
-              style={{
-                fontSize: isSectorPage ? "48px" : "18px",
-                fontWeight: 700,
-                color: colors.text,
-                letterSpacing: "-0.02em",
-                margin: 0,
-                transition: "color 0.3s ease",
-              }}
-            >
-              {pageTitles[location.pathname] || (location.pathname.startsWith("/quantgen")
-                ? "QuantGen Strategy Builder"
-                : "TradeCraft")}
-            </h1>
-            {isSectorPage && (
-              <p
-                style={{
-                  fontSize: "16px",
-                  color: colors.muted,
-                  margin: "4px 0 0 0",
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase",
-                  transition: "color 0.3s ease",
-                }}
-              >
-                Identify momentum and rotation patterns
-              </p>
-            )}
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-.02em" }}>TradeCraft</div>
+            <div style={{ fontSize: 9, color: "var(--subtle)", fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase", marginTop: 1 }}>
+              Platform
+            </div>
           </div>
         </div>
 
-        {/* Regime Badge + Help + Theme Toggle */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <RegimeBadge />
-          <a
-            href="/user-manual.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="User Manual"
+        {/* Nav */}
+        <nav style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div style={{
+                fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase",
+                color: "var(--subtle)", fontWeight: 600, padding: "2px 10px 6px",
+              }}>
+                {group.label}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(location.pathname, item.match);
+                  return (
+                    <button
+                      key={item.to}
+                      onClick={() => navigate(item.to)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 11,
+                        padding: "8px 10px", borderRadius: 8, cursor: "pointer",
+                        fontFamily: "var(--font-sf-text)", fontSize: 13, fontWeight: active ? 600 : 500,
+                        border: "none", textAlign: "left", width: "100%",
+                        color: active ? "var(--foreground)" : "var(--muted)",
+                        background: active
+                          ? "linear-gradient(90deg, var(--accent-glow), transparent)"
+                          : "transparent",
+                        boxShadow: active ? "inset 0 0 0 1px var(--border)" : "none",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!active) { e.currentTarget.style.background = "var(--surface-raised)"; e.currentTarget.style.color = "var(--foreground)"; }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted)"; }
+                      }}
+                    >
+                      <Icon size={16} style={{ color: active ? "var(--accent)" : "inherit", flexShrink: 0 }} />
+                      <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>
+                      {active && (
+                        <span style={{
+                          width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                          background: "var(--accent)", boxShadow: "0 0 10px var(--accent)",
+                        }} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* User */}
+        <div
+          style={{
+            marginTop: "auto", display: "flex", alignItems: "center", gap: 11,
+            padding: 10, borderRadius: 10, background: "var(--surface-raised)", border,
+          }}
+        >
+          <div
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 14px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 500,
-              color: colors.muted,
-              textDecoration: "none",
-              border: `1px solid ${colors.border}`,
-              transition: "all 0.2s ease",
-              cursor: "pointer",
+              width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+              background: "linear-gradient(135deg, #4f7dff, #8b5cf6)",
+              display: "grid", placeItems: "center", fontWeight: 700, fontSize: 11, color: "#fff",
             }}
           >
-            <BookOpen size={14} />
-            Help
-          </a>
-          <ThemeToggle variant="ghost" size="md" />
+            AK
+          </div>
+          <div style={{ overflow: "hidden" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>Alex Kaushik</div>
+            <div style={{ fontSize: 10, color: "var(--subtle)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              alex@tradecraft.io
+            </div>
+          </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Page Content */}
-      <main
-        style={{
-          flex: 1,
-          overflow: "auto",
-          backgroundColor: colors.bg,
-          transition: "background-color 0.3s ease",
-        }}
-      >
-        <Outlet />
-      </main>
+      {/* ===================== Main column ===================== */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+        {/* Top bar */}
+        <header
+          style={{
+            height: 60, flexShrink: 0, borderBottom: border,
+            background: "var(--canvas)",
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+            padding: "0 24px", zIndex: 10,
+          }}
+        >
+          {/* Left: back + title */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            {location.pathname !== "/" && (
+              <button
+                onClick={() => { clearAppReferrer(); navigate("/"); }}
+                title="Back to Command Center"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+                  fontFamily: "var(--font-sf-text)", fontSize: 12.5, fontWeight: 600,
+                  background: "transparent", color: "var(--muted)", border: "none",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+              >
+                <ArrowLeft size={16} /> Home
+              </button>
+            )}
+            {((location.pathname === "/quantgen/dashboard" || location.pathname === "/quantgen/library") ||
+              location.pathname.startsWith("/screener/build/chart/")) && referrer && (
+              <button
+                onClick={() => { clearAppReferrer(); navigate(referrer.path); }}
+                title={`Back to ${referrer.label}`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+                  fontFamily: "var(--font-sf-text)", fontSize: 12.5, fontWeight: 600,
+                  background: "transparent", color: "var(--accent)", border,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-glow)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <ArrowLeft size={16} /> {referrer.label}
+              </button>
+            )}
+            <h1 style={{
+              fontSize: 17, fontWeight: 700, letterSpacing: "-.02em", margin: 0,
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}>
+              {currentTitle(location.pathname)}
+            </h1>
+          </div>
 
-      {/* TerminalHost — sibling of Outlet so route changes inside the
-          shell never unmount the terminal. TerminalHost reads
-          useLocation and morphs between full-page (when route is
-          /terminal) and FloatingPanel (anywhere else inside Layout). */}
+          {/* Right: regime + help + theme */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <RegimeBadge />
+            <a
+              href="/user-manual.html" target="_blank" rel="noopener noreferrer" title="User Manual"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "7px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 500,
+                color: "var(--muted)", textDecoration: "none", border,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-raised)"; e.currentTarget.style.color = "var(--foreground)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted)"; }}
+            >
+              <BookOpen size={14} /> Help
+            </a>
+            <ThemeToggle variant="ghost" size="md" />
+          </div>
+        </header>
+
+        {/* Content */}
+        <main style={{ flex: 1, overflow: "auto", backgroundColor: "var(--canvas)" }}>
+          <Outlet />
+        </main>
+      </div>
+
+      {/* TerminalHost — sibling of Outlet so route changes inside the shell
+          never unmount the terminal. */}
       <TerminalHost />
     </div>
   );
