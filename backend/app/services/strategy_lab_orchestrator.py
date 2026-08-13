@@ -105,13 +105,44 @@ def _random_date_in_range(min_date: str, max_date: str) -> str:
     return (start + timedelta(days=random.randint(0, delta_days))).strftime("%Y-%m-%d")
 
 
+def _create_running_experiment(
+    batch_id: str, db_session_id: uuid.UUID, run_index: int, start_date: Any, end_date: Any
+) -> None:
+    """Create an experiment row as 'running' BEFORE the backtest runs.
+
+    The signal precompute can take a while, and experiment rows were only
+    written after a run completed — so the frontend had nothing to show and
+    displayed 'Warming Up'. Creating the row up front lets the frontend show
+    the actual run + progress during the precompute.
+    """
+    try:
+        from app.db.database import SessionLocal
+        from app.models.strategy_lab import StrategyExperiment, StrategySession
+        with SessionLocal() as db:
+            if db.get(StrategySession, db_session_id) is None:
+                db.add(StrategySession(id=db_session_id, name="(batch)", prompt="", model_id=""))
+                db.commit()
+            db.add(StrategyExperiment(
+                session_id=db_session_id,
+                batch_id=uuid.UUID(batch_id),
+                run_index=run_index,
+                start_date=start_date,
+                end_date=end_date,
+                status="running",
+            ))
+            db.commit()
+    except Exception as e:
+        logger.exception("Failed to create running experiment: %s", e)
+
+
 def _run_one(
     code_text: str,
-    session_id: str,
+    db_session_id: uuid.UUID,
     as_of: str,
     end_date: str,
     run_index: int,
     strategy_class_path: str = "",
+    batch_id: str = "",
 ) -> Dict[str, Any]:
     """Run a single backtest. Returns a dict with status/kpis/error/start_date/end_date.
 
@@ -122,6 +153,11 @@ def _run_one(
     Runs synchronously (intended to be called from a worker thread).
     """
     started_at = datetime.now().isoformat()
+
+    # Create the experiment row as 'running' before the (potentially slow)
+    # precompute so the frontend can show live progress immediately.
+    if batch_id:
+        _create_running_experiment(batch_id, db_session_id, run_index, as_of, end_date)
 
     if strategy_class_path:
         # New mode: import Strategy subclass directly
@@ -461,18 +497,32 @@ def run_batch(
                         model_id="",
                     ))
                     db.commit()
-                exp = StrategyExperiment(
-                    session_id=_db_session_id,
-                    batch_id=uuid.UUID(batch_id),
-                    run_index=event["run_index"],
-                    start_date=event.get("start_date"),
-                    end_date=event.get("end_date"),
-                    status=event["status"],
-                    kpis=event.get("kpis"),
-                    equity_curve=event.get("equity_curve"),
-                    error_message=event.get("error_message"),
-                )
-                db.add(exp)
+                # Update the experiment row created as 'running' before the
+                # precompute (matched by batch_id + run_index). Fall back to
+                # creating a new row if it wasn't pre-created.
+                exp = db.query(StrategyExperiment).filter(
+                    StrategyExperiment.batch_id == uuid.UUID(batch_id),
+                    StrategyExperiment.run_index == event["run_index"],
+                ).first()
+                if exp is None:
+                    exp = StrategyExperiment(
+                        session_id=_db_session_id,
+                        batch_id=uuid.UUID(batch_id),
+                        run_index=event["run_index"],
+                        start_date=event.get("start_date"),
+                        end_date=event.get("end_date"),
+                        status=event["status"],
+                        kpis=event.get("kpis"),
+                        equity_curve=event.get("equity_curve"),
+                        error_message=event.get("error_message"),
+                    )
+                    db.add(exp)
+                else:
+                    exp.status = event["status"]
+                    exp.kpis = event.get("kpis")
+                    exp.equity_curve = event.get("equity_curve")
+                    exp.error_message = event.get("error_message")
+                    exp.completed_at = datetime.now()
                 db.commit()
         except Exception as e:
             logger.exception("Failed to persist experiment: %s", e)
@@ -491,8 +541,8 @@ def run_batch(
                     else:
                         as_of = _random_date_in_range(start_date_min, start_date_max)
                     fut = ex.submit(
-                        _run_one, code_text, session_id, as_of, end_date, i + 1,
-                        strategy_class_path,
+                        _run_one, code_text, _db_session_id, as_of, end_date, i + 1,
+                        strategy_class_path, batch_id,
                     )
                     futures.append(fut)
 
