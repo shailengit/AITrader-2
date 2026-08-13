@@ -357,3 +357,21 @@ Key rules:
 - `TAKE_PROFIT` must be enabled (e.g. 0.30) — setting to 999.0 means winners never get locked in
 - `TIME_STOP_DAYS` must be reasonable (e.g. 60-120) — setting to 9999 means stale positions held forever
 - `MIN_HOLD_DAYS` should be >= 7 to prevent excessive churn
+
+**Performance / vectorization (MANDATORY):** Generated strategies must be
+optimized for speed. The signal precompute runs across ~1500 tickers and
+thousands of dates, so naive per-row Python loops make backtests take
+minutes per run. Follow these rules:
+- **Vectorize** all signal computation and scanning with numpy/pandas
+  (boolean masks, `.to_numpy()`, vectorized `rolling`/`ewm`). Never iterate
+  row-by-row over the full date range in a Python loop.
+- **Never use `df.iterrows()`** to build caches — use
+  `dict(zip(df["Date"].astype(str).str[:10], df["Close"].astype(float)))`.
+- **Precompute signals once** in `precompute_signals()` (load each ticker
+  once, compute indicators once, scan all dates with a single vectorized
+  mask) rather than calling `get_signals()` per day.
+- Populate `get_precomputed_price_cache()` from the same loaded data.
+- Keep per-ticker work minimal: one SQL read, vectorized indicators, one
+  vectorized signal mask.
+- Reference `golden_cross_rotation_v2.py` as the canonical optimized
+  example (its `precompute_signals` is fully vectorized).
