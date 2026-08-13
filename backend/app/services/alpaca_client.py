@@ -42,6 +42,31 @@ class AlpacaClient:
             "status": account.status,
         }
 
+    def get_portfolio_history(
+        self,
+        period: str = "3M",
+        timeframe: str = "1D",
+        extended_hours: bool = False,
+    ) -> Dict[str, Any]:
+        """Return the account equity curve (portfolio history).
+
+        period: "1D" | "1W" | "1M" | "3M" | "6M" | "1A" | "all"
+        timeframe: "1Min" | "5Min" | "15Min" | "1H" | "1D"
+        Returns {"dates": [...], "equity": [...], "profit_loss": [...]}.
+        """
+        try:
+            ph = self.api.get_portfolio_history(
+                period=period, timeframe=timeframe, extended_hours=extended_hours
+            )
+            return {
+                "dates": list(getattr(ph, "timestamp", []) or []),
+                "equity": [float(x) for x in (getattr(ph, "equity", []) or [])],
+                "profit_loss": [float(x) for x in (getattr(ph, "profit_loss", []) or [])],
+            }
+        except Exception as e:
+            logger.error("Failed to fetch portfolio history: %s", e)
+            raise
+
     def get_positions(self) -> List[Dict[str, Any]]:
         """Get current open positions."""
         positions = self.api.list_positions()

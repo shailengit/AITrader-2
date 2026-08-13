@@ -99,3 +99,43 @@ def get_live(
         "total_unrealized_pl": round(total_unrealized_pl, 2),
         "total_unrealized_pl_pct": round(total_unrealized_pl_pct, 4),
     }
+
+
+@router.get("/equity-curve")
+def get_equity_curve(
+    period: str = "3M",
+    timeframe: str = "1D",
+) -> Dict[str, Any]:
+    """Return the account's equity curve (portfolio history) over a period."""
+    if not _is_configured():
+        return {"configured": False, "reason": "Alpaca API keys are not set in the root .env"}
+
+    try:
+        client = AlpacaClient()
+        hist = client.get_portfolio_history(period=period, timeframe=timeframe)
+    except ValueError as e:
+        return {"configured": False, "reason": str(e)}
+    except Exception as e:
+        logger.warning("Alpaca equity-curve fetch failed: %s", e)
+        return {"configured": False, "reason": f"Alpaca fetch error: {e}"}
+
+    # Convert epoch timestamps (seconds) to YYYY-MM-DD and pair with equity.
+    import datetime
+    dates = []
+    for ts in hist.get("dates", []):
+        try:
+            dates.append(datetime.datetime.utcfromtimestamp(int(ts)).strftime("%Y-%m-%d"))
+        except (TypeError, ValueError):
+            dates.append(str(ts))
+    equity = hist.get("equity", [])
+
+    return {
+        "configured": True,
+        "period": period,
+        "dates": dates,
+        "equity": equity,
+        "start_equity": equity[0] if equity else None,
+        "end_equity": equity[-1] if equity else None,
+        "change": (equity[-1] - equity[0]) if len(equity) >= 2 else None,
+        "change_pct": ((equity[-1] / equity[0]) - 1) if len(equity) >= 2 and equity[0] else None,
+    }

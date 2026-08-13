@@ -27,8 +27,27 @@ export interface LivePnl {
   total_unrealized_pl_pct?: number;
 }
 
+export interface EquityCurve {
+  configured: boolean;
+  reason?: string;
+  period?: string;
+  dates?: string[];
+  equity?: number[];
+  start_equity?: number | null;
+  end_equity?: number | null;
+  change?: number | null;
+  change_pct?: number | null;
+}
+
 import { request } from "@/lib/api";
 
 export async function fetchLivePnl(): Promise<LivePnl> {
   return request<LivePnl>('/alpaca/live');
+}
+
+export async function fetchEquityCurve(
+  period: string = "3M",
+  timeframe: string = "1D",
+): Promise<EquityCurve> {
+  return request<EquityCurve>(`/alpaca/equity-curve?period=${period}&timeframe=${timeframe}`);
 }
