@@ -24,7 +24,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card } from '../components/ui/Card'
 import { StatusBadge } from '../components/ui/Badge'
 import { ProgressMetric } from '../components/ui/Metric'
-import { useTheme } from '../context/ThemeContext'
 import { recordAppReferrer } from '../components/layout/Layout'
 import { CandleStickChart } from '../components/quantgen/CandleStickChart'
 import { SaveHypothesisPopover } from '../components/shared/SaveHypothesisPopover'
@@ -96,24 +95,6 @@ export default function SectorRotation() {
   const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString())
   const [cutoffDate, setCutoffDate] = useState(savedState?.cutoffDate || oneMonthAgo.toISOString().split('T')[0])
   const [holdingDays, setHoldingDays] = useState(savedState?.holdingDays ?? 30)
-  const { isDarkMode } = useTheme()
-
-  // Theme-aware colors
-  const colors = {
-    text: isDarkMode ? '#ffffff' : '#1d1d1f',
-    muted: isDarkMode ? '#A1A1AA' : '#6e6e73',
-    subtle: isDarkMode ? '#52525B' : '#86868b',
-    surface: isDarkMode ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
-    border: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#e5e5ea',
-    grid: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#e5e5e7',
-    tooltip: {
-      bg: isDarkMode ? 'rgba(10, 10, 10, 0.85)' : '#ffffff',
-      border: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#d2d2d7',
-    },
-    negative: isDarkMode ? '#3f3f46' : '#9ca3af',
-    accent: isDarkMode ? '#10B981' : '#0071e3',
-    glow: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 113, 227, 0.05)'
-  }
 
   useEffect(() => {
     checkDbStatus()
@@ -287,7 +268,7 @@ export default function SectorRotation() {
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
           <Activity className="w-16 h-16 text-emerald-500 animate-pulse" />
-          <p className="font-mono text-lg tracking-widest uppercase" style={{ color: colors.muted }}>Scanning Market Sectors...</p>
+          <p className="font-mono text-lg tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Scanning Market Sectors...</p>
         </div>
       </div>
     )
@@ -309,22 +290,22 @@ export default function SectorRotation() {
             <div 
               className="rounded-2xl p-3" 
               style={{ 
-                background: isDarkMode ? 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.05) 100%)' : colors.accent,
-                border: `1px solid ${isDarkMode ? 'rgba(16,185,129,0.3)' : 'transparent'}`,
-                boxShadow: isDarkMode ? '0 0 20px rgba(16,185,129,0.2)' : 'none'
+                background: 'var(--accent-glow)',
+                border: '1px solid var(--border)',
+                boxShadow: '0 0 20px var(--accent-glow)'
               }}
             >
-              <TrendingUp className="w-7 h-7" style={{ color: isDarkMode ? '#34D399' : '#fff' }} />
+              <TrendingUp className="w-7 h-7" style={{ color: 'var(--accent-light)' }} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight" style={{ color: colors.text }}>Sector Rotation Scanner</h1>
-              <p className="text-base" style={{ color: colors.muted }}>Identify momentum and rotation patterns</p>
+              <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>Sector Rotation Scanner</h1>
+              <p className="text-base" style={{ color: 'var(--muted)' }}>Identify momentum and rotation patterns</p>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm font-mono" style={{ color: colors.muted }}>
+          <div className="flex items-center gap-4 text-sm font-mono" style={{ color: 'var(--muted)' }}>
             {/* Cutoff Date Picker */}
             <div className="flex items-center gap-2">
-              <label className="text-xs uppercase tracking-wider" style={{ color: colors.subtle }}>As of</label>
+              <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>As of</label>
               <input
                 type="date"
                 value={cutoffDate}
@@ -335,9 +316,9 @@ export default function SectorRotation() {
                 max={new Date().toISOString().split('T')[0]}
                 className="px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-emerald-500/50"
                 style={{
-                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                  borderColor: colors.border,
-                  color: colors.text,
+                  backgroundColor: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)',
                 }}
               />
             </div>
@@ -345,7 +326,7 @@ export default function SectorRotation() {
             {/* Holding Period */}
             {cutoffDate && (
               <div className="flex items-center gap-2">
-                <label className="text-xs uppercase tracking-wider" style={{ color: colors.subtle }}>Fwd</label>
+                <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>Fwd</label>
                 <select
                   value={holdingDays}
                   onChange={(e) => {
@@ -354,9 +335,9 @@ export default function SectorRotation() {
                   }}
                   className="px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-emerald-500/50"
                   style={{
-                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                    borderColor: colors.border,
-                    color: colors.text,
+                    backgroundColor: 'var(--surface)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   <option value={7}>7d</option>
@@ -376,7 +357,7 @@ export default function SectorRotation() {
               className="p-2.5 rounded-xl transition-all"
               style={{ backgroundColor: 'transparent' }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = colors.surface
+                e.currentTarget.style.backgroundColor = 'var(--surface)'
                 e.currentTarget.style.transform = 'scale(1.05)'
               }}
               onMouseLeave={(e) => {
@@ -384,9 +365,9 @@ export default function SectorRotation() {
                 e.currentTarget.style.transform = 'scale(1)'
               }}
             >
-              <Activity className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} style={{ color: colors.accent }} />
+              <Activity className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} style={{ color: 'var(--accent)' }} />
             </button>
-            <span style={{ color: colors.muted }}>Last: {lastUpdated}</span>
+            <span style={{ color: 'var(--muted)' }}>Last: {lastUpdated}</span>
           </div>
         </div>
 
@@ -394,44 +375,42 @@ export default function SectorRotation() {
         <div className="flex flex-col xl:flex-row gap-8 mb-10">
           {/* Bar Chart - ~35% width */}
           <Card variant="base" className="flex-grow xl:w-[35%] shrink-0 p-8 relative overflow-hidden" style={{
-            background: colors.surface,
-            border: `1px solid ${colors.border}`,
-            backdropFilter: 'blur(10px)',
-            boxShadow: isDarkMode ? '0 10px 40px rgba(0,0,0,0.3)' : '0 10px 40px rgba(0,0,0,0.05)'
+            background: 'var(--surface)',
+            border: `1px solid var(--border)`,
+            boxShadow: 'var(--shadow-apple-card)'
         }}>
           {/* Subtle background glow */}
-          {isDarkMode && <div style={{ position: 'absolute', top: '-50%', left: '-20%', width: '150%', height: '150%', background: 'radial-gradient(circle, rgba(16,185,129,0.03) 0%, transparent 60%)', pointerEvents: 'none' }} />}
+          <div style={{ position: 'absolute', top: '-50%', left: '-20%', width: '150%', height: '150%', background: 'radial-gradient(circle, rgba(16,185,129,0.03) 0%, transparent 60%)', pointerEvents: 'none' }} />
           
-          <h2 className="text-sm font-semibold uppercase tracking-widest mb-6 relative z-10" style={{ color: colors.muted }}>
+          <h2 className="text-sm font-semibold uppercase tracking-widest mb-6 relative z-10" style={{ color: 'var(--muted)' }}>
             Sector Acceleration Scan
           </h2>
           <div className="h-[400px] relative z-10">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sectors}>
-                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
-                <XAxis dataKey="ticker" stroke={colors.muted} fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke={colors.muted} fontSize={12} tickLine={false} axisLine={false}
+                <CartesianGrid strokeDasharray="3 3" stroke={'var(--border)'} vertical={false} />
+                <XAxis dataKey="ticker" stroke={'var(--muted)'} fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke={'var(--muted)'} fontSize={12} tickLine={false} axisLine={false}
                   tickFormatter={(val) => (val * 100).toFixed(0) + '%'} />
                 <Tooltip
-                  cursor={{ fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+                  cursor={{ fill: 'var(--border)' }}
                   contentStyle={{
-                    backgroundColor: colors.tooltip.bg,
-                    border: `1px solid ${colors.tooltip.border}`,
+                    backgroundColor: 'var(--surface-overlay)',
+                    border: `1px solid var(--border)`,
                     borderRadius: '12px',
-                    backdropFilter: 'blur(10px)',
                     fontSize: '14px',
-                    color: colors.text
+                    color: 'var(--foreground)'
                   }}
-                  itemStyle={{ color: colors.text }}
+                  itemStyle={{ color: 'var(--foreground)' }}
                 />
                 <Bar dataKey="spread" radius={[6, 6, 0, 0]}>
                   {sectors.map((entry) => {
                     const isSelected = selectedSector?.ticker === entry.ticker
-                    let fill = isDarkMode ? '#34d399' : '#10B981' // Emerald
+                    let fill = 'var(--accent-light)' // Emerald
                     if (isSelected) {
-                      fill = isDarkMode ? '#10b981' : '#059669' 
+                      fill = 'var(--accent)' 
                     } else if (entry.spread <= 0) {
-                      fill = colors.negative // Theme-aware for negative
+                      fill = 'var(--bad)' // Theme-aware for negative
                     }
                     return (
                       <Cell
@@ -458,8 +437,8 @@ export default function SectorRotation() {
                 '#9ca3af', // 2nd - Silver
                 '#b45309', // 3rd - Bronze
               ];
-              const rankBg = index < 3 ? rankColors[index] : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)');
-              const rankText = index < 3 ? '#000' : colors.muted;
+              const rankBg = index < 3 ? rankColors[index] : 'var(--surface-raised)';
+              const rankText = index < 3 ? '#000' : 'var(--muted)';
 
               return (
                 <Card
@@ -467,17 +446,14 @@ export default function SectorRotation() {
                   className="p-4 relative overflow-hidden cursor-pointer hover-lift flex flex-col justify-between"
                   onClick={() => setSelectedSector(sector)}
                   style={{
-                    background: isSelected
-                      ? (isDarkMode ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.02) 100%)' : 'rgba(16, 185, 129, 0.08)')
-                      : colors.surface,
-                    border: `1px solid ${isSelected ? (isDarkMode ? 'rgba(16, 185, 129, 0.4)' : 'rgba(16, 185, 129, 0.5)') : colors.border}`,
-                    boxShadow: isSelected ? '0 10px 30px rgba(16,185,129,0.15)' : 'none',
-                    backdropFilter: 'blur(10px)',
+                    background: isSelected ? 'var(--accent-glow)' : 'var(--surface)',
+                    border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    boxShadow: isSelected ? '0 10px 30px var(--accent-glow)' : 'none',
                     transition: 'all 0.3s ease',
                     minHeight: 180,
                   }}
                 >
-                  {isSelected && isDarkMode && <div style={{ position: 'absolute', top: '0', right: '0', width: '150px', height: '150px', background: 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />}
+                  {isSelected && <div style={{ position: 'absolute', top: '0', right: '0', width: '150px', height: '150px', background: 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />}
 
                   <div className="relative z-10">
                     <div className="flex justify-between items-start mb-3">
@@ -503,35 +479,35 @@ export default function SectorRotation() {
                     </div>
 
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-2xl font-bold tracking-tight" style={{ color: colors.text }}>{sector.ticker}</h3>
+                      <h3 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>{sector.ticker}</h3>
                       {regimes[sector.ticker] && (
                         <span style={{
                           padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600,
-                          background: regimes[sector.ticker].regime === 'BULL' ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)',
-                          color: regimes[sector.ticker].regime === 'BULL' ? '#10B981' : '#EF4444',
+                          background: regimes[sector.ticker].regime === 'BULL' ? 'var(--accent-glow)' : 'var(--danger-hover)',
+                          color: regimes[sector.ticker].regime === 'BULL' ? 'var(--good)' : 'var(--bad)',
                         }}>
                           {regimes[sector.ticker].regime}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs truncate mb-4" style={{ color: colors.muted }}>{sector.name}</p>
+                    <p className="text-xs truncate mb-4" style={{ color: 'var(--muted)' }}>{sector.name}</p>
                   </div>
 
                   <div className="space-y-3 relative z-10">
                     <div>
-                      <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: colors.muted }}>Acceleration</p>
-                      <p className={`text-lg font-mono ${sector.spread >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                      <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: 'var(--muted)' }}>Acceleration</p>
+                      <p className="text-lg font-mono" style={{ color: sector.spread >= 0 ? 'var(--good)' : 'var(--bad)' }}>
                         {sector.spread >= 0 ? '+' : ''}{formatPercent(sector.spread)}
                       </p>
                     </div>
-                    <div className="pt-2" style={{ borderTop: `1px solid ${colors.border}` }}>
-                      <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: colors.muted }}>3M Perf</p>
-                      <p className="text-sm font-mono" style={{ color: colors.text }}>{(sector.perf_3m * 100).toFixed(2)}%</p>
+                    <div className="pt-2" style={{ borderTop: `1px solid var(--border)` }}>
+                      <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: 'var(--muted)' }}>3M Perf</p>
+                      <p className="text-sm font-mono" style={{ color: 'var(--foreground)' }}>{(sector.perf_3m * 100).toFixed(2)}%</p>
                     </div>
                     {sector.forward_return != null && (
-                      <div className="pt-2" style={{ borderTop: `1px solid ${colors.border}` }}>
-                        <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: colors.muted }}>{holdingDays}d Fwd</p>
-                        <p className={`text-sm font-mono font-bold ${sector.forward_return >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                      <div className="pt-2" style={{ borderTop: `1px solid var(--border)` }}>
+                        <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: 'var(--muted)' }}>{holdingDays}d Fwd</p>
+                        <p className="text-sm font-mono font-bold" style={{ color: sector.forward_return >= 0 ? 'var(--good)' : 'var(--bad)' }}>
                           {sector.forward_return >= 0 ? '+' : ''}{(sector.forward_return * 100).toFixed(2)}%
                         </p>
                       </div>
@@ -549,12 +525,12 @@ export default function SectorRotation() {
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 mb-4">
             <div className="text-left">
-              <h2 className="text-3xl font-bold tracking-tight mb-2" style={{ color: colors.text }}>
+              <h2 className="text-3xl font-bold tracking-tight mb-2" style={{ color: 'var(--foreground)' }}>
                 {viewMode === 'sector'
                   ? `Momentum Leaders in ${selectedSector?.ticker}`
                   : 'Top 20 Momentum Leaders (All Sectors)'}
               </h2>
-              <p className="text-base" style={{ color: colors.muted }}>
+              <p className="text-base" style={{ color: 'var(--muted)' }}>
                 {viewMode === 'sector'
                   ? 'Top performing stocks currently exhibiting technical strength'
                   : 'Highest 3-month performers across all 11 sectors, regardless of industry'}
@@ -564,17 +540,17 @@ export default function SectorRotation() {
               <div
                 className="flex p-1 rounded-xl"
                 style={{
-                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f7',
-                  border: `1px solid ${colors.border}`,
+                  backgroundColor: 'var(--surface)',
+                  border: `1px solid var(--border)`,
                 }}
               >
                 <button
                   onClick={() => setViewMode('sector')}
                   className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
                   style={{
-                    backgroundColor: viewMode === 'sector' ? (isDarkMode ? 'rgba(16,185,129,0.2)' : '#10B981') : 'transparent',
-                    color: viewMode === 'sector' ? (isDarkMode ? '#34D399' : '#000000') : colors.muted,
-                    border: viewMode === 'sector' ? `1px solid ${isDarkMode ? 'rgba(16,185,129,0.4)' : '#10B981'}` : '1px solid transparent',
+                    backgroundColor: viewMode === 'sector' ? 'var(--accent)' : 'transparent',
+                    color: viewMode === 'sector' ? 'var(--accent-ink)' : 'var(--muted)',
+                    border: viewMode === 'sector' ? '1px solid var(--accent)' : '1px solid transparent',
                   }}
                 >
                   Sector Leaders
@@ -583,9 +559,9 @@ export default function SectorRotation() {
                   onClick={() => setViewMode('top20')}
                   className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
                   style={{
-                    backgroundColor: viewMode === 'top20' ? (isDarkMode ? 'rgba(16,185,129,0.2)' : '#10B981') : 'transparent',
-                    color: viewMode === 'top20' ? (isDarkMode ? '#34D399' : '#000000') : colors.muted,
-                    border: viewMode === 'top20' ? `1px solid ${isDarkMode ? 'rgba(16,185,129,0.4)' : '#10B981'}` : '1px solid transparent',
+                    backgroundColor: viewMode === 'top20' ? 'var(--accent)' : 'transparent',
+                    color: viewMode === 'top20' ? 'var(--accent-ink)' : 'var(--muted)',
+                    border: viewMode === 'top20' ? '1px solid var(--accent)' : '1px solid transparent',
                   }}
                 >
                   Top 20 All Sectors
@@ -596,18 +572,18 @@ export default function SectorRotation() {
                   onClick={() => exportToQuantGen(stocks)}
                   className="px-5 py-3 rounded-xl text-sm font-bold uppercase tracking-wider transition-all hover:scale-105"
                   style={{
-                    backgroundColor: '#10B981',
-                    color: '#000000',
-                    border: '1px solid #10B981',
-                    boxShadow: '0 0 20px rgba(16,185,129,0.3)',
+                    backgroundColor: 'var(--accent)',
+                    color: 'var(--accent-ink)',
+                    border: '1px solid var(--accent)',
+                    boxShadow: '0 0 20px var(--accent-glow)',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#34D399'
-                    e.currentTarget.style.boxShadow = '0 0 30px rgba(16,185,129,0.5)'
+                    e.currentTarget.style.backgroundColor = 'var(--accent-light)'
+                    e.currentTarget.style.boxShadow = '0 0 30px var(--accent-glow)'
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#10B981'
-                    e.currentTarget.style.boxShadow = '0 0 20px rgba(16,185,129,0.3)'
+                    e.currentTarget.style.backgroundColor = 'var(--accent)'
+                    e.currentTarget.style.boxShadow = '0 0 20px var(--accent-glow)'
                   }}
                 >
                   Export {stocks.length} Tickers to QuantGen
@@ -618,18 +594,18 @@ export default function SectorRotation() {
                   onClick={() => exportToQuantGen(topLeaders)}
                   className="px-5 py-3 rounded-xl text-sm font-bold uppercase tracking-wider transition-all hover:scale-105"
                   style={{
-                    backgroundColor: '#10B981',
-                    color: '#000000',
-                    border: '1px solid #10B981',
-                    boxShadow: '0 0 20px rgba(16,185,129,0.3)',
+                    backgroundColor: 'var(--accent)',
+                    color: 'var(--accent-ink)',
+                    border: '1px solid var(--accent)',
+                    boxShadow: '0 0 20px var(--accent-glow)',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#34D399'
-                    e.currentTarget.style.boxShadow = '0 0 30px rgba(16,185,129,0.5)'
+                    e.currentTarget.style.backgroundColor = 'var(--accent-light)'
+                    e.currentTarget.style.boxShadow = '0 0 30px var(--accent-glow)'
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#10B981'
-                    e.currentTarget.style.boxShadow = '0 0 20px rgba(16,185,129,0.3)'
+                    e.currentTarget.style.backgroundColor = 'var(--accent)'
+                    e.currentTarget.style.boxShadow = '0 0 20px var(--accent-glow)'
                   }}
                 >
                   Export {topLeaders.length} Tickers to QuantGen
@@ -654,12 +630,11 @@ export default function SectorRotation() {
                   animate={{ opacity: 1, y: 0 }}
                   className="border rounded-2xl p-7 overflow-hidden relative hover-lift"
                   style={{
-                    backgroundColor: isDarkMode ? (isSqueezeTriggered ? 'rgba(16, 185, 129, 0.05)' : colors.surface) : (isSqueezeTriggered ? '#f0fdf4' : '#ffffff'),
-                    borderColor: isSqueezeTriggered ? 'rgba(16, 185, 129, 0.6)' : colors.border,
+                    backgroundColor: 'var(--surface)',
+                    borderColor: isSqueezeTriggered ? 'var(--accent)' : 'var(--border)',
                     boxShadow: isSqueezeTriggered
-                      ? (isDarkMode ? '0 0 30px rgba(16, 185, 129, 0.3), inset 0 0 20px rgba(16,185,129,0.1)' : '0 10px 30px rgba(16, 185, 129, 0.2)')
-                      : (isDarkMode ? '0 10px 30px rgba(0,0,0,0.4)' : '0 5px 15px rgba(0,0,0,0.05)'),
-                    backdropFilter: 'blur(10px)',
+                      ? '0 0 30px var(--accent-glow), inset 0 0 20px var(--accent-glow)'
+                      : 'var(--shadow-apple-card)',
                     transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                 >
@@ -667,9 +642,9 @@ export default function SectorRotation() {
                     <div
                       className="absolute top-0 right-0 text-xs font-bold px-4 py-1.5 rounded-bl-2xl uppercase tracking-tight"
                       style={{
-                        backgroundColor: '#10B981',
-                        color: '#ffffff',
-                        boxShadow: '0 4px 15px rgba(16,185,129,0.4)'
+                        backgroundColor: 'var(--accent)',
+                        color: 'var(--accent-ink)',
+                        boxShadow: '0 4px 15px var(--accent-glow)'
                       }}
                     >
                       Triggered
@@ -678,14 +653,14 @@ export default function SectorRotation() {
 
                   <div className="flex justify-between items-start mb-6">
                     <div>
-                      <h4 className="text-3xl font-bold leading-none mb-2" style={{ color: colors.text }}>{stock.ticker}</h4>
-                      <p className="text-sm" style={{ color: colors.muted }}>{stock.name}</p>
+                      <h4 className="text-3xl font-bold leading-none mb-2" style={{ color: 'var(--foreground)' }}>{stock.ticker}</h4>
+                      <p className="text-sm" style={{ color: 'var(--muted)' }}>{stock.name}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-mono" style={{ color: colors.text }}>${stock.price.toFixed(2)}</p>
-                      <p className="text-xs uppercase mt-1" style={{ color: colors.muted }}>Price on {stock.ref_date || 'latest'}</p>
+                      <p className="text-2xl font-mono" style={{ color: 'var(--foreground)' }}>${stock.price.toFixed(2)}</p>
+                      <p className="text-xs uppercase mt-1" style={{ color: 'var(--muted)' }}>Price on {stock.ref_date || 'latest'}</p>
                       {stock.forward_return != null && (
-                        <p className={`text-sm font-mono font-bold mt-1 ${stock.forward_return >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                        <p className="text-sm font-mono font-bold mt-1" style={{ color: stock.forward_return >= 0 ? 'var(--good)' : 'var(--bad)' }}>
                           {stock.forward_return >= 0 ? '+' : ''}{(stock.forward_return * 100).toFixed(2)}% ({holdingDays}d fwd)
                         </p>
                       )}
@@ -705,12 +680,12 @@ export default function SectorRotation() {
                       onClick={() => fetchChartData(stock.ticker)}
                       className="p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 group relative"
                       style={{
-                        backgroundColor: isPriceBreakout ? 'rgba(16, 185, 129, 0.1)' : isDarkMode ? 'rgba(63, 63, 70, 0.3)' : 'rgba(0, 0, 0, 0.05)',
-                        borderColor: isPriceBreakout ? 'rgba(16, 185, 129, 0.4)' : colors.border
+                        backgroundColor: isPriceBreakout ? 'var(--accent-glow)' : 'var(--surface-raised)',
+                        borderColor: isPriceBreakout ? 'var(--accent)' : 'var(--border)'
                       }}
                     >
-                      <ArrowUpRight className={`w-5 h-5 ${isPriceBreakout ? 'text-emerald-500' : isDarkMode ? 'text-zinc-600' : 'text-zinc-400'}`} />
-                      <span className={`text-xs uppercase font-bold ${isPriceBreakout ? 'text-emerald-500' : isDarkMode ? 'text-zinc-600' : 'text-zinc-500'}`}>Price</span>
+                      <ArrowUpRight className="w-5 h-5" style={{ color: isPriceBreakout ? 'var(--good)' : 'var(--subtle)' }} />
+                      <span className="text-xs uppercase font-bold" style={{ color: isPriceBreakout ? 'var(--good)' : 'var(--muted)' }}>Price</span>
                       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Maximize2 className="w-3 h-3 text-emerald-500" />
                       </div>
@@ -719,12 +694,12 @@ export default function SectorRotation() {
                       onClick={() => fetchChartData(stock.ticker)}
                       className="p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 group relative"
                       style={{
-                        backgroundColor: isVolumeSpike ? 'rgba(16, 185, 129, 0.1)' : isDarkMode ? 'rgba(63, 63, 70, 0.3)' : 'rgba(0, 0, 0, 0.05)',
-                        borderColor: isVolumeSpike ? 'rgba(16, 185, 129, 0.4)' : colors.border
+                        backgroundColor: isVolumeSpike ? 'var(--accent-glow)' : 'var(--surface-raised)',
+                        borderColor: isVolumeSpike ? 'var(--accent)' : 'var(--border)'
                       }}
                     >
-                      <Activity className={`w-5 h-5 ${isVolumeSpike ? 'text-emerald-500' : isDarkMode ? 'text-zinc-600' : 'text-zinc-400'}`} />
-                      <span className={`text-xs uppercase font-bold ${isVolumeSpike ? 'text-emerald-500' : isDarkMode ? 'text-zinc-600' : 'text-zinc-500'}`}>Volume</span>
+                      <Activity className="w-5 h-5" style={{ color: isVolumeSpike ? 'var(--good)' : 'var(--subtle)' }} />
+                      <span className="text-xs uppercase font-bold" style={{ color: isVolumeSpike ? 'var(--good)' : 'var(--muted)' }}>Volume</span>
                       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Maximize2 className="w-3 h-3 text-emerald-500" />
                       </div>
@@ -733,12 +708,12 @@ export default function SectorRotation() {
                       onClick={() => fetchChartData(stock.ticker)}
                       className="p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 group relative"
                       style={{
-                        backgroundColor: stock.bb_expanding ? 'rgba(16, 185, 129, 0.1)' : isDarkMode ? 'rgba(63, 63, 70, 0.3)' : 'rgba(0, 0, 0, 0.05)',
-                        borderColor: stock.bb_expanding ? 'rgba(16, 185, 129, 0.4)' : colors.border
+                        backgroundColor: stock.bb_expanding ? 'var(--accent-glow)' : 'var(--surface-raised)',
+                        borderColor: stock.bb_expanding ? 'var(--accent)' : 'var(--border)'
                       }}
                     >
-                      <BarChart2 className={`w-5 h-5 ${stock.bb_expanding ? 'text-emerald-500' : isDarkMode ? 'text-zinc-600' : 'text-zinc-400'}`} />
-                      <span className={`text-xs uppercase font-bold ${stock.bb_expanding ? 'text-emerald-500' : isDarkMode ? 'text-zinc-600' : 'text-zinc-500'}`}>Bands</span>
+                      <BarChart2 className="w-5 h-5" style={{ color: stock.bb_expanding ? 'var(--good)' : 'var(--subtle)' }} />
+                      <span className="text-xs uppercase font-bold" style={{ color: stock.bb_expanding ? 'var(--good)' : 'var(--muted)' }}>Bands</span>
                       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Maximize2 className="w-3 h-3 text-emerald-500" />
                       </div>
@@ -749,22 +724,22 @@ export default function SectorRotation() {
                     onClick={() => setAnalyzedStock(stock)}
                     className="w-full mt-6 py-4 rounded-full text-sm font-bold uppercase tracking-widest transition-all hover-lift"
                     style={{
-                      backgroundColor: isSqueezeTriggered ? '#10B981' : isDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f7',
-                      color: isSqueezeTriggered ? '#000000' : colors.text,
-                      border: `1px solid ${isSqueezeTriggered ? '#10B981' : isDarkMode ? 'rgba(255,255,255,0.1)' : '#d2d2d7'}`,
-                      boxShadow: isSqueezeTriggered ? '0 0 20px rgba(16,185,129,0.3)' : 'none'
+                      backgroundColor: isSqueezeTriggered ? 'var(--accent)' : 'var(--surface-raised)',
+                      color: isSqueezeTriggered ? 'var(--accent-ink)' : 'var(--foreground)',
+                      border: isSqueezeTriggered ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      boxShadow: isSqueezeTriggered ? '0 0 20px var(--accent-glow)' : 'none'
                     }}
                     onMouseEnter={(e) => {
                       if (isSqueezeTriggered) {
-                        e.currentTarget.style.backgroundColor = '#34D399';
-                        e.currentTarget.style.boxShadow = '0 0 30px rgba(16,185,129,0.5)';
+                        e.currentTarget.style.backgroundColor = 'var(--accent-light)';
+                        e.currentTarget.style.boxShadow = '0 0 30px var(--accent-glow)';
                       } else {
-                        e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : '#e5e5e7';
+                        e.currentTarget.style.backgroundColor = 'var(--border-hover)';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = isSqueezeTriggered ? '#10B981' : isDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f7';
-                      e.currentTarget.style.boxShadow = isSqueezeTriggered ? '0 0 20px rgba(16,185,129,0.3)' : 'none';
+                      e.currentTarget.style.backgroundColor = isSqueezeTriggered ? 'var(--accent)' : 'var(--surface-raised)';
+                      e.currentTarget.style.boxShadow = isSqueezeTriggered ? '0 0 20px var(--accent-glow)' : 'none';
                     }}
                   >
                     Analyze Setup
@@ -777,47 +752,47 @@ export default function SectorRotation() {
           <div
             className="rounded-2xl overflow-hidden border"
             style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              boxShadow: isDarkMode ? '0 10px 30px rgba(0,0,0,0.4)' : '0 5px 15px rgba(0,0,0,0.05)',
+              backgroundColor: 'var(--surface)',
+              borderColor: 'var(--border)',
+              boxShadow: 'var(--shadow-apple-card)',
             }}
           >
             {loadingTopLeaders ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <Activity className="w-10 h-10 text-emerald-500 animate-spin" />
-                <p className="font-mono text-sm uppercase tracking-widest" style={{ color: colors.muted }}>Scanning all sectors...</p>
+                <p className="font-mono text-sm uppercase tracking-widest" style={{ color: 'var(--muted)' }}>Scanning all sectors...</p>
               </div>
             ) : topLeaders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4">
-                <p className="text-lg" style={{ color: colors.muted }}>No cross-sector momentum leaders available.</p>
+                <p className="text-lg" style={{ color: 'var(--muted)' }}>No cross-sector momentum leaders available.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr style={{ borderBottom: `1px solid ${colors.border}`, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#f5f5f7' }}>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono" style={{ color: colors.muted }}>Rank</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono" style={{ color: colors.muted }}>Ticker</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono" style={{ color: colors.muted }}>Sector</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: colors.muted }}>1M Perf</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: colors.muted }}>3M Perf</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: colors.muted }}>6M Perf</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: colors.muted }}>Price</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: colors.muted }}>Volume</th>
-                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-center" style={{ color: colors.muted }}>Actions</th>
+                    <tr style={{ borderBottom: `1px solid var(--border)`, backgroundColor: 'var(--surface-raised)' }}>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono" style={{ color: 'var(--muted)' }}>Rank</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono" style={{ color: 'var(--muted)' }}>Ticker</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono" style={{ color: 'var(--muted)' }}>Sector</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: 'var(--muted)' }}>1M Perf</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: 'var(--muted)' }}>3M Perf</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: 'var(--muted)' }}>6M Perf</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: 'var(--muted)' }}>Price</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-right" style={{ color: 'var(--muted)' }}>Volume</th>
+                      <th className="p-4 text-xs uppercase tracking-wider font-mono text-center" style={{ color: 'var(--muted)' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {topLeaders.map((stock, index) => {
                       const volumeRatio = stock.volume_today / stock.volume_avg_20d
                       const rankColors = ['#fbbf24', '#9ca3af', '#b45309']
-                      const rankBg = index < 3 ? rankColors[index] : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
-                      const rankText = index < 3 ? '#000000' : colors.muted
+                      const rankBg = index < 3 ? rankColors[index] : 'var(--surface-raised)'
+                      const rankText = index < 3 ? '#000000' : 'var(--muted)'
 
                       return (
                         <tr
                           key={stock.ticker}
-                          style={{ borderBottom: `1px solid ${colors.border}` }}
+                          style={{ borderBottom: `1px solid var(--border)` }}
                           className="transition-colors hover:bg-emerald-500/5"
                         >
                           <td className="p-4">
@@ -836,32 +811,32 @@ export default function SectorRotation() {
                             <button
                               onClick={() => setAnalyzedStock(stock)}
                               className="text-lg font-bold transition-colors hover:text-emerald-500"
-                              style={{ color: colors.text }}
+                              style={{ color: 'var(--foreground)' }}
                             >
                               {stock.ticker}
                             </button>
-                            <p className="text-xs" style={{ color: colors.muted }}>{stock.name}</p>
+                            <p className="text-xs" style={{ color: 'var(--muted)' }}>{stock.name}</p>
                           </td>
                           <td className="p-4">
-                            <span className="text-sm" style={{ color: colors.text }}>{stock.sector}</span>
+                            <span className="text-sm" style={{ color: 'var(--foreground)' }}>{stock.sector}</span>
                           </td>
-                          <td className="p-4 text-right font-mono text-sm" style={{ color: (stock.perf_1m || 0) >= 0 ? '#10B981' : '#f87171' }}>
+                          <td className="p-4 text-right font-mono text-sm" style={{ color: (stock.perf_1m || 0) >= 0 ? 'var(--good)' : 'var(--bad)' }}>
                             {formatPercent(stock.perf_1m || 0)}
                           </td>
-                          <td className="p-4 text-right font-mono text-sm font-bold" style={{ color: stock.perf_3m >= 0 ? '#10B981' : '#f87171' }}>
+                          <td className="p-4 text-right font-mono text-sm font-bold" style={{ color: stock.perf_3m >= 0 ? 'var(--good)' : 'var(--bad)' }}>
                             {formatPercent(stock.perf_3m)}
                           </td>
-                          <td className="p-4 text-right font-mono text-sm" style={{ color: (stock.perf_6m || 0) >= 0 ? '#10B981' : '#f87171' }}>
+                          <td className="p-4 text-right font-mono text-sm" style={{ color: (stock.perf_6m || 0) >= 0 ? 'var(--good)' : 'var(--bad)' }}>
                             {formatPercent(stock.perf_6m || 0)}
                           </td>
-                          <td className="p-4 text-right font-mono text-sm" style={{ color: colors.text }}>
+                          <td className="p-4 text-right font-mono text-sm" style={{ color: 'var(--foreground)' }}>
                             ${stock.price.toFixed(2)}
                           </td>
                           <td className="p-4 text-right">
-                            <span className="text-sm font-mono" style={{ color: colors.text }}>{(stock.volume_today / 1_000_000).toFixed(2)}M</span>
+                            <span className="text-sm font-mono" style={{ color: 'var(--foreground)' }}>{(stock.volume_today / 1_000_000).toFixed(2)}M</span>
                             <span className="text-xs ml-2 px-2 py-0.5 rounded-full" style={{
-                              backgroundColor: volumeRatio > 1.5 ? 'rgba(16,185,129,0.15)' : (isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'),
-                              color: volumeRatio > 1.5 ? '#10B981' : colors.muted
+                              backgroundColor: volumeRatio > 1.5 ? 'var(--accent-glow)' : 'var(--surface-raised)',
+                              color: volumeRatio > 1.5 ? 'var(--good)' : 'var(--muted)'
                             }}>
                               {volumeRatio.toFixed(2)}x
                             </span>
@@ -872,8 +847,8 @@ export default function SectorRotation() {
                                 onClick={() => fetchChartData(stock.ticker)}
                                 className="p-2 rounded-lg transition-colors"
                                 style={{
-                                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                                  color: colors.muted,
+                                  backgroundColor: 'var(--surface-raised)',
+                                  color: 'var(--muted)',
                                 }}
                                 title="View chart"
                               >
@@ -883,8 +858,8 @@ export default function SectorRotation() {
                                 onClick={() => setAnalyzedStock(stock)}
                                 className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
                                 style={{
-                                  backgroundColor: '#10B981',
-                                  color: '#000000',
+                                  backgroundColor: 'var(--accent)',
+                                  color: 'var(--accent-ink)',
                                 }}
                               >
                                 Analyze
@@ -910,8 +885,8 @@ export default function SectorRotation() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setAnalyzedStock(null)}
-            className="fixed inset-0 backdrop-blur-sm z-50 flex items-center justify-center p-8"
-            style={{ backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.6)' }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-8"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -920,31 +895,30 @@ export default function SectorRotation() {
               onClick={(e) => e.stopPropagation()}
               className="rounded-3xl max-w-lg w-full relative overflow-hidden"
               style={{ 
-                backgroundColor: isDarkMode ? 'rgba(20,20,22,0.95)' : '#ffffff', 
-                border: `1px solid ${colors.border}`,
-                boxShadow: isDarkMode ? '0 30px 60px rgba(0,0,0,0.6), 0 0 100px rgba(16,185,129,0.15)' : '0 20px 40px rgba(0,0,0,0.1)',
-                backdropFilter: 'blur(20px)',
+                backgroundColor: 'var(--surface-overlay)', 
+                border: `1px solid var(--border)`,
+                boxShadow: '0 30px 60px var(--shadow-apple-card), 0 0 100px var(--accent-glow)',
                 padding: '40px'
               }}
             >
-              {isDarkMode && <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '120%', height: '120%', background: 'radial-gradient(circle at 50% 0%, rgba(16,185,129,0.15) 0%, transparent 60%)', pointerEvents: 'none' }} />}
+              <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '120%', height: '120%', background: 'radial-gradient(circle at 50% 0%, rgba(16,185,129,0.15) 0%, transparent 60%)', pointerEvents: 'none' }} />
               
               <div className="flex justify-between items-start mb-8 relative z-10">
                 <div>
-                  <h3 className="text-4xl font-bold tracking-tight" style={{ color: colors.text }}>{analyzedStock.ticker}</h3>
-                  <p className="text-lg mt-1 font-mono uppercase" style={{ color: colors.muted }}>{analyzedStock.name}</p>
+                  <h3 className="text-4xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>{analyzedStock.ticker}</h3>
+                  <p className="text-lg mt-1 font-mono uppercase" style={{ color: 'var(--muted)' }}>{analyzedStock.name}</p>
                 </div>
                 <button
                   onClick={() => setAnalyzedStock(null)}
-                  className="p-2 rounded-full transition-colors backdrop-blur-sm"
-                  style={{ color: colors.muted, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+                  className="p-2 rounded-full transition-colors"
+                  style={{ color: 'var(--muted)', backgroundColor: 'var(--surface-raised)' }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.color = colors.text;
-                    e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+                    e.currentTarget.style.color = 'var(--foreground)';
+                    e.currentTarget.style.backgroundColor = 'var(--border-hover)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = colors.muted;
-                    e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+                    e.currentTarget.style.color = 'var(--muted)';
+                    e.currentTarget.style.backgroundColor = 'var(--surface-raised)';
                   }}
                 >
                   <X size={24} />
@@ -952,24 +926,24 @@ export default function SectorRotation() {
               </div>
 
               <div className="relative z-10">
-                <Card variant="raised" className="mb-6" style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#ffffff', border: `1px solid ${colors.border}`, padding: '24px' }}>
-                <h4 className="text-sm font-mono uppercase mb-4" style={{ color: colors.muted }}>Bollinger Bands (20, 2)</h4>
+                <Card variant="raised" className="mb-6" style={{ border: `1px solid var(--border)`, padding: '24px' }}>
+                <h4 className="text-sm font-mono uppercase mb-4" style={{ color: 'var(--muted)' }}>Bollinger Bands (20, 2)</h4>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm" style={{ color: colors.muted }}>Upper Band</span>
-                    <span className="text-base font-mono text-emerald-400">${analyzedStock.bb_upper.toFixed(2)}</span>
+                    <span className="text-sm" style={{ color: 'var(--muted)' }}>Upper Band</span>
+                    <span className="text-base font-mono" style={{ color: 'var(--good)' }}>${analyzedStock.bb_upper.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm" style={{ color: colors.muted }}>Middle (SMA20)</span>
-                    <span className="text-base font-mono" style={{ color: colors.text }}>${analyzedStock.bb_middle.toFixed(2)}</span>
+                    <span className="text-sm" style={{ color: 'var(--muted)' }}>Middle (SMA20)</span>
+                    <span className="text-base font-mono" style={{ color: 'var(--foreground)' }}>${analyzedStock.bb_middle.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm" style={{ color: colors.muted }}>Lower Band</span>
-                    <span className="text-base font-mono text-red-400">${analyzedStock.bb_lower.toFixed(2)}</span>
+                    <span className="text-sm" style={{ color: 'var(--muted)' }}>Lower Band</span>
+                    <span className="text-base font-mono" style={{ color: 'var(--bad)' }}>${analyzedStock.bb_lower.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between pt-3" style={{ borderTop: `1px solid ${colors.border}` }}>
-                    <span className="text-sm" style={{ color: colors.muted }}>Current Price</span>
-                    <span className="text-lg font-mono font-bold" style={{ color: colors.text }}>${analyzedStock.price.toFixed(2)}</span>
+                  <div className="flex justify-between pt-3" style={{ borderTop: `1px solid var(--border)` }}>
+                    <span className="text-sm" style={{ color: 'var(--muted)' }}>Current Price</span>
+                    <span className="text-lg font-mono font-bold" style={{ color: 'var(--foreground)' }}>${analyzedStock.price.toFixed(2)}</span>
                   </div>
                 </div>
               </Card>
@@ -977,46 +951,46 @@ export default function SectorRotation() {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <Card
                   style={{
-                    backgroundColor: analyzedStock.price > (analyzedStock.sma50 || 0) ? 'rgba(16, 185, 129, 0.1)' : colors.surface,
-                    borderColor: analyzedStock.price > (analyzedStock.sma50 || 0) ? 'rgba(16, 185, 129, 0.3)' : colors.border,
+                    backgroundColor: analyzedStock.price > (analyzedStock.sma50 || 0) ? 'var(--accent-glow)' : 'var(--surface)',
+                    borderColor: analyzedStock.price > (analyzedStock.sma50 || 0) ? 'var(--accent)' : 'var(--border)',
                     padding: '20px'
                   }}
                 >
-                  <span className="text-xs uppercase" style={{ color: colors.muted }}>Price vs SMA50</span>
-                  <p className={`text-base font-mono mt-2 ${analyzedStock.price > (analyzedStock.sma50 || 0) ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <span className="text-xs uppercase" style={{ color: 'var(--muted)' }}>Price vs SMA50</span>
+                  <p className="text-base font-mono mt-2" style={{ color: analyzedStock.price > (analyzedStock.sma50 || 0) ? 'var(--good)' : 'var(--bad)' }}>
                     {analyzedStock.price > (analyzedStock.sma50 || 0) ? 'Above' : 'Below'} ${analyzedStock.sma50?.toFixed(2) || 'N/A'}
                   </p>
                 </Card>
                 <Card
                   style={{
-                    backgroundColor: analyzedStock.price > (analyzedStock.sma200 || 0) ? 'rgba(16, 185, 129, 0.1)' : colors.surface,
-                    borderColor: analyzedStock.price > (analyzedStock.sma200 || 0) ? 'rgba(16, 185, 129, 0.3)' : colors.border,
+                    backgroundColor: analyzedStock.price > (analyzedStock.sma200 || 0) ? 'var(--accent-glow)' : 'var(--surface)',
+                    borderColor: analyzedStock.price > (analyzedStock.sma200 || 0) ? 'var(--accent)' : 'var(--border)',
                     padding: '20px'
                   }}
                 >
-                  <span className="text-xs uppercase" style={{ color: colors.muted }}>Price vs SMA200</span>
-                  <p className={`text-base font-mono mt-2 ${analyzedStock.price > (analyzedStock.sma200 || 0) ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <span className="text-xs uppercase" style={{ color: 'var(--muted)' }}>Price vs SMA200</span>
+                  <p className="text-base font-mono mt-2" style={{ color: analyzedStock.price > (analyzedStock.sma200 || 0) ? 'var(--good)' : 'var(--bad)' }}>
                     {analyzedStock.price > (analyzedStock.sma200 || 0) ? 'Above' : 'Below'} ${analyzedStock.sma200?.toFixed(2) || 'N/A'}
                   </p>
                 </Card>
               </div>
 
-              <Card variant="raised" style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#ffffff', border: `1px solid ${colors.border}`, padding: '20px' }}>
-                <h4 className="text-sm font-mono uppercase mb-3" style={{ color: colors.muted }}>Setup Strength</h4>
+              <Card variant="raised" style={{ border: `1px solid var(--border)`, padding: '20px' }}>
+                <h4 className="text-sm font-mono uppercase mb-3" style={{ color: 'var(--muted)' }}>Setup Strength</h4>
                 <div className="flex items-center gap-5">
                   <div
                     className="flex-1 h-4 rounded-full overflow-hidden"
-                    style={{ backgroundColor: isDarkMode ? '#3f3f46' : '#e5e5e7' }}
+                    style={{ backgroundColor: 'var(--surface-raised)' }}
                   >
                     <div
                       className="h-full transition-all"
                       style={{
                         width: `${getStrengthScore(analyzedStock)}%`,
                         background: getStrengthScore(analyzedStock) >= 75
-                          ? 'linear-gradient(to right, #059669, #34D399)'
+                          ? 'var(--good)'
                           : getStrengthScore(analyzedStock) >= 50
-                            ? 'linear-gradient(to right, #d97706, #fbbf24)'
-                            : 'linear-gradient(to right, #dc2626, #f87171)'
+                            ? '#fbbf24'
+                            : 'var(--bad)'
                       }}
                     />
                   </div>
@@ -1024,10 +998,10 @@ export default function SectorRotation() {
                     className="text-xl font-mono font-bold"
                     style={{
                       color: getStrengthScore(analyzedStock) >= 75
-                        ? '#34D399'
+                        ? 'var(--good)'
                         : getStrengthScore(analyzedStock) >= 50
                           ? '#fbbf24'
-                          : '#f87171'
+                          : 'var(--bad)'
                     }}
                   >
                     {getStrengthScore(analyzedStock)}%
@@ -1048,7 +1022,7 @@ export default function SectorRotation() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setChartTicker(null)}
-            className="fixed inset-0 backdrop-blur-md z-[60] flex items-center justify-center p-4 md:p-12"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-12"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
           >
             <motion.div
@@ -1056,22 +1030,22 @@ export default function SectorRotation() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#0c0c0e] border border-white/10 rounded-3xl w-full max-w-[90vw] max-h-[95vh] overflow-y-auto shadow-2xl shadow-emerald-500/10"
+              className="border rounded-3xl w-full max-w-[90vw] max-h-[95vh] overflow-y-auto" style={{ backgroundColor: 'var(--surface-overlay)', borderColor: 'var(--border)', boxShadow: '0 30px 60px var(--shadow-apple-card), 0 0 100px var(--accent-glow)' }}
             >
               {/* Chart Header */}
-              <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5 sticky top-0 z-20 backdrop-blur-md">
+              <div className="flex items-center justify-between p-6 border-b sticky top-0 z-20" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface-raised)' }}>
                 <div className="flex items-center gap-4">
-                  <div className="bg-emerald-500/20 p-2.5 rounded-xl border border-emerald-500/30">
-                    <TrendingUp className="w-6 h-6 text-emerald-500" />
+                  <div className="p-2.5 rounded-xl border" style={{ backgroundColor: 'var(--accent-glow)', borderColor: 'var(--accent)' }}>
+                    <TrendingUp className="w-6 h-6" style={{ color: 'var(--accent-light)' }} />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white leading-tight">{chartTicker} Technical Chart</h3>
-                    <p className="text-sm text-zinc-400 font-mono uppercase tracking-widest mt-0.5">Bollinger Bands (20, 2) Overlay</p>
+                    <h3 className="text-2xl font-bold leading-tight" style={{ color: 'var(--foreground)' }}>{chartTicker} Technical Chart</h3>
+                    <p className="text-sm font-mono uppercase tracking-widest mt-0.5" style={{ color: 'var(--muted)' }}>Bollinger Bands (20, 2) Overlay</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setChartTicker(null)}
-                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all"
+                  className="p-2 rounded-xl transition-all" style={{ backgroundColor: 'var(--surface-raised)', color: 'var(--muted)' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--foreground)'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--muted)'; }}
                 >
                   <X size={24} />
                 </button>
@@ -1082,7 +1056,7 @@ export default function SectorRotation() {
                 {isChartLoading ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                     <Activity className="w-12 h-12 text-emerald-500 animate-spin" />
-                    <p className="text-zinc-500 font-mono text-sm tracking-widest uppercase">Fetching Market Data...</p>
+                    <p className="font-mono text-sm tracking-widest uppercase" style={{ color: 'var(--subtle)' }}>Fetching Market Data...</p>
                   </div>
                 ) : chartData.length > 0 ? (
                   <div className="p-4">
@@ -1120,54 +1094,54 @@ export default function SectorRotation() {
 
 
                     <div className="mt-8 grid grid-cols-3 gap-6 px-4 pb-6">
-                      <div className="bg-white/5 border border-white/5 rounded-3xl p-8">
+                      <div className="border rounded-3xl p-8" style={{ backgroundColor: 'var(--surface-raised)', borderColor: 'var(--border)' }}>
                         <div className="flex justify-between items-end mb-6">
-                          <p className="text-sm text-emerald-500 uppercase font-bold tracking-widest">Price Action</p>
-                          <p className="text-4xl font-mono text-white font-bold leading-none">${chartData[chartData.length - 1]?.close.toFixed(2)}</p>
+                          <p className="text-sm uppercase font-bold tracking-widest" style={{ color: 'var(--good)' }}>Price Action</p>
+                          <p className="text-4xl font-mono font-bold leading-none" style={{ color: 'var(--foreground)' }}>${chartData[chartData.length - 1]?.close.toFixed(2)}</p>
                         </div>
-                        <div className="space-y-4 pt-6 border-t border-white/5">
+                        <div className="space-y-4 pt-6 border-t" style={{ borderTopColor: 'var(--border)' }}>
                           <div className="flex justify-between text-xl font-mono">
-                            <span className="text-zinc-500 uppercase">SMA 20</span>
-                            <span className="text-emerald-400 font-bold">${chartData[chartData.length - 1]?.sma20?.toFixed(2) || 'N/A'}</span>
+                            <span className="uppercase" style={{ color: 'var(--subtle)' }}>SMA 20</span>
+                            <span className="font-bold" style={{ color: 'var(--good)' }}>${chartData[chartData.length - 1]?.sma20?.toFixed(2) || 'N/A'}</span>
                           </div>
                           <div className="flex justify-between text-xl font-mono">
-                            <span className="text-zinc-500 uppercase">SMA 50</span>
-                            <span className="text-emerald-400 font-bold">${chartData[chartData.length - 1]?.sma50?.toFixed(2) || 'N/A'}</span>
+                            <span className="uppercase" style={{ color: 'var(--subtle)' }}>SMA 50</span>
+                            <span className="font-bold" style={{ color: 'var(--good)' }}>${chartData[chartData.length - 1]?.sma50?.toFixed(2) || 'N/A'}</span>
                           </div>
                         </div>
                       </div>
                       
-                      <div className="bg-white/5 border border-white/5 rounded-3xl p-8">
+                      <div className="border rounded-3xl p-8" style={{ backgroundColor: 'var(--surface-raised)', borderColor: 'var(--border)' }}>
                         <div className="flex justify-between items-end mb-6">
-                          <p className="text-sm text-blue-500 uppercase font-bold tracking-widest">Volume Metrics</p>
-                          <p className="text-4xl font-mono text-white font-bold leading-none">{(chartData[chartData.length - 1]?.volume / 1000000).toFixed(2)}M</p>
+                          <p className="text-sm uppercase font-bold tracking-widest" style={{ color: '#3b82f6' }}>Volume Metrics</p>
+                          <p className="text-4xl font-mono font-bold leading-none" style={{ color: 'var(--foreground)' }}>{(chartData[chartData.length - 1]?.volume / 1000000).toFixed(2)}M</p>
                         </div>
-                        <div className="space-y-4 pt-6 border-t border-white/5">
+                        <div className="space-y-4 pt-6 border-t" style={{ borderTopColor: 'var(--border)' }}>
                           <div className="flex justify-between text-xl font-mono">
-                            <span className="text-zinc-500 uppercase">SMA 20 (V)</span>
-                            <span className="text-blue-400 font-bold">{(chartData[chartData.length - 1]?.vol_sma20 / 1000000).toFixed(2)}M</span>
+                            <span className="uppercase" style={{ color: 'var(--subtle)' }}>SMA 20 (V)</span>
+                            <span className="font-bold" style={{ color: '#60a5fa' }}>{(chartData[chartData.length - 1]?.vol_sma20 / 1000000).toFixed(2)}M</span>
                           </div>
                           <div className="flex justify-between text-xl font-mono">
-                            <span className="text-zinc-500 uppercase">SMA 50 (V)</span>
-                            <span className="text-blue-400 font-bold">{(chartData[chartData.length - 1]?.vol_sma50 / 1000000).toFixed(2)}M</span>
+                            <span className="uppercase" style={{ color: 'var(--subtle)' }}>SMA 50 (V)</span>
+                            <span className="font-bold" style={{ color: '#60a5fa' }}>{(chartData[chartData.length - 1]?.vol_sma50 / 1000000).toFixed(2)}M</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="bg-white/5 border border-white/5 rounded-3xl p-8 flex flex-col justify-center items-center">
+                      <div className="border rounded-3xl p-8 flex flex-col justify-center items-center" style={{ backgroundColor: 'var(--surface-raised)', borderColor: 'var(--border)' }}>
                         <div className="text-center w-full">
-                          <p className="text-sm text-zinc-500 uppercase font-bold tracking-widest mb-2">Timeframe</p>
-                          <p className="text-4xl font-mono text-white font-bold">Daily (150D)</p>
-                          <div className="mt-6 pt-6 border-t border-white/5 w-full">
-                            <p className="text-sm text-zinc-500 uppercase font-bold tracking-widest mb-2">Market Status</p>
-                            <p className="text-xl font-mono text-emerald-500 font-bold uppercase tracking-widest">Live Data Active</p>
+                          <p className="text-sm uppercase font-bold tracking-widest mb-2" style={{ color: 'var(--subtle)' }}>Timeframe</p>
+                          <p className="text-4xl font-mono font-bold" style={{ color: 'var(--foreground)' }}>Daily (150D)</p>
+                          <div className="mt-6 pt-6 border-t w-full" style={{ borderTopColor: 'var(--border)' }}>
+                            <p className="text-sm uppercase font-bold tracking-widest mb-2" style={{ color: 'var(--subtle)' }}>Market Status</p>
+                            <p className="text-xl font-mono font-bold uppercase tracking-widest" style={{ color: 'var(--good)' }}>Live Data Active</p>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ color: 'var(--subtle)' }}>
                     Unable to load chart data for {chartTicker}
                   </div>
                 )}

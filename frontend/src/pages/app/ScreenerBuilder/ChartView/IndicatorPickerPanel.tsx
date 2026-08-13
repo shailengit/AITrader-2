@@ -117,7 +117,7 @@ export default function IndicatorPickerPanel({ onAdd, alreadyAdded }: IndicatorP
               border: 'none',
               cursor: 'pointer',
               backgroundColor: activeCategory === cat ? 'var(--accent)' : 'var(--surface)',
-              color: activeCategory === cat ? '#000' : 'var(--subtle)',
+              color: activeCategory === cat ? 'var(--accent-ink)' : 'var(--subtle)',
               textTransform: 'capitalize',
             }}
           >
@@ -249,7 +249,7 @@ export default function IndicatorPickerPanel({ onAdd, alreadyAdded }: IndicatorP
                         border: 'none',
                         cursor: alreadyAddedThis ? 'default' : 'pointer',
                         backgroundColor: alreadyAddedThis ? 'var(--border)' : 'var(--accent)',
-                        color: alreadyAddedThis ? 'var(--muted)' : '#000',
+                        color: alreadyAddedThis ? 'var(--muted)' : 'var(--accent-ink)',
                       }}
                     >
                       <Plus size={9} />

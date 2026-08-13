@@ -13,7 +13,6 @@ import {
   FunctionSquare,
   Layers,
 } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
 import { useScreens, type FilterCondition, type FilterGroup, type ScreenPreset } from '../../hooks/useScreens';
 import { useComposites } from '../../hooks/useComposites';
 import { useMacros } from '../../hooks/useMacros';
@@ -205,7 +204,6 @@ function convertFiltersToBackend(filters: FilterGroup): Record<string, any> {
 // ── Component ────────────────────────────────────────────
 
 export default function ScreenerBuilder() {
-  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { savePreset } = useScreens();
@@ -329,15 +327,15 @@ export default function ScreenerBuilder() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    surfaceRaised: isDarkMode ? '#2a2a2d' : '#fafafc',
-    inputBg: isDarkMode ? '#000000' : '#ffffff',
-    canvas: isDarkMode ? '#050505' : '#f5f5f7',
-    accent: '#10B981',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    surfaceRaised: 'var(--surface-raised)',
+    inputBg: 'var(--canvas)',
+    canvas: 'var(--canvas)',
+    accent: 'var(--accent)',
   };
 
   // ── URL param handling ─────────────────────────────────
@@ -1017,15 +1015,15 @@ export default function ScreenerBuilder() {
               onClick={() => setShareOpen(true)}
               style={{
                 ...headerButtonStyle(colors),
-                backgroundColor: 'rgba(16,185,129,0.1)',
+                backgroundColor: 'var(--accent-glow)',
                 color: colors.accent,
-                borderColor: 'rgba(16,185,129,0.2)',
+                borderColor: 'var(--accent-glow)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.2)';
+                e.currentTarget.style.backgroundColor = 'var(--accent-glow)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.1)';
+                e.currentTarget.style.backgroundColor = 'var(--accent-glow)';
               }}
             >
               <Share2 size={15} />
@@ -1142,7 +1140,7 @@ export default function ScreenerBuilder() {
                   width: 16,
                   height: 16,
                   borderRadius: '50%',
-                  backgroundColor: '#fff',
+                  backgroundColor: 'var(--surface)',
                   transition: 'transform 150ms ease',
                   transform: useAi ? 'translateX(16px)' : 'translateX(2px)',
                 }}
@@ -1188,7 +1186,7 @@ export default function ScreenerBuilder() {
                   color: colors.accent,
                   padding: '2px 8px',
                   borderRadius: 6,
-                  backgroundColor: 'rgba(16,185,129,0.1)',
+                  backgroundColor: 'var(--accent-glow)',
                 }}
               >
                 {filters.conditions.length} condition
@@ -1253,7 +1251,7 @@ export default function ScreenerBuilder() {
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = colors.accent;
-                e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.05)';
+                e.currentTarget.style.backgroundColor = 'var(--accent-glow)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = colors.border;
@@ -1281,7 +1279,7 @@ export default function ScreenerBuilder() {
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = colors.accent;
-                e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.05)';
+                e.currentTarget.style.backgroundColor = 'var(--accent-glow)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = colors.border;
@@ -1316,7 +1314,7 @@ export default function ScreenerBuilder() {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = colors.accent;
-                  e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.05)';
+                  e.currentTarget.style.backgroundColor = 'var(--accent-glow)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = colors.border;
@@ -1334,7 +1332,7 @@ export default function ScreenerBuilder() {
                 marginTop: 8,
                 padding: '6px 12px',
                 borderRadius: 6,
-                backgroundColor: 'rgba(16,185,129,0.1)',
+                backgroundColor: 'var(--accent-glow)',
                 color: colors.accent,
                 fontSize: 12,
                 fontWeight: 500,
@@ -1496,7 +1494,7 @@ export default function ScreenerBuilder() {
               backgroundColor:
                 isScanning || filters.conditions.length === 0 ? colors.subtle : colors.accent,
               color:
-                isScanning || filters.conditions.length === 0 ? colors.muted : '#000',
+                isScanning || filters.conditions.length === 0 ? colors.muted : 'var(--accent-ink)',
               fontSize: 14,
               fontWeight: 600,
               cursor:

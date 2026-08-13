@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { request } from "@/lib/api";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useTheme } from "../../context/ThemeContext";
 import ControlPanel, { ScanParams } from "./components/ControlPanel";
 import SectorRegimeGrid from "./components/SectorRegimeGrid";
 import SignalsTable from "./components/SignalsTable";
@@ -41,7 +40,6 @@ interface ScanProgress {
 }
 
 export default function MarkovPage() {
-  const { isDarkMode } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [drawerTicker, setDrawerTicker] = useState<string | null>(() => {
@@ -64,12 +62,11 @@ export default function MarkovPage() {
 
   // Theme-aware colors
   const colors = {
-    error: "#EF4444",
-    muted: isDarkMode ? "rgba(255,255,255,0.7)" : "#6e6e73",
-    surface: isDarkMode ? "#1A1D21" : "#f5f5f7",
-    border: isDarkMode ? "rgba(255,255,255,0.12)" : "#d2d2d7",
-    accent: "#10B981",
-    accentMuted: isDarkMode ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)",
+    error: "var(--bad)",
+    muted: "var(--muted)",
+    surface: "var(--surface)",
+    border: "var(--border)",
+    accent: "var(--accent)",
   };
 
   // Poll scan progress while loading
@@ -339,7 +336,7 @@ export default function MarkovPage() {
               width: "100%",
               height: 8,
               borderRadius: 4,
-              background: isDarkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb",
+              background: "var(--border)",
               overflow: "hidden",
               marginBottom: 8,
             }}>
@@ -347,7 +344,7 @@ export default function MarkovPage() {
                 width: `${Math.max(progress.progress_pct, 2)}%`,
                 height: "100%",
                 borderRadius: 4,
-                background: `linear-gradient(90deg, ${colors.accent}, #34D399, ${colors.accent})`,
+                background: `linear-gradient(90deg, ${colors.accent}, var(--accent-light), ${colors.accent})`,
                 backgroundSize: "200% 100%",
                 animation: "shimmer 1.5s ease-in-out infinite",
                 transition: "width 0.5s ease",
@@ -400,8 +397,8 @@ export default function MarkovPage() {
         </div>
       )}
 
-      {sectors.length > 0 && <SectorRegimeGrid sectors={sectors} isDarkMode={isDarkMode} />}
-      <SignalsTable signals={signals} totalScanned={totalScanned} loading={loading} isDarkMode={isDarkMode} minConviction={lastMinConviction} asOfDate={lastAsOfDate} onTickerClick={openTicker} />
+      {sectors.length > 0 && <SectorRegimeGrid sectors={sectors} />}
+      <SignalsTable signals={signals} totalScanned={totalScanned} loading={loading} minConviction={lastMinConviction} asOfDate={lastAsOfDate} onTickerClick={openTicker} />
       <TickerDetailDrawer
         ticker={drawerTicker}
         asOfDate={lastAsOfDate || undefined}

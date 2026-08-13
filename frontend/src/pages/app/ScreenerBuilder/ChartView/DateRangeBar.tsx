@@ -48,7 +48,7 @@ export default function DateRangeBar({ mode, customStart, customEnd, onChange, c
               fontSize: 12,
               fontWeight: 600,
               border: `1px solid ${active ? colors.accent : colors.border}`,
-              backgroundColor: active ? 'rgba(16,185,129,0.12)' : 'transparent',
+              backgroundColor: active ? 'var(--accent-glow)' : 'transparent',
               color: active ? colors.accent : colors.muted,
               cursor: 'pointer',
             }}

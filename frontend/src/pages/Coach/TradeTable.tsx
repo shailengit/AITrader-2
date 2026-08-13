@@ -10,7 +10,7 @@ export function TradeTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="text-xs uppercase text-zinc-500">
+        <thead className="text-xs uppercase text-[color:var(--subtle)]">
           <tr>
             <th className="px-3 py-2 text-left">Ticker</th>
             <th className="px-3 py-2 text-left">Side</th>
@@ -26,13 +26,13 @@ export function TradeTable({
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={9} className="px-3 py-6 text-center text-zinc-500">
+              <td colSpan={9} className="px-3 py-6 text-center text-[color:var(--subtle)]">
                 No trades yet. Add one above.
               </td>
             </tr>
           ) : (
             rows.map((t) => (
-              <tr key={t.id} className="border-t border-zinc-800">
+              <tr key={t.id} className="border-t border-[color:var(--border)]">
                 <td className="px-3 py-2 font-mono">{t.ticker}</td>
                 <td className="px-3 py-2">{t.side}</td>
                 <td className="px-3 py-2 text-right">{t.qty}</td>
@@ -42,7 +42,7 @@ export function TradeTable({
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
-                    (t.pnl ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                    (t.pnl ?? 0) >= 0 ? 'text-[color:var(--good)]' : 'text-[color:var(--bad)]'
                   }`}
                 >
                   {t.pnl != null ? t.pnl.toFixed(2) : '—'}
@@ -56,7 +56,7 @@ export function TradeTable({
                         await coachApi.closeTrade(t.id, {});
                         onChanged();
                       }}
-                      className="rounded-md border border-emerald-700 px-2 py-1 text-xs text-emerald-400 hover:bg-emerald-900/30"
+                      className="rounded-md border border-[color:var(--accent-dark)] px-2 py-1 text-xs text-[color:var(--accent-light)] hover:bg-[color:var(--accent-glow)]"
                     >
                       Close
                     </button>

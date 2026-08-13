@@ -168,7 +168,7 @@ export default function Library() {
                     clearAppReferrer();
                   } catch {}
                 }}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', backgroundColor: 'var(--accent)', color: '#000000' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', backgroundColor: 'var(--accent)', color: 'var(--accent-ink)' }}
               >
                 <Plus size={15} />
                 New Strategy
@@ -184,7 +184,7 @@ export default function Library() {
                 padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
                 border: 'none', cursor: 'pointer',
                 backgroundColor: activeTab === 'builtin' ? 'var(--accent)' : 'transparent',
-                color: activeTab === 'builtin' ? '#000000' : 'var(--subtle)',
+                color: activeTab === 'builtin' ? 'var(--accent-ink)' : 'var(--subtle)',
                 display: 'flex', alignItems: 'center', gap: '6px',
               }}
             >
@@ -197,7 +197,7 @@ export default function Library() {
                 padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
                 border: 'none', cursor: 'pointer',
                 backgroundColor: activeTab === 'saved' ? 'var(--accent)' : 'transparent',
-                color: activeTab === 'saved' ? '#000000' : 'var(--subtle)',
+                color: activeTab === 'saved' ? 'var(--accent-ink)' : 'var(--subtle)',
                 display: 'flex', alignItems: 'center', gap: '6px',
               }}
             >
@@ -224,7 +224,7 @@ export default function Library() {
                           padding: '6px 14px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
                           cursor: 'pointer',
                           backgroundColor: categoryFilter === cat ? 'var(--accent)' : 'var(--surface)',
-                          color: categoryFilter === cat ? '#000000' : 'var(--subtle)',
+                          color: categoryFilter === cat ? 'var(--accent-ink)' : 'var(--subtle)',
                           textTransform: 'capitalize',
                           border: categoryFilter !== cat ? '1px solid var(--border)' : 'none',
                         }}
@@ -252,7 +252,7 @@ export default function Library() {
                                 <span style={{
                                   display: 'inline-block', marginLeft: '8px', padding: '2px 8px',
                                   borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                                  backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981',
+                                  backgroundColor: 'var(--accent-glow)', color: 'var(--accent)',
                                   textTransform: 'capitalize',
                                 }}>
                                   {strategy.category}
@@ -287,7 +287,7 @@ export default function Library() {
                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                 padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
                                 border: 'none', cursor: 'pointer',
-                                backgroundColor: 'var(--accent)', color: '#000000',
+                                backgroundColor: 'var(--accent)', color: 'var(--accent-ink)',
                               }}
                             >
                               <Edit3 size={13} />
@@ -415,7 +415,7 @@ export default function Library() {
                         {strategies.length === 0 ? 'Create your first trading strategy to get started.' : 'Try adjusting your search or filter.'}
                       </p>
                       {strategies.length === 0 && (
-                        <NavLink to="/quantgen/build" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', backgroundColor: 'var(--accent)', color: '#000000' }}>
+                        <NavLink to="/quantgen/build" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', backgroundColor: 'var(--accent)', color: 'var(--accent-ink)' }}>
                           <Plus size={15} /> Create Strategy
                         </NavLink>
                       )}
@@ -468,7 +468,7 @@ export default function Library() {
                               </div>
                               <div style={{ textAlign: 'right' }}>
                                 {strategy.metrics?.totalReturn !== undefined ? (
-                                  <span style={{ fontSize: '13px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: strategy.metrics.totalReturn >= 0 ? 'var(--accent)' : '#f43f5e' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: strategy.metrics.totalReturn >= 0 ? 'var(--accent)' : 'var(--bad)' }}>
                                     {strategy.metrics.totalReturn.toFixed(2)}%
                                   </span>
                                 ) : (
@@ -501,7 +501,7 @@ export default function Library() {
                                 <button
                                   onClick={(e) => { e.stopPropagation(); deleteStrategy(strategy.id); }}
                                   style={{ padding: '6px', borderRadius: '6px', border: 'none', background: 'none', color: 'var(--subtle)', cursor: 'pointer' }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(244,63,94,0.1)'; e.currentTarget.style.color = '#f43f5e'; }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--danger-hover)'; e.currentTarget.style.color = 'var(--bad)'; }}
                                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--subtle)'; }}
                                 >
                                   <Trash2 size={13} />
@@ -533,7 +533,7 @@ export default function Library() {
                                           {strategy.metrics.totalReturn !== undefined && (
                                             <div style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'var(--canvas)' }}>
                                               <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '2px' }}>Total Return</div>
-                                              <div style={{ fontSize: '15px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: strategy.metrics.totalReturn >= 0 ? 'var(--accent)' : '#f43f5e' }}>{strategy.metrics.totalReturn.toFixed(2)}%</div>
+                                              <div style={{ fontSize: '15px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: strategy.metrics.totalReturn >= 0 ? 'var(--accent)' : 'var(--bad)' }}>{strategy.metrics.totalReturn.toFixed(2)}%</div>
                                             </div>
                                           )}
                                           {strategy.metrics.sharpeRatio !== undefined && (
@@ -545,7 +545,7 @@ export default function Library() {
                                           {strategy.metrics.maxDrawdown !== undefined && (
                                             <div style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'var(--canvas)' }}>
                                               <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '2px' }}>Max Drawdown</div>
-                                              <div style={{ fontSize: '15px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#f43f5e' }}>{strategy.metrics.maxDrawdown.toFixed(2)}%</div>
+                                              <div style={{ fontSize: '15px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--bad)' }}>{strategy.metrics.maxDrawdown.toFixed(2)}%</div>
                                             </div>
                                           )}
                                           {strategy.metrics.winRate !== undefined && (
@@ -566,7 +566,7 @@ export default function Library() {
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                       <button
                                         onClick={() => loadStrategy(strategy)}
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', backgroundColor: 'var(--accent)', color: '#000000' }}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', backgroundColor: 'var(--accent)', color: 'var(--accent-ink)' }}
                                       >
                                         <Edit3 size={13} /> Edit Strategy
                                       </button>

@@ -412,7 +412,7 @@ export default function Dashboard() {
           <p style={{ color: 'var(--muted)', marginBottom: '24px', fontSize: '14px' }}>Run a backtest or optimization to see results here.</p>
           <NavLink
             to="/quantgen/build"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', borderRadius: '999px', fontWeight: 600, fontSize: '14px', textDecoration: 'none', backgroundColor: 'var(--accent)', color: '#000000' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', borderRadius: '999px', fontWeight: 600, fontSize: '14px', textDecoration: 'none', backgroundColor: 'var(--accent)', color: 'var(--accent-ink)' }}
           >
             <ArrowLeft size={16} />
             Go to Builder
@@ -476,7 +476,7 @@ export default function Dashboard() {
               </span>
               <button
                 onClick={clearResults}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '12px', borderRadius: '8px', border: 'none', background: 'none', color: '#f43f5e', cursor: 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '12px', borderRadius: '8px', border: 'none', background: 'none', color: 'var(--bad)', cursor: 'pointer' }}
               >
                 <Trash2 size={13} /> Clear
               </button>
@@ -533,7 +533,7 @@ export default function Dashboard() {
                 {m.vs && (
                   <div style={{ fontSize: '12px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--subtle)' }}>{m.vs.label}:</span>
-                    <span style={{ color: m.vs.positive ? 'var(--accent)' : '#f43f5e', fontWeight: 600 }}>
+                    <span style={{ color: m.vs.positive ? 'var(--accent)' : 'var(--bad)', fontWeight: 600 }}>
                       {m.vs.value}
                     </span>
                   </div>
@@ -660,7 +660,7 @@ export default function Dashboard() {
 
               {/* Drawdown */}
               <div style={{ borderRadius: '14px', padding: '20px', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#f43f5e', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--bad)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <TrendingDown size={14} /> Drawdown Analysis
                 </h3>
                 <div style={{ height: '200px' }}>

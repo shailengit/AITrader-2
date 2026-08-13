@@ -78,7 +78,7 @@ export default function QuantGenHome() {
                 letterSpacing: '0.02em',
                 marginBottom: '20px',
                 backgroundColor: 'var(--accent)',
-                color: '#000000',
+                color: 'var(--accent-ink)',
               }}
             >
               <Code2 size={14} />
@@ -174,7 +174,7 @@ export default function QuantGenHome() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginBottom: '20px',
-                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                      backgroundColor: 'var(--accent-glow)',
                       color: 'var(--accent)',
                     }}
                   >
@@ -203,7 +203,7 @@ export default function QuantGenHome() {
                     padding: '10px 24px',
                     borderRadius: '999px',
                     backgroundColor: 'var(--accent)',
-                    color: '#000000',
+                    color: 'var(--accent-ink)',
                     fontSize: '14px',
                     fontWeight: 600,
                     width: 'fit-content',
@@ -242,7 +242,7 @@ export default function QuantGenHome() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginBottom: '16px',
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      backgroundColor: 'var(--accent-glow)',
                       color: 'var(--accent)',
                     }}
                   >
@@ -296,7 +296,7 @@ export default function QuantGenHome() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginBottom: '16px',
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      backgroundColor: 'var(--accent-glow)',
                       color: 'var(--accent)',
                     }}
                   >
@@ -357,7 +357,7 @@ export default function QuantGenHome() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      backgroundColor: 'var(--accent-glow)',
                       color: 'var(--accent)',
                       flexShrink: 0,
                     }}
@@ -411,7 +411,7 @@ export default function QuantGenHome() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        backgroundColor: 'var(--accent-glow)',
                         color: 'var(--accent)',
                       }}
                     >

@@ -99,7 +99,7 @@ export function StepLibrary({ onSelectStrategy }: StepLibraryProps) {
           <h1 className="slab-page-head__title">Strategy library.</h1>
           <p className="slab-page-head__lede">
             Select a strategy to backtest and deploy. To create a new strategy,
-            open the <span style={{ color: "var(--slab-gold)" }}>terminal</span> and describe your idea to Claude Code.
+            open the <span style={{ color: "var(--accent)" }}>terminal</span> and describe your idea to Claude Code.
           </p>
         </div>
         <div className="slab-page-head__meta">
@@ -114,7 +114,7 @@ export function StepLibrary({ onSelectStrategy }: StepLibraryProps) {
         )}
 
         {classes && classes.length === 0 && (
-          <div style={{ textAlign: "center", padding: "64px 16px", color: "var(--slab-paper-faint)" }}>
+          <div style={{ textAlign: "center", padding: "64px 16px", color: "var(--subtle)" }}>
             <BookOpen size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
             <p className="slab-prose" style={{ fontSize: 14 }}>
               No strategies found. Open the terminal and use Claude Code to generate one.
@@ -175,7 +175,7 @@ export function StepLibrary({ onSelectStrategy }: StepLibraryProps) {
               </div>
               <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <p className="slab-prose">
-                  Delete <span className="slab-mono" style={{ color: "var(--slab-gold)" }}>{confirmDelete.split("/").pop()}</span>?
+                  Delete <span className="slab-mono" style={{ color: "var(--accent)" }}>{confirmDelete.split("/").pop()}</span>?
                   This will remove the strategy file and its performance data.
                 </p>
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -187,7 +187,7 @@ export function StepLibrary({ onSelectStrategy }: StepLibraryProps) {
                     onClick={() => deleteMut.mutate(confirmDelete)}
                     disabled={deleteMut.isPending}
                     className="slab-btn"
-                    style={{ borderColor: "var(--slab-rose)", color: "var(--slab-rose)" }}
+                    style={{ borderColor: "var(--bad)", color: "var(--bad)" }}
                   >
                     {deleteMut.isPending ? "Deleting…" : "Delete"}
                   </button>
@@ -213,7 +213,7 @@ function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
     if (v == null) return <span className="slab-mono slab-mono--xs slab-mono--faint">N/A</span>;
     const isNeg = v < 0;
     return (
-      <span className="slab-mono slab-mono--sm" style={{ color: isNeg ? "var(--slab-rose)" : "var(--slab-terminal)" }}>
+      <span className="slab-mono slab-mono--sm" style={{ color: isNeg ? "var(--bad)" : "var(--good)" }}>
         {v >= 0 ? "+" : ""}{v.toFixed(1)}%
       </span>
     );
@@ -233,9 +233,9 @@ function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
     <tr>
       <td>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Code size={12} style={{ color: "var(--slab-gold)", flexShrink: 0 }} />
+          <Code size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />
           <div>
-            <div className="slab-mono slab-mono--sm" style={{ fontWeight: 600, color: "var(--slab-gold)" }}>
+            <div className="slab-mono slab-mono--sm" style={{ fontWeight: 600, color: "var(--accent)" }}>
               {entry.name}
             </div>
             {entry.description && (
@@ -251,7 +251,7 @@ function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
       <td className="slab-table__num">{fmtPct(entry.cagr_pct)}</td>
       <td className="slab-table__num">
         {entry.sharpe_ratio != null ? (
-          <span className="slab-mono slab-mono--sm" style={{ color: entry.sharpe_ratio >= 0.5 ? "var(--slab-terminal)" : entry.sharpe_ratio >= 0 ? "var(--slab-amber)" : "var(--slab-rose)" }}>
+          <span className="slab-mono slab-mono--sm" style={{ color: entry.sharpe_ratio >= 0.5 ? "var(--good)" : entry.sharpe_ratio >= 0 ? "var(--accent-dark)" : "var(--bad)" }}>
             {entry.sharpe_ratio.toFixed(2)}
           </span>
         ) : (
@@ -290,7 +290,7 @@ function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
           disabled={isDeleting}
           className="slab-btn slab-btn--xs"
           title="Delete this strategy"
-          style={{ borderColor: "var(--slab-rose)", color: "var(--slab-rose)" }}
+          style={{ borderColor: "var(--bad)", color: "var(--bad)" }}
         >
           <Trash2 size={10} />
         </button>

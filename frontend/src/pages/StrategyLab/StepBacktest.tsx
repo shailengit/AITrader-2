@@ -202,11 +202,11 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
             {isResumed && (
               <div
                 className="slab-panel"
-                style={{ maxWidth: 1280, marginBottom: 16, borderColor: "var(--slab-cyan)" }}
+                style={{ maxWidth: 1280, marginBottom: 16, borderColor: "var(--accent)" }}
               >
                 <div style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: "var(--slab-cyan)", fontSize: 13 }}>⏺</span>
-                  <span className="slab-mono slab-mono--sm" style={{ color: "var(--slab-cyan)" }}>
+                  <span style={{ color: "var(--accent)", fontSize: 13 }}>⏺</span>
+                  <span className="slab-mono slab-mono--sm" style={{ color: "var(--accent)" }}>
                     Resumed — batch is running in the background
                   </span>
                 </div>
@@ -223,15 +223,15 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
             {isDone && progress.failed > 0 && progress.completed === 0 && (
               <div
                 className="slab-panel"
-                style={{ maxWidth: 1280, marginTop: 16, borderColor: "var(--slab-rose)", backgroundColor: "color-mix(in srgb, var(--slab-rose) 8%, transparent)" }}
+                style={{ maxWidth: 1280, marginTop: 16, borderColor: "var(--bad)", backgroundColor: "color-mix(in srgb, var(--bad) 8%, transparent)" }}
               >
                 <div style={{ padding: 16, display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <AlertCircle size={18} style={{ color: "var(--slab-rose)", flexShrink: 0, marginTop: 2 }} />
+                  <AlertCircle size={18} style={{ color: "var(--bad)", flexShrink: 0, marginTop: 2 }} />
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--slab-rose)", marginBottom: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--bad)", marginBottom: 4 }}>
                       All {progress.total} experiments failed
                     </div>
-                    <p style={{ fontSize: 13, color: "var(--slab-paper-subtle)", lineHeight: 1.5 }}>
+                    <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
                       Every run returned an error. Check the error messages in the Status column for details.
                       Use the terminal to debug the strategy with Claude Code.
                     </p>
@@ -291,7 +291,7 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
                           return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
                         })
                         .join(" ");
-                      const color = values[values.length - 1] >= values[0] ? "var(--slab-terminal)" : "var(--slab-rose)";
+                      const color = values[values.length - 1] >= values[0] ? "var(--good)" : "var(--bad)";
                       return <path d={path} fill="none" stroke={color} strokeWidth={2} />;
                     })()}
                   </svg>
@@ -330,7 +330,7 @@ function ConfigForm(props: {
     <div style={{ maxWidth: 920 }}>
       <div
         className="slab-eyebrow"
-        style={{ marginBottom: 16, color: "var(--slab-paper-faint)" }}
+        style={{ marginBottom: 16, color: "var(--subtle)" }}
       >
         // Batch parameters
       </div>
@@ -420,7 +420,7 @@ function LiveTicker({ completed, total, failed, isRunning, batchId }: {
         <div>
           <div className="slab-ticker__label">Failed</div>
           <div className="slab-ticker">
-            <span style={{ color: failed > 0 ? "var(--slab-rose)" : "var(--slab-paper-faint)" }}>
+            <span style={{ color: failed > 0 ? "var(--bad)" : "var(--subtle)" }}>
               {String(failed).padStart(3, "0")}
             </span>
           </div>
@@ -438,14 +438,14 @@ function LiveTicker({ completed, total, failed, isRunning, batchId }: {
           </span>
         </div>
       </div>
-      <div style={{ height: 2, background: "var(--slab-rule)" }}>
+      <div style={{ height: 2, background: "var(--border)" }}>
         <motion.div
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.4 }}
           style={{
             height: "100%",
-            background: isRunning ? "var(--slab-gold)" : "var(--slab-terminal)",
-            boxShadow: isRunning ? "0 0 12px var(--slab-gold-glow)" : "none",
+            background: isRunning ? "var(--accent)" : "var(--good)",
+            boxShadow: isRunning ? "0 0 12px var(--accent-glow)" : "none",
           }}
         />
       </div>
@@ -510,7 +510,7 @@ function ExperimentTable({ rows, selectedWinner, onPick, onShowEquity, winnerMet
       <div className="slab-panel__head">
         <span className="slab-eyebrow slab-eyebrow--gold">// Runs</span>
         <span className="slab-mono slab-mono--xs slab-mono--dim">
-          click <span style={{ color: "var(--slab-gold)" }}>pick</span> to mark the winner · click <span style={{ color: "var(--slab-cyan)" }}>chart</span> for equity curve
+          click <span style={{ color: "var(--accent)" }}>pick</span> to mark the winner · click <span style={{ color: "var(--accent)" }}>chart</span> for equity curve
         </span>
         <span style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
           <span className="slab-mono slab-mono--xs slab-mono--dim" style={{ alignSelf: "center", marginRight: 4 }}>
@@ -583,7 +583,7 @@ function ExperimentRowView({ row, isSelected, onPick, onShowEquity }: {
     <tr className={isSelected ? "slab-table__row--selected" : ""}>
       <td>{String(row.run_index).padStart(3, "0")}</td>
       <td>{row.start_date?.slice(0, 10) ?? "—"}</td>
-      <td className="slab-table__num" style={{ color: ret != null && ret >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}>
+      <td className="slab-table__num" style={{ color: ret != null && ret >= 0 ? "var(--good)" : "var(--bad)" }}>
         {ret != null ? `${ret >= 0 ? "+" : ""}${ret.toFixed(1)}%` : "—"}
       </td>
       <td className="slab-table__num">{k?.alpha_pct != null ? `${k.alpha_pct >= 0 ? "+" : ""}${k.alpha_pct.toFixed(1)}%` : "—"}</td>
@@ -593,13 +593,13 @@ function ExperimentRowView({ row, isSelected, onPick, onShowEquity }: {
       <td className="slab-table__num">{k?.sharpe_ratio != null ? k.sharpe_ratio.toFixed(2) : "—"}</td>
       <td
         className="slab-table__num"
-        style={{ color: k?.bull_return_pct != null && k.bull_return_pct >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}
+        style={{ color: k?.bull_return_pct != null && k.bull_return_pct >= 0 ? "var(--good)" : "var(--bad)" }}
       >
         {k?.bull_return_pct != null ? `${k.bull_return_pct >= 0 ? "+" : ""}${k.bull_return_pct.toFixed(1)}%` : "—"}
       </td>
       <td
         className="slab-table__num"
-        style={{ color: k?.bear_return_pct != null && k.bear_return_pct >= 0 ? "var(--slab-terminal)" : "var(--slab-rose)" }}
+        style={{ color: k?.bear_return_pct != null && k.bear_return_pct >= 0 ? "var(--good)" : "var(--bad)" }}
       >
         {k?.bear_return_pct != null ? `${k.bear_return_pct >= 0 ? "+" : ""}${k.bear_return_pct.toFixed(1)}%` : "—"}
       </td>

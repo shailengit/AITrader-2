@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import {
   getColumnsForFilters,
   type ResultsColumn,
@@ -85,7 +84,6 @@ export default function ResultsPanel({
   onShowBacktest,
   onTickerClick,
 }: ResultsPanelProps) {
-  const { isDarkMode } = useTheme();
 
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   // Per-(ticker, sub-score) expand state for the inline breakdown rows.
@@ -112,16 +110,16 @@ export default function ResultsPanel({
   const filterSummary = filterColumns.map((c) => c.header).join(', ') || 'no filters';
 
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    surfaceRaised: isDarkMode ? '#2a2a2d' : '#fafafc',
-    accent: '#10B981',
-    danger: '#EF4444',
-    warning: '#F59E0B',
-    bg: isDarkMode ? '#0a0a0a' : '#ffffff',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    surfaceRaised: 'var(--surface-raised)',
+    accent: 'var(--accent)',
+    danger: 'var(--bad)',
+    warning: 'var(--bad)',
+    bg: 'var(--surface-overlay)',
   };
 
   // ── Chart overlay set ────────────────────────────────────────
@@ -254,7 +252,7 @@ export default function ResultsPanel({
               color: colors.accent,
               padding: '2px 8px',
               borderRadius: 6,
-              backgroundColor: 'rgba(16,185,129,0.1)',
+              backgroundColor: 'var(--accent-glow)',
             }}
           >
             {results.length} stock{results.length !== 1 ? 's' : ''}
@@ -338,7 +336,7 @@ export default function ResultsPanel({
               padding: '8px 14px',
               borderRadius: 8,
               border: 'none',
-              backgroundColor: 'rgba(16,185,129,0.1)',
+              backgroundColor: 'var(--accent-glow)',
               color: colors.accent,
               fontSize: 13,
               fontWeight: 600,

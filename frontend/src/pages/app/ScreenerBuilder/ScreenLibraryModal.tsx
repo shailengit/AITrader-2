@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X, BookTemplate, FolderOpen, Trash2 } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { SCREENER_TEMPLATES, type ScreenTemplate } from '../../../data/screenerTemplates';
 import { useScreens, type ScreenPreset } from '../../../hooks/useScreens';
 
@@ -17,23 +16,22 @@ export default function ScreenLibraryModal({
   onOpenChange,
   onLoad,
 }: ScreenLibraryModalProps) {
-  const { isDarkMode } = useTheme();
   const [tab, setTab] = useState<Tab>('templates');
   const { presets, deletePreset } = useScreens();
 
   const colors = {
-    bg: isDarkMode ? '#0a0a0a' : '#ffffff',
-    overlay: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    hoverBg: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-    accent: '#10B981',
-    danger: '#EF4444',
-    tabActive: isDarkMode ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)',
-    tabInactive: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    bg: 'var(--surface-overlay)',
+    overlay: 'rgba(0,0,0,0.5)',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    hoverBg: 'var(--surface-raised)',
+    accent: 'var(--accent)',
+    danger: 'var(--bad)',
+    tabActive: 'var(--accent-glow)',
+    tabInactive: 'var(--surface-raised)',
   };
 
   if (!open) return null;
@@ -279,7 +277,7 @@ function TemplateCard({
               fontWeight: 500,
               padding: '1px 8px',
               borderRadius: 4,
-              backgroundColor: 'rgba(16,185,129,0.1)',
+              backgroundColor: 'var(--accent-glow)',
               color: colors.accent,
             }}
           >
@@ -301,7 +299,7 @@ function TemplateCard({
           borderRadius: 8,
           border: 'none',
           backgroundColor: colors.accent,
-          color: '#000',
+          color: 'var(--accent-ink)',
           fontSize: 13,
           fontWeight: 600,
           cursor: 'pointer',
@@ -365,7 +363,7 @@ function PresetCard({
                 fontWeight: 500,
                 padding: '1px 8px',
                 borderRadius: 4,
-                backgroundColor: 'rgba(16,185,129,0.1)',
+                backgroundColor: 'var(--accent-glow)',
                 color: colors.accent,
               }}
             >
@@ -392,7 +390,7 @@ function PresetCard({
           borderRadius: 8,
           border: 'none',
           backgroundColor: colors.accent,
-          color: '#000',
+          color: 'var(--accent-ink)',
           fontSize: 13,
           fontWeight: 600,
           cursor: 'pointer',
@@ -424,7 +422,7 @@ function PresetCard({
           color: colors.subtle,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)';
+          e.currentTarget.style.backgroundColor = 'var(--danger-hover)';
           e.currentTarget.style.color = colors.danger;
         }}
         onMouseLeave={(e) => {

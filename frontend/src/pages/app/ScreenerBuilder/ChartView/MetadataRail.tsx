@@ -18,7 +18,7 @@ interface MetadataRailProps {
 export default function MetadataRail({ ticker, data, loading, error, fromDate }: MetadataRailProps) {
   const navigate = useNavigate();
   const colors = {
-    accent: '#10B981',
+    accent: 'var(--accent)',
   };
 
   return (
@@ -44,7 +44,7 @@ export default function MetadataRail({ ticker, data, loading, error, fromDate }:
           borderRadius: 8,
           border: 'none',
           backgroundColor: colors.accent,
-          color: '#000',
+          color: 'var(--accent-ink)',
           fontSize: 13,
           fontWeight: 600,
           cursor: 'pointer',

@@ -75,8 +75,8 @@ export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: Step
                 gridTemplateColumns: "1fr 1fr",
                 gap: 12,
                 padding: 14,
-                background: "var(--slab-ink-3)",
-                border: "1px solid var(--slab-rule)",
+                background: "var(--surface-raised)",
+                border: "1px solid var(--border)",
               }}
             >
               <div>
@@ -108,9 +108,9 @@ export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: Step
                   width: "100%",
                   marginTop: 8,
                   padding: "10px 12px",
-                  background: "var(--slab-ink-2)",
-                  color: "var(--slab-paper)",
-                  border: "1px solid var(--slab-rule)",
+                  background: "var(--surface)",
+                  color: "var(--foreground)",
+                  border: "1px solid var(--border)",
                   fontFamily: "var(--slab-mono, monospace)",
                   fontSize: 13,
                   resize: "vertical",
@@ -173,8 +173,8 @@ export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: Step
                 <div
                   style={{
                     padding: 12,
-                    background: "var(--slab-ink-3)",
-                    border: "1px solid var(--slab-rule)",
+                    background: "var(--surface-raised)",
+                    border: "1px solid var(--border)",
                   }}
                 >
                   <div className="slab-mono slab-mono--sm slab-mono--dim">
@@ -183,11 +183,11 @@ export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: Step
                   <pre
                     className="slab-mono slab-mono--md"
                     style={{
-                      color: "var(--slab-gold)",
+                      color: "var(--accent)",
                       marginTop: 8,
-                      background: "var(--slab-ink-2)",
+                      background: "var(--surface)",
                       padding: "8px 12px",
-                      border: "1px solid var(--slab-rule)",
+                      border: "1px solid var(--border)",
                     }}
                   >
                     python -m app.services.alpaca_runner
@@ -229,7 +229,7 @@ export function StepDeploy({ strategyClassPath, experimentId, onDeployed }: Step
                 <tbody>
                   {deployments.data.map((d: any) => (
                     <tr key={d.deployment_id} className={d.is_active ? "slab-table__row--winner" : ""}>
-                      <td style={{ color: d.is_active ? "var(--slab-gold)" : "var(--slab-paper-dim)" }}>
+                      <td style={{ color: d.is_active ? "var(--accent)" : "var(--muted)" }}>
                         {d.class_name}
                       </td>
                       <td>{d.deployed_at?.slice(0, 19).replace("T", " ") ?? "—"}</td>
@@ -318,15 +318,15 @@ function ConfirmModal({
         </div>
         <div className="slab-panel__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <p className="slab-prose">
-            This will record <span className="slab-mono" style={{ color: "var(--slab-gold)" }}>{strategyName}</span> in
+            This will record <span className="slab-mono" style={{ color: "var(--accent)" }}>{strategyName}</span> in
             the deployments registry as the active strategy for paper trading.
             Any active deployment will be deactivated.
           </p>
           <div
             style={{
               padding: 12,
-              background: "var(--slab-ink-3)",
-              border: "1px solid var(--slab-rule)",
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border)",
             }}
           >
             <div className="slab-eyebrow">Strategy</div>

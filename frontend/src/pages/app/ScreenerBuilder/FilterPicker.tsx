@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { Search, X, ChevronDown, ChevronRight, Lock } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import {
   FILTER_CATALOG,
   FILTER_CATEGORIES,
@@ -15,24 +14,23 @@ interface FilterPickerProps {
 }
 
 export default function FilterPicker({ open, onOpenChange, onSelect, customFilters }: FilterPickerProps) {
-  const { isDarkMode } = useTheme();
   const [search, setSearch] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     () => new Set(FILTER_CATEGORIES.map((c) => c.id)),
   );
 
   const colors = {
-    bg: isDarkMode ? '#0a0a0a' : '#ffffff',
-    overlay: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    hoverBg: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-    inputBg: isDarkMode ? '#000000' : '#f5f5f7',
-    disabled: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-    disabledText: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+    bg: 'var(--surface-overlay)',
+    overlay: 'rgba(0,0,0,0.5)',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    hoverBg: 'var(--surface-raised)',
+    inputBg: 'var(--canvas)',
+    disabled: 'var(--disabled)',
+    disabledText: 'var(--disabled)',
   };
 
   const allFilters = useMemo(() => {

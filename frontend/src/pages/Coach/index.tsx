@@ -74,11 +74,11 @@ export default function CoachIndex() {
     <div className="mx-auto max-w-[1280px] space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-zinc-100">Trade Coach</h1>
+          <h1 className="text-2xl font-semibold text-[color:var(--foreground)]">Trade Coach</h1>
           {strategyFilter && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'rgba(16,185,129,.1)' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'var(--accent-glow)', color: 'var(--accent-light)' }}>
               <span style={{ fontSize: 12 }}>Strategy: {strategyFilter}</span>
-              <Link to="/coach" style={{ fontSize: 12, opacity: .7, textDecoration: 'none' }} title="Clear strategy filter">×</Link>
+              <Link to="/coach" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }} title="Clear strategy filter">×</Link>
             </div>
           )}
         </div>
@@ -87,7 +87,7 @@ export default function CoachIndex() {
 
       {isEmpty ? (
         <Card className="p-6">
-          <div className="text-zinc-300">
+          <div className="text-[color:var(--foreground)]">
             Run a screener, take a paper trade, and your Coach will start learning from your activity.
           </div>
         </Card>
@@ -96,62 +96,62 @@ export default function CoachIndex() {
           {o.kpis && <KPICards k={o.kpis} />}
           <div className="grid grid-cols-2 gap-4">
             <Card className="p-6">
-              <div className="mb-2 text-sm text-zinc-400">Equity Curve</div>
+              <div className="mb-2 text-sm text-[color:var(--muted)]">Equity Curve</div>
               <EquityCurve data={o.equity_curve ?? []} />
             </Card>
             <Card className="p-6">
-              <div className="mb-2 text-sm text-zinc-400">P&L by Regime</div>
+              <div className="mb-2 text-sm text-[color:var(--muted)]">P&L by Regime</div>
               <RegimeAttribution data={o.pnl_by_regime ?? {}} />
             </Card>
             <Card className="p-6">
-              <div className="mb-2 text-sm text-zinc-400">MAE vs MFE</div>
+              <div className="mb-2 text-sm text-[color:var(--muted)]">MAE vs MFE</div>
               <MAEvsMFE data={(maeMfe.data ?? []) as MAEMFEPoint[]} />
             </Card>
             <Card className="p-6">
-              <div className="mb-2 text-sm text-zinc-400">Win Rate by Strategy</div>
+              <div className="mb-2 text-sm text-[color:var(--muted)]">Win Rate by Strategy</div>
               <WinRateByStrategy data={o.win_rate_by_strategy ?? []} />
             </Card>
           </div>
         </>
       ) : (
         <Card className="p-6">
-          <div className="text-zinc-500">Loading metrics…</div>
+          <div className="text-[color:var(--subtle)]">Loading metrics…</div>
         </Card>
       )}
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
-          <div className="text-sm text-zinc-400">Latest Coach Report</div>
+          <div className="text-sm text-[color:var(--muted)]">Latest Coach Report</div>
           <button
             onClick={() => generate.mutate()}
             disabled={generate.isPending}
-            className="rounded-md border border-emerald-700 px-3 py-1 text-sm text-emerald-400 hover:bg-emerald-900/30 disabled:opacity-50"
+            className="rounded-md border border-[color:var(--accent-dark)] px-3 py-1 text-sm text-[color:var(--accent-light)] hover:bg-[color:var(--accent-glow)] disabled:opacity-50"
           >
             {generate.isPending ? `Generating… (${elapsed}s)` : 'Regenerate ↻'}
           </button>
         </div>
         {generate.isError && (
-          <div className="mb-4 rounded-md border border-rose-700 bg-rose-950/30 p-3 text-sm text-rose-300">
+          <div className="mb-4 rounded-md border border-[color:var(--bad)] bg-[color:var(--danger-hover)] p-3 text-sm text-[color:var(--bad)]">
             Critique unavailable, metrics are up-to-date.
           </div>
         )}
         {latest ? (
           <ReportView markdown={latest.report_md} />
         ) : (
-          <div className="text-zinc-500">No report yet. Click Regenerate.</div>
+          <div className="text-[color:var(--subtle)]">No report yet. Click Regenerate.</div>
         )}
       </Card>
 
       <Card className="p-6">
-        <div className="mb-2 text-sm text-zinc-400">Past Reports</div>
+        <div className="mb-2 text-sm text-[color:var(--muted)]">Past Reports</div>
         <ul className="space-y-1 text-sm">
           {(reports.data ?? []).length === 0 ? (
-            <li className="text-zinc-500">No reports yet.</li>
+            <li className="text-[color:var(--subtle)]">No reports yet.</li>
           ) : (
             (reports.data ?? []).map((r) => (
               <li
                 key={r.id}
-                className="flex items-center justify-between border-t border-zinc-800 py-2"
+                className="flex items-center justify-between border-t border-[color:var(--border)] py-2"
               >
                 <span>
                   {r.generated_at.slice(0, 10)} · {r.period_start} → {r.period_end} ·{' '}
@@ -159,7 +159,7 @@ export default function CoachIndex() {
                 </span>
                 <button
                   onClick={() => coachApi.getReport(r.id).then(setLatest)}
-                  className="rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+                  className="rounded-md border border-[color:var(--border-hover)] px-2 py-1 text-xs hover:bg-[color:var(--surface-raised)]"
                 >
                   View
                 </button>

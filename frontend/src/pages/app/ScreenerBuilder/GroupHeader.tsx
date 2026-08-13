@@ -1,4 +1,3 @@
-import { useTheme } from '../../../context/ThemeContext';
 
 interface GroupHeaderProps {
   match: 'all' | 'any';
@@ -7,17 +6,15 @@ interface GroupHeaderProps {
 }
 
 export default function GroupHeader({ match, onMatchChange, conditionCount }: GroupHeaderProps) {
-  const { isDarkMode } = useTheme();
-
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    activeBg: isDarkMode ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)',
-    activeText: '#10B981',
-    inactiveBg: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-    inactiveText: isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    activeBg: 'var(--accent-glow)',
+    activeText: 'var(--accent)',
+    inactiveBg: 'var(--surface-raised)',
+    inactiveText: 'var(--disabled)',
   };
 
   return (

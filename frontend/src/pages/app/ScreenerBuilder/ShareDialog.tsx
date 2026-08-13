@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X, Copy, Check, Code } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { encodeShareUrl, type ShareData } from '../../../lib/shareCodec';
 
 interface ShareDialogProps {
@@ -10,19 +9,18 @@ interface ShareDialogProps {
 }
 
 export default function ShareDialog({ open, onOpenChange, screenData }: ShareDialogProps) {
-  const { isDarkMode } = useTheme();
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
 
   const colors = {
-    bg: isDarkMode ? '#0a0a0a' : '#ffffff',
-    overlay: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    inputBg: isDarkMode ? '#000000' : '#f5f5f7',
-    accent: '#10B981',
+    bg: 'var(--surface-overlay)',
+    overlay: 'rgba(0,0,0,0.5)',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    inputBg: 'var(--canvas)',
+    accent: 'var(--accent)',
   };
 
   const shareUrl = (() => {
@@ -182,7 +180,7 @@ export default function ShareDialog({ open, onOpenChange, screenData }: ShareDia
                   borderRadius: 8,
                   border: 'none',
                   backgroundColor: copiedUrl ? colors.accent : colors.inputBg,
-                  color: copiedUrl ? '#000' : colors.text,
+                  color: copiedUrl ? 'var(--accent-ink)' : colors.text,
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: 'pointer',

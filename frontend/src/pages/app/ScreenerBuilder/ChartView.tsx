@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { request } from '@/lib/api';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { recordAppReferrer } from '../../../components/layout/Layout';
 import type { TickerDetail } from '../../../components/shared/TickerMetadataPanel';
 import {
@@ -173,7 +172,6 @@ export default function ChartView({
   const ticker = (tickerParam ?? '').toUpperCase();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isDarkMode } = useTheme();
 
   // URL-driven state
   const rangeMode = (searchParams.get('range') ?? '1y') as RangeMode;
@@ -219,14 +217,14 @@ export default function ChartView({
   const [chartError, setChartError] = useState<string | null>(null);
 
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    surfaceRaised: isDarkMode ? '#2a2a2d' : '#fafafc',
-    canvas: isDarkMode ? '#050505' : '#f5f5f7',
-    accent: '#10B981',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    surfaceRaised: 'var(--surface-raised)',
+    canvas: 'var(--canvas)',
+    accent: 'var(--accent)',
   };
 
   // Record this page's parent as the back-navigation target. The

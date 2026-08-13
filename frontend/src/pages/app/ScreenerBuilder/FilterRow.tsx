@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X, ArrowLeftRight, Settings } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { getFilterByKey, FILTER_CATALOG, getDynamicLabel } from '../../../data/filterCatalog';
 import type { FilterCondition } from '../../../hooks/useScreens';
 import FilterPicker from './FilterPicker';
@@ -53,7 +52,6 @@ export default function FilterRow({
   onRemove,
   onGroupMatchChange,
 }: FilterRowProps) {
-  const { isDarkMode } = useTheme();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showParams, setShowParams] = useState(false);
   const [showRefParams, setShowRefParams] = useState(false);
@@ -62,15 +60,15 @@ export default function FilterRow({
   const refFilterSpec = condition.referenceFilterKey ? getFilterByKey(condition.referenceFilterKey) : undefined;
 
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    inputBg: isDarkMode ? '#000000' : '#ffffff',
-    hoverBg: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-    accent: '#10B981',
-    danger: '#EF4444',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    inputBg: 'var(--canvas)',
+    hoverBg: 'var(--surface-raised)',
+    accent: 'var(--accent)',
+    danger: 'var(--bad)',
   };
 
   const handleFilterSelect = (filterKey: string) => {
@@ -149,7 +147,7 @@ export default function FilterRow({
                 height: 28,
                 borderRadius: 6,
                 border: `1px solid ${showRefParams ? colors.accent : colors.border}`,
-                backgroundColor: showRefParams ? 'rgba(16,185,129,0.1)' : 'transparent',
+                backgroundColor: showRefParams ? 'var(--accent-glow)' : 'transparent',
                 color: showRefParams ? colors.accent : colors.subtle,
                 cursor: 'pointer',
                 flexShrink: 0,
@@ -232,7 +230,7 @@ export default function FilterRow({
                 height: 28,
                 borderRadius: 6,
                 border: `1px solid ${showRefParams ? colors.accent : colors.border}`,
-                backgroundColor: showRefParams ? 'rgba(16,185,129,0.1)' : 'transparent',
+                backgroundColor: showRefParams ? 'var(--accent-glow)' : 'transparent',
                 color: showRefParams ? colors.accent : colors.subtle,
                 cursor: 'pointer',
                 flexShrink: 0,
@@ -265,7 +263,7 @@ export default function FilterRow({
               padding: '4px 8px',
               borderRadius: 6,
               border: `1px solid ${colors.border}`,
-              backgroundColor: 'rgba(16,185,129,0.08)',
+              backgroundColor: 'var(--accent-glow)',
               color: colors.accent,
               fontSize: 11,
               fontWeight: 600,
@@ -333,7 +331,7 @@ export default function FilterRow({
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = colors.accent;
                 e.currentTarget.style.color = colors.accent;
-                e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.05)';
+                e.currentTarget.style.backgroundColor = 'var(--accent-glow)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = colors.border;
@@ -397,7 +395,7 @@ export default function FilterRow({
               borderRadius: 8,
               border: `1px solid ${colors.border}`,
               backgroundColor:
-                condition.operator === 'is_true' ? 'rgba(16,185,129,0.15)' : colors.inputBg,
+                condition.operator === 'is_true' ? 'var(--accent-glow)' : colors.inputBg,
               color: condition.operator === 'is_true' ? colors.accent : colors.muted,
               fontSize: 13,
               fontWeight: 600,
@@ -530,7 +528,7 @@ export default function FilterRow({
               height: 28,
               borderRadius: 6,
               border: `1px solid ${showParams ? colors.accent : colors.border}`,
-              backgroundColor: showParams ? 'rgba(16,185,129,0.1)' : 'transparent',
+              backgroundColor: showParams ? 'var(--accent-glow)' : 'transparent',
               color: showParams ? colors.accent : colors.subtle,
               cursor: 'pointer',
               flexShrink: 0,
@@ -637,7 +635,7 @@ export default function FilterRow({
             flexShrink: 0,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)';
+            e.currentTarget.style.backgroundColor = 'var(--danger-hover)';
             e.currentTarget.style.color = colors.danger;
           }}
           onMouseLeave={(e) => {

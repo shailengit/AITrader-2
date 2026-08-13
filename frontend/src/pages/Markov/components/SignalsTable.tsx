@@ -17,14 +17,13 @@ interface SignalsTableProps {
   signals: Signal[];
   totalScanned: number;
   loading: boolean;
-  isDarkMode: boolean;
   minConviction?: number;  // from the scan params slider, so Actionable uses the same threshold
   asOfDate?: string;
   /** Called when the user clicks a row. */
   onTickerClick: (ticker: string) => void;
 }
 
-export default function SignalsTable({ signals, totalScanned, loading, isDarkMode, minConviction = 0.6, asOfDate, onTickerClick }: SignalsTableProps) {
+export default function SignalsTable({ signals, totalScanned, loading, minConviction = 0.6, asOfDate, onTickerClick }: SignalsTableProps) {
   const [showAll, setShowAll] = useState(false);
   // Use the same minConviction from the scan params slider so the
   // Actionable filter matches what the user configured.
@@ -36,10 +35,10 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
     ? `/quantgen/build?tickers=${encodeURIComponent(buyTickers.join(","))}&from_date=${asOfDate || new Date().toISOString().split("T")[0]}`
     : null;
 
-  const muted = isDarkMode ? "rgba(255,255,255,0.7)" : "#6e6e73";
-  const border = isDarkMode ? "rgba(255,255,255,0.12)" : "#d2d2d7";
-  const rowBorder = isDarkMode ? "rgba(255,255,255,0.06)" : "#f0f0f0";
-  const barBg = isDarkMode ? "rgba(255,255,255,0.15)" : "#e5e7eb";
+  const muted = "var(--muted)";
+  const border = "var(--border)";
+  const rowBorder = "var(--border)";
+  const barBg = "var(--border-hover)";
 
   if (loading) {
     return <div style={{ padding: 24, textAlign: "center", color: muted }}>Loading signals...</div>;
@@ -52,7 +51,7 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
   return (
     <div style={{ padding: "24px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--foreground)" }}>
           Signals ({display.length} of {signals.length})
         </h2>
         <div style={{ fontSize: 12, color: muted }}>Scanned: {totalScanned} tickers</div>
@@ -64,11 +63,11 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
           style={{
             padding: "6px 16px",
             borderRadius: 6,
-            border: `1px solid ${!showAll ? "#10B981" : border}`,
-            background: !showAll ? "rgba(16, 185, 129, 0.1)" : "transparent",
+            border: `1px solid ${!showAll ? "var(--accent)" : border}`,
+            background: !showAll ? "var(--accent-glow)" : "transparent",
+            color: !showAll ? "var(--accent)" : "var(--foreground)",
             cursor: "pointer",
             fontSize: 13,
-            color: "inherit",
           }}
           title={`Only BUY signals with conviction ≥ ${minConviction}`}
         >
@@ -79,11 +78,11 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
           style={{
             padding: "6px 16px",
             borderRadius: 6,
-            border: `1px solid ${showAll ? "#10B981" : border}`,
-            background: showAll ? "rgba(16, 185, 129, 0.1)" : "transparent",
+            border: `1px solid ${showAll ? "var(--accent)" : border}`,
+            background: showAll ? "var(--accent-glow)" : "transparent",
+            color: showAll ? "var(--accent)" : "var(--foreground)",
             cursor: "pointer",
             fontSize: 13,
-            color: "inherit",
           }}
           title="All signals: BUY, HOLD, and SELL"
         >
@@ -99,11 +98,11 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
               marginLeft: "auto",
               padding: "6px 16px",
               borderRadius: 6,
-              border: `1px solid #10B981`,
-              background: "rgba(16, 185, 129, 0.1)",
+              border: "1px solid var(--accent)",
+              background: "var(--accent-glow)",
+              color: "var(--accent)",
               cursor: "pointer",
               fontSize: 13,
-              color: "inherit",
             }}
             title="Open these BUY signals in QuantGen Builder for backtesting"
           >
@@ -151,7 +150,7 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
                   transition: 'background-color 150ms ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
+                  e.currentTarget.style.backgroundColor = "var(--surface-raised)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
@@ -162,7 +161,7 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
                 <td style={{ padding: "8px 12px" }}>{s.sector}</td>
                 <td style={{ padding: "8px 12px" }}>
                   <span style={{
-                    color: s.signal === "BUY" ? "#10B981" : s.signal === "SELL" ? "#EF4444" : muted,
+                    color: s.signal === "BUY" ? "var(--good)" : s.signal === "SELL" ? "var(--bad)" : muted,
                     fontWeight: 600,
                   }}>
                     {s.signal === "BUY" ? "▲ BUY" : s.signal === "SELL" ? "▼ SELL" : "● HOLD"}
@@ -182,7 +181,7 @@ export default function SignalsTable({ signals, totalScanned, loading, isDarkMod
                       width: `${(s.conviction * 100).toFixed(0)}%`,
                       height: "100%",
                       borderRadius: 3,
-                      background: s.conviction >= 0.6 ? "#10B981" : "#F59E0B",
+                      background: s.conviction >= 0.6 ? "var(--accent)" : "var(--border-hover)",
                     }} />
                   </div>
                   {(s.conviction * 100).toFixed(0)}%

@@ -45,14 +45,14 @@ export function DateRangePicker({
             setCustom(false);
             onChange(presetRange(p.days));
           }}
-          className="rounded-md border border-zinc-700 px-3 py-1 text-sm hover:bg-zinc-800"
+          className="rounded-md border border-[color:var(--border-hover)] px-3 py-1 text-sm hover:bg-[color:var(--surface-raised)]"
         >
           {p.label}
         </button>
       ))}
       <button
         onClick={() => setCustom(true)}
-        className="rounded-md border border-zinc-700 px-3 py-1 text-sm hover:bg-zinc-800"
+        className="rounded-md border border-[color:var(--border-hover)] px-3 py-1 text-sm hover:bg-[color:var(--surface-raised)]"
       >
         Custom
       </button>
@@ -62,14 +62,14 @@ export function DateRangePicker({
             type="date"
             value={value.start}
             onChange={(e) => onChange({ ...value, start: e.target.value })}
-            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
+            className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm"
           />
-          <span className="text-zinc-500">→</span>
+          <span className="text-[color:var(--subtle)]">→</span>
           <input
             type="date"
             value={value.end}
             onChange={(e) => onChange({ ...value, end: e.target.value })}
-            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
+            className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm"
           />
         </>
       )}

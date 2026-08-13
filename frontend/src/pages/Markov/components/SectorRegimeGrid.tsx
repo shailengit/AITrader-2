@@ -7,18 +7,17 @@ interface SectorRegime {
 
 interface SectorRegimeGridProps {
   sectors: SectorRegime[];
-  isDarkMode: boolean;
 }
 
-export default function SectorRegimeGrid({ sectors, isDarkMode }: SectorRegimeGridProps) {
+export default function SectorRegimeGrid({ sectors }: SectorRegimeGridProps) {
   if (!sectors || sectors.length === 0) return null;
 
-  const muted = isDarkMode ? "rgba(255,255,255,0.7)" : "#6e6e73";
-  const border = isDarkMode ? "rgba(255,255,255,0.12)" : "#d2d2d7";
+  const muted = "var(--muted)";
+  const border = "var(--border)";
 
   return (
     <div style={{ padding: "24px" }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16, color: "var(--foreground)" }}>
         Sector Regimes
       </h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
@@ -28,12 +27,13 @@ export default function SectorRegimeGrid({ sectors, isDarkMode }: SectorRegimeGr
             style={{
               padding: 16,
               borderRadius: 12,
-              border: `1px solid ${s.regime === "BULL" ? "#10B981" : s.regime === "BEAR" ? "#EF4444" : border}`,
-              background: s.regime === "BULL" ? "rgba(16, 185, 129, 0.08)" : s.regime === "BEAR" ? "rgba(239, 68, 68, 0.08)" : "transparent",
+              background: "var(--surface)",
+              border: `1px solid ${s.regime === "BULL" ? "var(--good)" : s.regime === "BEAR" ? "var(--bad)" : border}`,
+              boxShadow: s.regime === "BULL" ? "inset 0 0 0 1px var(--accent-glow)" : "none",
             }}
           >
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{s.etf}</div>
-            <div style={{ fontSize: 14, color: s.regime === "BULL" ? "#10B981" : "#EF4444", marginTop: 4 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>{s.etf}</div>
+            <div style={{ fontSize: 14, color: s.regime === "BULL" ? "var(--good)" : s.regime === "BEAR" ? "var(--bad)" : "var(--muted)", marginTop: 4, fontWeight: 600 }}>
               {s.regime}
             </div>
             <div style={{ fontSize: 12, color: muted, marginTop: 2 }}>

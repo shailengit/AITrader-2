@@ -37,27 +37,27 @@ export function TradeForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={submit} className="grid grid-cols-7 gap-3 items-end">
-      <label className="flex flex-col text-xs text-zinc-500">
+      <label className="flex flex-col text-xs text-[color:var(--subtle)]">
         Ticker
         <input
           value={ticker}
           onChange={(e) => setTicker(e.target.value)}
           required
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
+          className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm text-[color:var(--foreground)]"
         />
       </label>
-      <label className="flex flex-col text-xs text-zinc-500">
+      <label className="flex flex-col text-xs text-[color:var(--subtle)]">
         Side
         <select
           value={side}
           onChange={(e) => setSide(e.target.value as 'long' | 'short')}
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
+          className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm text-[color:var(--foreground)]"
         >
           <option value="long">long</option>
           <option value="short">short</option>
         </select>
       </label>
-      <label className="flex flex-col text-xs text-zinc-500">
+      <label className="flex flex-col text-xs text-[color:var(--subtle)]">
         Qty
         <input
           value={qty}
@@ -65,10 +65,10 @@ export function TradeForm({ onCreated }: { onCreated: () => void }) {
           type="number"
           step="any"
           required
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
+          className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm text-[color:var(--foreground)]"
         />
       </label>
-      <label className="flex flex-col text-xs text-zinc-500">
+      <label className="flex flex-col text-xs text-[color:var(--subtle)]">
         Entry Px
         <input
           value={entryPx}
@@ -76,35 +76,35 @@ export function TradeForm({ onCreated }: { onCreated: () => void }) {
           type="number"
           step="any"
           required
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
+          className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm text-[color:var(--foreground)]"
         />
       </label>
-      <label className="flex flex-col text-xs text-zinc-500">
+      <label className="flex flex-col text-xs text-[color:var(--subtle)]">
         Entry At
         <input
           value={entryAt}
           onChange={(e) => setEntryAt(e.target.value)}
           type="date"
           required
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
+          className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm text-[color:var(--foreground)]"
         />
       </label>
-      <label className="flex flex-col text-xs text-zinc-500 col-span-1">
+      <label className="flex flex-col text-xs text-[color:var(--subtle)] col-span-1">
         Notes
         <input
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100"
+          className="rounded-md border border-[color:var(--border-hover)] bg-[color:var(--surface-raised)] px-2 py-1 text-sm text-[color:var(--foreground)]"
         />
       </label>
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-md border border-emerald-700 px-3 py-1 text-sm text-emerald-400 hover:bg-emerald-900/30 disabled:opacity-50"
+        className="rounded-md border border-[color:var(--accent-dark)] px-3 py-1 text-sm text-[color:var(--accent-light)] hover:bg-[color:var(--accent-glow)] disabled:opacity-50"
       >
         {submitting ? 'Adding…' : 'Add Trade'}
       </button>
-      {error && <div className="col-span-7 text-sm text-rose-400">{error}</div>}
+      {error && <div className="col-span-7 text-sm text-[color:var(--bad)]">{error}</div>}
     </form>
   );
 }

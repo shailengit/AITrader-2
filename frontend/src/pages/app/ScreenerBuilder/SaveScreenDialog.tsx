@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { FILTER_CATEGORIES } from '../../../data/filterCatalog';
 
 interface SaveScreenDialogProps {
@@ -18,7 +17,6 @@ export default function SaveScreenDialog({
   initialName,
   mode,
 }: SaveScreenDialogProps) {
-  const { isDarkMode } = useTheme();
   const [name, setName] = useState(initialName || '');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -34,14 +32,14 @@ export default function SaveScreenDialog({
   }, [open, initialName]);
 
   const colors = {
-    bg: isDarkMode ? '#0a0a0a' : '#ffffff',
-    overlay: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    inputBg: isDarkMode ? '#000000' : '#f5f5f7',
-    accent: '#10B981',
+    bg: 'var(--surface-overlay)',
+    overlay: 'rgba(0,0,0,0.5)',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    inputBg: 'var(--canvas)',
+    accent: 'var(--accent)',
   };
 
   const handleSave = () => {
@@ -153,7 +151,7 @@ export default function SaveScreenDialog({
                 width: '100%',
                 padding: '10px 12px',
                 borderRadius: 8,
-                border: `1px solid ${nameError ? '#EF4444' : colors.border}`,
+                border: `1px solid ${nameError ? 'var(--bad)' : colors.border}`,
                 backgroundColor: colors.inputBg,
                 color: colors.text,
                 fontSize: 14,
@@ -161,7 +159,7 @@ export default function SaveScreenDialog({
               }}
             />
             {nameError && (
-              <span style={{ fontSize: 12, color: '#EF4444', marginTop: 4, display: 'block' }}>
+              <span style={{ fontSize: 12, color: 'var(--bad)', marginTop: 4, display: 'block' }}>
                 {nameError}
               </span>
             )}
@@ -275,7 +273,7 @@ export default function SaveScreenDialog({
               borderRadius: 8,
               border: 'none',
               backgroundColor: name.trim() ? colors.accent : colors.subtle,
-              color: name.trim() ? '#000' : colors.muted,
+              color: name.trim() ? 'var(--accent-ink)' : colors.muted,
               fontSize: 13,
               fontWeight: 600,
               cursor: name.trim() ? 'pointer' : 'not-allowed',

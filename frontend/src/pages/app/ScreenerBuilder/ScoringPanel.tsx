@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { Slider, Toggle } from '../../../components/ui';
 
 export interface SubWeights {
@@ -37,13 +36,12 @@ export default function ScoringPanel({
   angleWeight, hasCrossFilters,
   onBaseWeightChange, onSubWeightChange, onShowAlignmentChange, onAngleWeightChange, onReset,
 }: ScoringPanelProps) {
-  const { isDarkMode } = useTheme();
   const [open, setOpen] = useState(true);
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
   };
 
   return (
@@ -118,12 +116,10 @@ export default function ScoringPanel({
 }
 
 function Field({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
-  const { isDarkMode } = useTheme();
-  const muted = isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)';
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: isDarkMode ? '#FAFAFA' : '#1d1d1f' }}>{label}</div>
-      <div style={{ fontSize: 11, color: muted, marginBottom: 6, lineHeight: 1.3 }}>{hint}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.3 }}>{hint}</div>
       {children}
     </div>
   );

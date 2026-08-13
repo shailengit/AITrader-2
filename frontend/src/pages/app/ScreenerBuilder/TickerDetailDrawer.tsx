@@ -8,7 +8,6 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { CandleStickChart } from '../../../components/quantgen';
 import {
   SUB_SCORE_KEYS,
@@ -130,7 +129,6 @@ export default function TickerDetailDrawer({
   scoreRow = null,
   baseWeight = 60,
 }: TickerDetailDrawerProps) {
-  const { isDarkMode } = useTheme();
   const [data, setData] = useState<TickerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,17 +140,17 @@ export default function TickerDetailDrawer({
   );
 
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#0a0a0a' : '#f5f5f7',
-    surfaceRaised: isDarkMode ? '#111111' : '#fafafc',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    surfaceRaised: 'var(--surface-raised)',
     // Card body background — slightly raised above surface for sub-score cards.
-    bg: isDarkMode ? '#1a1a1c' : '#ffffff',
-    accent: '#10B981',
-    danger: '#EF4444',
-    warning: '#F59E0B',
+    bg: 'var(--surface-overlay)',
+    accent: 'var(--accent)',
+    danger: 'var(--bad)',
+    warning: 'var(--bad)',
   };
 
   // Fetch the TickerDetail payload. Aborts in-flight request when ticker
@@ -300,7 +298,7 @@ export default function TickerDetailDrawer({
               padding: '3px 8px',
               borderRadius: 4,
               border: `1px solid ${active ? colors.accent : colors.border}`,
-              backgroundColor: active ? 'rgba(16,185,129,0.12)' : 'transparent',
+              backgroundColor: active ? 'var(--accent-glow)' : 'transparent',
               color: active ? colors.accent : colors.muted,
               cursor: 'pointer',
             }}
@@ -624,7 +622,7 @@ export default function TickerDetailDrawer({
             justifyContent: 'center',
             gap: 6,
             backgroundColor: colors.accent,
-            color: '#000',
+            color: 'var(--accent-ink)',
             border: 'none',
             padding: '10px 14px',
             borderRadius: 8,

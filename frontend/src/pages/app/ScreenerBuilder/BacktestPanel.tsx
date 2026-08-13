@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { request } from "@/lib/api";
-import { useTheme } from "../../../context/ThemeContext";
 import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -130,7 +129,6 @@ function isFutureDate(isoDate: string): boolean {
 // ---------------------------------------------------------------------------
 
 export default function BacktestPanel({ tickers, asOfDate, customFilters }: BacktestPanelProps) {
-  const { isDarkMode } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,17 +152,17 @@ export default function BacktestPanel({ tickers, asOfDate, customFilters }: Back
 
   // Theme-aware colors
   const colors = {
-    text: isDarkMode ? "#ffffff" : "#1d1d1f",
-    muted: isDarkMode ? "rgba(255,255,255,0.6)" : "#6e6e73",
-    subtle: isDarkMode ? "rgba(255,255,255,0.4)" : "#86868b",
-    border: isDarkMode ? "rgba(255,255,255,0.08)" : "#e5e5ea",
-    surface: isDarkMode ? "#0a0a0a" : "#ffffff",
-    cardBg: isDarkMode ? "#272729" : "#ffffff",
-    positive: "#10B981",
-    negative: "#EF4444",
-    accent: "#10B981",
-    rowEven: isDarkMode ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-    rowHover: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    cardBg: 'var(--surface-raised)',
+    positive: 'var(--good)',
+    negative: 'var(--bad)',
+    accent: 'var(--accent)',
+    rowEven: 'var(--surface)',
+    rowHover: 'var(--surface-raised)',
   };
 
   const fetchBacktest = useCallback(async () => {
@@ -395,7 +393,7 @@ export default function BacktestPanel({ tickers, asOfDate, customFilters }: Back
                   marginTop: 16,
                   padding: "14px 16px",
                   borderRadius: 10,
-                  backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                  backgroundColor: 'var(--surface-raised)',
                   border: `1px solid ${colors.border}`,
                 }}
               >
@@ -458,7 +456,7 @@ export default function BacktestPanel({ tickers, asOfDate, customFilters }: Back
                     padding: 12,
                     border: `1px solid ${colors.border}`,
                     borderRadius: 8,
-                    backgroundColor: isDarkMode ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
+                    backgroundColor: 'var(--canvas)',
                   }}
                 >
                   <ExitField label="Screener" colors={colors}>
@@ -597,7 +595,7 @@ export default function BacktestPanel({ tickers, asOfDate, customFilters }: Back
                         padding: "12px 14px",
                         borderRadius: 8,
                         border: `1px solid ${colors.border}`,
-                        backgroundColor: isDarkMode ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
+                        backgroundColor: 'var(--canvas)',
                       }}
                     >
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", fontSize: 12 }}>

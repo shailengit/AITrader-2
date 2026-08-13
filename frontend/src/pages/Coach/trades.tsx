@@ -26,13 +26,13 @@ export default function CoachTrades() {
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6 p-6">
-      <h1 className="text-2xl font-semibold text-zinc-100">Trades</h1>
+      <h1 className="text-2xl font-semibold text-[color:var(--foreground)]">Trades</h1>
       <Card className="p-6">
-        <div className="text-sm text-zinc-400 mb-3">Add a paper trade</div>
+        <div className="text-sm text-[color:var(--muted)] mb-3">Add a paper trade</div>
         <TradeForm onCreated={load} />
       </Card>
       <Card className="p-6">
-        <div className="text-sm text-zinc-400 mb-3">
+        <div className="text-sm text-[color:var(--muted)] mb-3">
           {loading ? 'Loading…' : `${total} trade(s) on record`}
         </div>
         <TradeTable rows={trades} onChanged={load} />

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X, Plus, FunctionSquare } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import { FILTER_CATALOG, getFilterByKey } from '../../../data/filterCatalog';
 import { useComposites, type CompositeOperation } from '../../../hooks/useComposites';
 
@@ -23,7 +22,6 @@ export default function CompositeBuilder({
   onOpenChange,
   onCompositeCreated,
 }: CompositeBuilderProps) {
-  const { isDarkMode } = useTheme();
   const { saveComposite } = useComposites();
 
   const [name, setName] = useState('');
@@ -34,16 +32,16 @@ export default function CompositeBuilder({
   const [error, setError] = useState<string | null>(null);
 
   const colors = {
-    bg: isDarkMode ? '#0a0a0a' : '#ffffff',
-    overlay: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    subtle: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#272729' : '#f5f5f7',
-    inputBg: isDarkMode ? '#000000' : '#ffffff',
-    accent: '#10B981',
-    danger: '#EF4444',
+    bg: 'var(--surface-overlay)',
+    overlay: 'rgba(0,0,0,0.5)',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    subtle: 'var(--subtle)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    inputBg: 'var(--canvas)',
+    accent: 'var(--accent)',
+    danger: 'var(--bad)',
   };
 
   if (!open) return null;
@@ -323,7 +321,7 @@ export default function CompositeBuilder({
                 marginTop: 12,
                 padding: '8px 12px',
                 borderRadius: 6,
-                backgroundColor: 'rgba(16,185,129,0.08)',
+                backgroundColor: 'var(--accent-glow)',
                 color: colors.accent,
                 fontSize: 13,
                 fontWeight: 600,
@@ -344,7 +342,7 @@ export default function CompositeBuilder({
             style={{
               padding: '8px 12px',
               borderRadius: 6,
-              backgroundColor: 'rgba(239,68,68,0.1)',
+              backgroundColor: 'var(--danger-hover)',
               color: colors.danger,
               fontSize: 13,
               marginBottom: 16,
@@ -381,7 +379,7 @@ export default function CompositeBuilder({
               borderRadius: 8,
               border: 'none',
               backgroundColor: colors.accent,
-              color: '#000',
+              color: 'var(--accent-ink)',
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',

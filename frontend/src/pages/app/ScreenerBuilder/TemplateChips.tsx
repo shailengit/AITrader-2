@@ -1,5 +1,4 @@
 import { Sparkles } from 'lucide-react';
-import { useTheme } from '../../../context/ThemeContext';
 import {
   SCREENER_TEMPLATES,
   type ScreenTemplate,
@@ -13,14 +12,12 @@ interface TemplateChipsProps {
 }
 
 export default function TemplateChips({ onLoad, activeFilters }: TemplateChipsProps) {
-  const { isDarkMode } = useTheme();
-
   const colors = {
-    text: isDarkMode ? '#FAFAFA' : '#1d1d1f',
-    muted: isDarkMode ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.48)',
-    border: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    surface: isDarkMode ? '#0a0a0a' : '#f5f5f7',
-    accent: '#10B981',
+    text: 'var(--foreground)',
+    muted: 'var(--muted)',
+    border: 'var(--border)',
+    surface: 'var(--surface)',
+    accent: 'var(--accent)',
   };
 
   // A template is "active" if its condition count and filterKey multiset
@@ -80,7 +77,7 @@ export default function TemplateChips({ onLoad, activeFilters }: TemplateChipsPr
               padding: '6px 12px',
               borderRadius: 999,
               border: `1px solid ${active ? colors.accent : colors.border}`,
-              backgroundColor: active ? 'rgba(16,185,129,0.12)' : 'transparent',
+              backgroundColor: active ? 'var(--accent-glow)' : 'transparent',
               color: active ? colors.accent : colors.text,
               cursor: 'pointer',
               transition: 'all 150ms ease',

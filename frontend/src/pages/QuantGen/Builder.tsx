@@ -145,10 +145,10 @@ export default function Builder() {
     : { overall: 'UNKNOWN' as const, vol: 'LOW' as const };
   const regimeColor =
     regimeSummary.overall === 'BULL'
-      ? '#10b981'
+      ? 'var(--good)'
       : regimeSummary.overall === 'BEAR'
-        ? '#f43f5e'
-        : '#71717a';
+        ? 'var(--bad)'
+        : 'var(--subtle)';
 
   // Structured error state for rich error cards
   const [structuredError, setStructuredError] = useState<{
@@ -301,9 +301,7 @@ export default function Builder() {
               marginBottom: "10px",
               padding: "10px 12px",
               borderRadius: "8px",
-              backgroundColor: isDarkMode
-                ? "rgba(0,0,0,0.3)"
-                : "rgba(0,0,0,0.04)",
+              backgroundColor: "var(--canvas)",
               border: `1px solid ${borderColor}`,
             }}
           >
@@ -341,12 +339,8 @@ export default function Builder() {
               marginTop: "8px",
               padding: "10px 12px",
               borderRadius: "8px",
-              backgroundColor: isDarkMode
-                ? "rgba(16,185,129,0.06)"
-                : "rgba(16,185,129,0.06)",
-              border: `1px solid ${
-                isDarkMode ? "rgba(16,185,129,0.12)" : "rgba(16,185,129,0.12)"
-              }`,
+              backgroundColor: "var(--accent-glow)",
+              border: "1px solid var(--border-hover)",
             }}
           >
             <div
@@ -357,12 +351,12 @@ export default function Builder() {
                 marginBottom: "4px",
               }}
             >
-              <Lightbulb size={13} color="#10B981" />
+              <Lightbulb size={13} style={{ color: "var(--accent)" }} />
               <span
                 style={{
                   fontSize: "12px",
                   fontWeight: 700,
-                  color: "#10B981",
+                  color: "var(--accent)",
                 }}
               >
                 Suggestion
@@ -411,9 +405,7 @@ export default function Builder() {
                   margin: "6px 0 0",
                   padding: "10px 12px",
                   borderRadius: "8px",
-                  backgroundColor: isDarkMode
-                    ? "rgba(0,0,0,0.3)"
-                    : "rgba(0,0,0,0.04)",
+                  backgroundColor: "var(--canvas)",
                   fontSize: "11px",
                   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                   color: "var(--muted)",
@@ -460,9 +452,7 @@ export default function Builder() {
                   margin: "6px 0 0",
                   padding: "10px 12px",
                   borderRadius: "8px",
-                  backgroundColor: isDarkMode
-                    ? "rgba(0,0,0,0.3)"
-                    : "rgba(0,0,0,0.04)",
+                  backgroundColor: "var(--canvas)",
                   fontSize: "11px",
                   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                   color: "var(--muted)",
@@ -1021,7 +1011,7 @@ export default function Builder() {
                             fontWeight: 600,
                             border: '1px solid var(--border)',
                             backgroundColor: 'var(--accent)',
-                            color: '#000000',
+                            color: 'var(--accent-ink)',
                           }}
                         >
                           {tickerCount} ticker{tickerCount !== 1 ? 's' : ''} imported
@@ -1076,7 +1066,7 @@ export default function Builder() {
                                 border: '1px solid var(--border)',
                                 cursor: 'pointer',
                                 backgroundColor: tickers === t ? 'var(--accent)' : 'var(--canvas)',
-                                color: tickers === t ? '#000000' : 'var(--foreground)',
+                                color: tickers === t ? 'var(--accent-ink)' : 'var(--foreground)',
                                 transition: 'all 0.15s ease',
                                 flexShrink: 0,
                               }}
@@ -1228,7 +1218,7 @@ export default function Builder() {
                   backgroundColor: isGenerating
                     ? "var(--surface-overlay)"
                     : "var(--accent)",
-                  color: isGenerating ? "var(--muted)" : "#000000",
+                  color: isGenerating ? "var(--muted)" : "var(--accent-ink)",
                   opacity: !strategyPrompt.trim() ? 0.4 : 1,
                   whiteSpace: "nowrap",
                   flexShrink: 0,
@@ -1313,7 +1303,7 @@ export default function Builder() {
                             ? "var(--accent)"
                             : "transparent",
                         color:
-                          runMode === "backtest" ? "#000000" : "var(--muted)",
+                          runMode === "backtest" ? "var(--accent-ink)" : "var(--muted)",
                         transition: "all 0.15s ease",
                       }}
                       aria-pressed={runMode === "backtest"}
@@ -1334,7 +1324,7 @@ export default function Builder() {
                             ? "var(--accent)"
                             : "transparent",
                         color:
-                          runMode === "optimize" ? "#000000" : "var(--muted)",
+                          runMode === "optimize" ? "var(--accent-ink)" : "var(--muted)",
                         transition: "all 0.15s ease",
                       }}
                       aria-pressed={runMode === "optimize"}
@@ -1477,7 +1467,7 @@ export default function Builder() {
                 backgroundColor: isRunning
                   ? "var(--surface-overlay)"
                   : "var(--accent)",
-                color: isRunning ? "var(--muted)" : "#000000",
+                color: isRunning ? "var(--muted)" : "var(--accent-ink)",
                 opacity: !code ? 0.4 : 1,
                 flexShrink: 0,
               }}
@@ -2081,7 +2071,7 @@ export default function Builder() {
                   fontWeight: 600,
                   border: "none",
                   backgroundColor: "var(--accent)",
-                  color: "#000000",
+                  color: "var(--accent-ink)",
                   cursor: !savePrompt.name.trim() ? "not-allowed" : "pointer",
                   opacity: !savePrompt.name.trim() ? 0.4 : 1,
                 }}
