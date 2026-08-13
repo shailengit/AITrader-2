@@ -16,24 +16,26 @@
 @import "@fontsource/spectral/500.css";
 
 .slab {
-  /* Palette — ink & paper, one signal */
-  --slab-ink: #0a0a0a;
-  --slab-ink-2: #111111;
-  --slab-ink-3: #181818;
-  --slab-rule: #262626;
-  --slab-rule-soft: #1c1c1c;
-  --slab-paper: #f4f1ea;        /* warm off-white, like aged paper */
-  --slab-paper-dim: #c9c4b8;
-  --slab-paper-faint: #8a8478;
-  --slab-paper-ghost: #5a554c;
-  --slab-gold: #d4a04a;          /* the only signal color */
-  --slab-gold-soft: #b88838;
-  --slab-gold-glow: rgba(212, 160, 74, 0.18);
-  --slab-terminal: #3fb950;      /* success / live */
-  --slab-terminal-soft: rgba(63, 185, 80, 0.15);
-  --slab-rose: #e07a6e;           /* destructive / error */
-  --slab-rose-soft: rgba(224, 122, 110, 0.15);
-  --slab-amber-dim: #d9a35a;    /* warning */
+  /* Palette — mapped to the global Refined Dark Pro tokens so the slab
+     auto-switches between the dark and light themes via the ☀/☾ toggle.
+     The slab keeps its distinctive typography (serif display + mono). */
+  --slab-ink: var(--canvas);
+  --slab-ink-2: var(--surface);
+  --slab-ink-3: var(--surface-raised);
+  --slab-rule: var(--border);
+  --slab-rule-soft: var(--border);
+  --slab-paper: var(--foreground);
+  --slab-paper-dim: var(--muted);
+  --slab-paper-faint: var(--subtle);
+  --slab-paper-ghost: var(--subtle);
+  --slab-gold: var(--accent);          /* signal color -> terminal accent */
+  --slab-gold-soft: var(--accent-dark);
+  --slab-gold-glow: var(--accent-glow);
+  --slab-terminal: var(--good);        /* success / live */
+  --slab-terminal-soft: var(--accent-glow);
+  --slab-rose: var(--bad);             /* destructive / error */
+  --slab-rose-soft: var(--danger-hover);
+  --slab-amber-dim: var(--bad);        /* warning */
 
   /* Typography */
   --slab-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
@@ -520,10 +522,10 @@
   white-space: pre;
   color: var(--slab-paper-dim);
 }
-.slab-diff__row--add { background: rgba(63, 185, 80, 0.08); }
+.slab-diff__row--add { background: var(--slab-terminal-soft); }
 .slab-diff__row--add .slab-diff__text { color: var(--slab-terminal); }
 .slab-diff__row--add .slab-diff__gutter { color: var(--slab-terminal); }
-.slab-diff__row--remove { background: rgba(224, 122, 110, 0.08); }
+.slab-diff__row--remove { background: var(--slab-rose-soft); }
 .slab-diff__row--remove .slab-diff__text { color: var(--slab-rose); }
 .slab-diff__row--remove .slab-diff__gutter { color: var(--slab-rose); }
 .slab-diff__row--hunk .slab-diff__text {
@@ -631,7 +633,7 @@
 /* Subtle background grid — like a sheet of graph paper */
 .slab-grid-bg {
   background-image:
-    linear-gradient(to right, rgba(212, 160, 74, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(212, 160, 74, 0.03) 1px, transparent 1px);
+    linear-gradient(to right, var(--slab-gold-glow) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--slab-gold-glow) 1px, transparent 1px);
   background-size: 32px 32px;
 }
