@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { StepSidebar } from "../../components/strategy-lab/StepSidebar";
 import { StepBacktest } from "./StepBacktest";
 import { StepDeploy } from "./StepDeploy";
 import { StepLibrary } from "./StepLibrary";
+import { useActiveBatch } from "../../hooks/useActiveBatch";
 import "../../components/strategy-lab/lab.css";
 
 const STEPS = [
@@ -16,6 +17,19 @@ export default function StrategyLabPage() {
   const [activeStep, setActiveStep] = useState<number>(0);
   const [selectedStrategyPath, setSelectedStrategyPath] = useState<string | null>(null);
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
+  const { batch } = useActiveBatch();
+
+  // If there's an active batch in sessionStorage (after navigating away and
+  // back, or a refresh), default to the Backtest tab for that strategy so the
+  // running batch + results are immediately visible instead of landing on the
+  // Library. Only applies on mount (don't override an in-progress selection).
+  useEffect(() => {
+    if (batch?.strategyClassPath && !selectedStrategyPath) {
+      setSelectedStrategyPath(batch.strategyClassPath);
+      setActiveStep(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch?.strategyClassPath]);
 
   const handleSelectStrategy = (path: string) => {
     setSelectedStrategyPath(path);

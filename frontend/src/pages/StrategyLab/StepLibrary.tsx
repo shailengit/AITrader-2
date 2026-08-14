@@ -5,6 +5,7 @@ import {
   ArrowUp, ArrowDown, CheckCircle, XCircle, Play, Trash2,
 } from "lucide-react";
 import { strategyLabApi } from "../../lib/strategyLab";
+import { useActiveBatch } from "../../hooks/useActiveBatch";
 import { StrategyCoachBadge } from "../../components/shared/StrategyCoachBadge";
 
 interface StrategyClassItem {
@@ -36,6 +37,7 @@ export function StepLibrary({ onSelectStrategy }: StepLibraryProps) {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const qc = useQueryClient();
+  const activeBatch = useActiveBatch();
 
   const { data: classes, isLoading } = useQuery({
     queryKey: ["strategy-classes"],
@@ -148,6 +150,17 @@ export function StepLibrary({ onSelectStrategy }: StepLibraryProps) {
                       onBacktest={() => onSelectStrategy(c.path)}
                       onDelete={() => setConfirmDelete(c.path)}
                       isDeleting={deleteMut.isPending && confirmDelete === c.path}
+                      running={
+                        activeBatch.batch?.strategyClassPath === c.path
+                          ? {
+                              isRunning: activeBatch.isRunning,
+                              completed: activeBatch.completed,
+                              failed: activeBatch.failed,
+                              total: activeBatch.total,
+                              tradesSoFar: activeBatch.tradesSoFar,
+                            }
+                          : null
+                      }
                     />
                   ))}
                 </tbody>
@@ -205,9 +218,14 @@ function keyIsString(key: SortKey): boolean {
   return key === "name" || key === "created_at" || key === "last_backtest";
 }
 
-function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
+interface RunningInfo {
+  isRunning: boolean; completed: number; failed: number; total: number; tradesSoFar: number;
+}
+
+function StrategyRow({ entry, onBacktest, onDelete, isDeleting, running }: {
   entry: StrategyClassItem; onBacktest: () => void;
   onDelete: () => void; isDeleting: boolean;
+  running: RunningInfo | null;
 }) {
   const fmtPct = (v: number | null) => {
     if (v == null) return <span className="slab-mono slab-mono--xs slab-mono--faint">N/A</span>;
@@ -263,7 +281,25 @@ function StrategyRow({ entry, onBacktest, onDelete, isDeleting }: {
       <td className="slab-table__num">{fmtNum(entry.total_trades)}</td>
       <td>{fmtDate(entry.last_backtest)}</td>
       <td>
-        {entry.deployed ? (
+        {running ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span
+              className="slab-tag slab-tag--gold"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5, width: "fit-content",
+                borderColor: "var(--accent)", color: "var(--accent)",
+                animation: running.isRunning ? "slab-pulse 1.5s ease-in-out infinite" : "none",
+              }}
+              title={running.isRunning ? "Running in the background" : "Batch complete"}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }} />
+              {running.isRunning ? "BACKTESTING" : "COMPLETE"}
+            </span>
+            <span className="slab-mono slab-mono--xs slab-mono--dim">
+              {running.completed + running.failed}/{running.total} runs · {running.tradesSoFar.toLocaleString()} trades
+            </span>
+          </div>
+        ) : entry.deployed ? (
           <span className="slab-tag slab-tag--terminal" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             <CheckCircle size={9} /> Active
           </span>
