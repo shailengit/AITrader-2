@@ -98,7 +98,9 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
       scoreByMetric(b, metric) > scoreByMetric(a, metric) ? b : a
     );
     setSelectedWinner(best.id);
-    onWinnerPicked(best.id);
+    // Deliberately do NOT auto-navigate to Deploy here. The user should stay
+    // on the Backtest tab to review the results; they deploy via the
+    // "Deploy winner" button (or by clicking a row).
   };
 
   const equityCurve = useQuery({
@@ -210,7 +212,7 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
 
         {batchId && (
           <>
-            {isResumed && (
+            {isResumed && isRunning && (
               <div
                 className="slab-panel"
                 style={{ maxWidth: 1280, marginBottom: 16, borderColor: "var(--accent)" }}
@@ -319,7 +321,7 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
             )}
 
             {isDone && (
-              <div style={{ maxWidth: 1280, marginTop: 24, display: "flex", gap: 12 }}>
+              <div style={{ maxWidth: 1280, marginTop: 24, display: "flex", gap: 12, alignItems: "center" }}>
                 <button
                   type="button"
                   onClick={() => { clearBatchState(); setBatchId(null); }}
@@ -328,6 +330,15 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
                   <RotateCcw size={11} />
                   New batch
                 </button>
+                {selectedWinner && (
+                  <button
+                    type="button"
+                    onClick={() => onWinnerPicked(selectedWinner)}
+                    className="slab-btn slab-btn--primary"
+                  >
+                    Deploy winner
+                  </button>
+                )}
               </div>
             )}
           </>
