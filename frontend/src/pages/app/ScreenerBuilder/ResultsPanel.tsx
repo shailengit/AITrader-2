@@ -226,6 +226,7 @@ export default function ResultsPanel({
     { header: 'Vol Ratio', key: 'volume_ratio', format: (v: any) => (v != null ? v.toFixed(2) + 'x' : '--') },
     { header: 'ATH %', key: 'ath_proximity', format: (v: any) => (v != null ? formatPct(v) : '--') },
     { header: 'EPS Growth', key: 'eps_growth_qoq', format: (v: any) => (v != null ? `${v.toFixed(1)}%` : '--') },
+    { header: 'PEGY', key: 'pegy', format: (v: any) => (v != null ? v.toFixed(2) : '--') },
   ];
 
   return (
@@ -270,8 +271,8 @@ export default function ResultsPanel({
             onClick={() => setShowAllMetrics((v) => !v)}
             title={
               showAllMetrics
-                ? 'Hide RSI / Vol Ratio / ATH% / EPS Growth'
-                : 'Show RSI / Vol Ratio / ATH% / EPS Growth'
+                ? 'Hide RSI / Vol Ratio / ATH% / EPS Growth / PEGY'
+                : 'Show RSI / Vol Ratio / ATH% / EPS Growth / PEGY'
             }
             style={{
               display: 'flex',

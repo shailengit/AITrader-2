@@ -1708,6 +1708,20 @@ def run_quant_strategy_screener(prompt: str, cutoff_date: Optional[str] = None, 
                 normalized = max(-100.0, min(100.0, float(return_pct)))
                 record['score_minus_return'] = round(float(record.get('score', 0)) - normalized, 1)
 
+    # Enrich top records with PEGY (P/E / (Earnings Growth % + Dividend Yield %))
+    try:
+        from app.services.pegy import compute_pegy_batch
+        pegy_map = compute_pegy_batch([r.get('ticker') for r in top_records if r.get('ticker')])
+        for record in top_records:
+            t = record.get('ticker')
+            if t and t in pegy_map:
+                record['pegy'] = pegy_map[t].get('pegy')
+                record['pe'] = pegy_map[t].get('pe')
+                record['earnings_growth_pct'] = pegy_map[t].get('earnings_growth_pct')
+                record['dividend_yield_pct'] = pegy_map[t].get('dividend_yield_pct')
+    except Exception as e:
+        logger.warning("PEGY enrichment failed: %s", e)
+
     return {
         "technical_candidates": len(results_records),
         "results": top_records,

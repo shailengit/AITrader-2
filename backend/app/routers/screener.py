@@ -979,3 +979,16 @@ async def ticker_detail(
             status_code=404,
             detail=str(exc) or "No data for ticker",
         ) from exc
+
+
+@router.get("/pegy/{ticker}")
+async def pegy_detail(ticker: str):
+    """Return PEGY (P/E / (Earnings Growth % + Dividend Yield %)) for one ticker.
+
+    Query params:
+        ticker: Ticker symbol.
+
+    Returns: {ticker, close, eps, pe, earnings_growth_pct, dividend_yield_pct, pegy}
+    """
+    from app.services.pegy import compute_pegy
+    return compute_pegy(ticker)
