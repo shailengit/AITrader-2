@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 MAX_HOLDINGS = 5
 MIN_HOLD_DAYS = 14
 HARD_STOP = 0.20
+TAKE_PROFIT = 0.50      # +50% take profit
+TRAILING_STOP = 0.10    # 10% trailing stop (from peak)
 MAX_SECTOR_COUNT = 2
 MAX_VOLATILITY = 0.05
 MIN_MARKET_CAP = 5e9
@@ -64,14 +66,14 @@ class SectorScannerTop5Rotation(Strategy):
         return RotationConfig(
             sizing_method="linear",        # momentum-proportional (score = sigmoid(perf_3m))
             hard_stop_loss=HARD_STOP,      # 20% hard stop, overrides min hold
-            trailing_stop=0.0,
-            take_profit=0.0,
-            time_stop_days=0,              # rotation is the primary exit
+            trailing_stop=TRAILING_STOP,   # 10% trailing stop from peak
+            take_profit=TAKE_PROFIT,       # +50% take profit
+            time_stop_days=0,              # never (rotation is the primary exit)
             min_hold_days=MIN_HOLD_DAYS,   # 14 days before rotation can sell
             max_sector_count=MAX_SECTOR_COUNT,
             re_score_holdings=True,        # re-score holdings on current momentum daily
             bear_exposure=1.0,
-            exit_priority=["hard_stop_loss"],
+            exit_priority=["hard_stop_loss", "trailing_stop", "take_profit"],
         )
 
     def get_precomputed_price_cache(self) -> Optional[Dict[str, Dict[str, float]]]:
@@ -159,7 +161,11 @@ class SectorScannerTop5Rotation(Strategy):
             meta[str(row[0]).lower()] = (mc, sec)
 
         # Load ETF closes for sector perf (as-of date)
-        etf_data = self._load_sector_etf_data(engine, "2009-01-01", as_of_date)
+        # Load ~300 days of history before the as-of date (90d perf + 200d MA
+        # buffer) so the strategy generates signals from the actual start date
+        # instead of a hardcoded 2009-01-01 (which made pre-2009 runs idle).
+        load_start = (pd.Timestamp(as_of_date) - pd.Timedelta(days=300)).strftime("%Y-%m-%d")
+        etf_data = self._load_sector_etf_data(engine, load_start, as_of_date)
         target_ts = np.datetime64(as_of_date)
 
         candidates: List[Dict[str, Any]] = []
@@ -279,7 +285,9 @@ class SectorScannerTop5Rotation(Strategy):
 
         first_date = all_dates[0]
         last_date = all_dates[-1]
-        load_start = "2009-01-01"  # enough history before 2010-01-01 for 90d perf + 200d MA buffer
+        # Load ~300 days of history before the first date (90d perf + 200d MA
+        # buffer) so signals are generated from the actual start date.
+        load_start = (pd.Timestamp(first_date) - pd.Timedelta(days=300)).strftime("%Y-%m-%d")
         date_set = set(all_dates)
         sector_name_to_etf = {name: ticker for ticker, name in SECTOR_NAME_MAP.items()}
 
