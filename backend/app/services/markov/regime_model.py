@@ -187,8 +187,12 @@ class JumpModel:
         else:
             row = self._smoothed_probs.iloc[-1]
 
-        regime = 'BULL' if row['regime'] == 1 else 'BEAR'
         bull_prob = float(row['bull_probability'])
+        # Label the regime consistently with the probability. The persistence
+        # filter smooths the regime column, but it made the label lag the
+        # probability (e.g. 'BEAR' with 90% bull probability), which is
+        # confusing. Use the probability directly so the label matches.
+        regime = 'BULL' if bull_prob > 0.5 else 'BEAR'
 
         # Volatility regime from GARCH
         vol_prob = self._get_vol_probability(date)
