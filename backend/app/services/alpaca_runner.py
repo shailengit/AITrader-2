@@ -302,11 +302,18 @@ def _load_active_strategy_class() -> Strategy:
         mod = module_from_spec(spec)
         spec.loader.exec_module(mod)
 
-        # Find the Strategy subclass exported by the file
+        # Find the Strategy subclass exported by the file (only classes DEFINED
+        # in this module, so v2/v3 variants that subclass another strategy load
+        # the right class instead of the imported base).
         cls = None
         for name in dir(mod):
             obj = getattr(mod, name)
-            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, Strategy)
+                and obj is not Strategy
+                and getattr(obj, "__module__", "") == mod.__name__
+            ):
                 cls = obj
                 break
         if cls is None:
