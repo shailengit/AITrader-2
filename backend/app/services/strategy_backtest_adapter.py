@@ -359,6 +359,14 @@ class StrategyBacktestAdapter:
                     ).days
                     if hold_days < cfg.min_hold_days:
                         continue
+                    # "Protect winners": keep a holding that leaves the top-N
+                    # as long as it is still profitable (above its entry price),
+                    # so strong momentum names ride higher instead of being
+                    # churned out at small gains. Only rotate out weak names.
+                    if cfg.protect_winners:
+                        current_price = get_price(ticker, current_date)
+                        if current_price > h["entry_price"]:
+                            continue
                     to_drop.append(ticker)
 
             for ticker in to_drop:

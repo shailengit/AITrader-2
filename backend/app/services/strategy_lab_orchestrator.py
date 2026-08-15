@@ -272,7 +272,15 @@ def _precompute_for_batch(
         strategy_class = None
         for name in dir(mod):
             obj = getattr(mod, name)
-            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
+            # Only consider classes DEFINED in this module (not imported ones),
+            # so a strategy file that subclasses another strategy (e.g. v2
+            # variants) resolves to the right class instead of the imported base.
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, Strategy)
+                and obj is not Strategy
+                and getattr(obj, "__module__", "") == mod.__name__
+            ):
                 strategy_class = obj
                 break
         if strategy_class is None:
@@ -344,7 +352,15 @@ def _run_strategy_class(
         strategy_class = None
         for name in dir(mod):
             obj = getattr(mod, name)
-            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
+            # Only consider classes DEFINED in this module (not imported ones),
+            # so a strategy file that subclasses another strategy (e.g. v2
+            # variants) resolves to the right class instead of the imported base.
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, Strategy)
+                and obj is not Strategy
+                and getattr(obj, "__module__", "") == mod.__name__
+            ):
                 strategy_class = obj
                 break
 

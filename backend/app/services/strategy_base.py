@@ -50,6 +50,7 @@ class RotationConfig:
     min_hold_days: int = 7
     max_sector_count: int = 2
     re_score_holdings: bool = False          # Re-score existing holdings each day
+    protect_winners: bool = False            # Keep a holding that leaves the top-N if it is still profitable (above entry)
     bear_exposure: float = 1.0              # Position size multiplier in bear market (1.0 = no reduction)
     exit_priority: List[str] = field(       # Order of exit checks
         default_factory=lambda: [
