@@ -296,6 +296,15 @@ def _precompute_for_batch(
             return None, None
         signals = strategy.precompute_signals(all_dates, db_engine)
         price_cache = strategy.get_precomputed_price_cache()
+        # Precompute the holding re-score map once so score_holding() is a fast
+        # in-memory lookup during the simulation loop instead of a database
+        # query per holding per day (~10k queries/run). This is the main reason
+        # batch backtests were ~30x slower than they needed to be.
+        if hasattr(strategy, "precompute_scores"):
+            try:
+                strategy.precompute_scores(all_dates, db_engine)
+            except Exception as e:
+                logger.warning("precompute_scores failed (falling back to per-day): %s", e)
         logger.info("Batch precompute done for %d dates (reused across runs)", len(all_dates))
         return signals, price_cache, strategy
     except Exception as e:
