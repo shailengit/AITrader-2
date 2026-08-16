@@ -229,7 +229,13 @@ class StrategyRunner:
         # ── Step 6: Open new positions ──
         remaining_positions = self.alpaca.get_positions()
         remaining_tickers = {p["ticker"] for p in remaining_positions}
-        slots_available = self.strategy.max_holdings - len(remaining_positions)
+        # Account for pending (unfilled) buy orders so we don't duplicate
+        # entries when the market is closed / orders are still open. A slot
+        # with an open buy order is already "reserved".
+        pending_buys = [o for o in self.alpaca.get_open_orders() if o.get("side") == "buy"]
+        pending_tickers = {o.get("symbol") for o in pending_buys}
+        remaining_tickers |= pending_tickers
+        slots_available = self.strategy.max_holdings - len(remaining_positions) - len(pending_buys)
 
         if slots_available <= 0:
             logger.info("Portfolio full (%d positions), no new entries", len(remaining_positions))
