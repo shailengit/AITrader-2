@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unnamed Strategy — Run Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 24px; }
+  h1 { font-size: 1.8rem; margin-bottom: 4px; background: linear-gradient(135deg, #22d3ee, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+  .controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .controls input, .controls select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; }
+  .controls input { flex: 1; min-width: 200px; }
+  .controls select { cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; padding: 10px 8px; color: #64748b; font-weight: 500; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; border-bottom: 2px solid #1e293b; cursor: pointer; user-select: none; }
+  th:hover { color: #22d3ee; }
+  td { padding: 8px; border-bottom: 1px solid #1e293b; }
+  tr.run-row:hover { background: #1a2332; cursor: pointer; }
+  .green { color: #10b981; }
+  .red { color: #ef4444; }
+  .opacity-50 { opacity: 0.5; }
+  .run-detail td { padding: 16px 24px; background: #0f172a; border-bottom: 2px solid #22d3ee; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .detail-card { background: #1a2332; border-radius: 8px; padding: 12px; }
+  .detail-wide { grid-column: span 1; }
+  .detail-title { font-size: 0.85rem; font-weight: 600; color: #22d3ee; margin-bottom: 8px; }
+  .trade { padding: 4px 0; font-size: 0.8rem; border-bottom: 1px solid #1e293b; }
+  .trade.win { color: #10b981; }
+  .trade.loss { color: #ef4444; }
+  .trade .reason { color: #64748b; font-size: 0.7rem; margin-left: 8px; }
+  .exit-row { display: flex; gap: 12px; padding: 4px 0; font-size: 0.8rem; border-bottom: 1px solid #1e293b; }
+  .exit-name { flex: 1; color: #94a3b8; }
+  .exit-count { width: 100px; color: #64748b; }
+  .exit-pnl { width: 120px; text-align: right; }
+  .summary { display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+  .summary-item { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 12px 20px; text-align: center; }
+  .summary-value { font-size: 1.3rem; font-weight: 700; }
+  .summary-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+  .strategy-section { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .strategy-section h3 { color: #22d3ee; font-size: 1rem; margin-bottom: 8px; }
+  .params-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .param-item { display: flex; justify-content: space-between; padding: 4px 8px; background: #1a2332; border-radius: 4px; font-size: 0.8rem; }
+  .param-key { color: #64748b; }
+  .param-val { color: #e2e8f0; font-family: 'JetBrains Mono', monospace; }
+  pre.code-block { background: #1a2332; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-size: 0.75rem; line-height: 1.4; overflow-x: auto; max-height: 300px; color: #e2e8f0; }
+  .toggle-code { color: #22d3ee; cursor: pointer; font-size: 0.8rem; margin-top: 4px; display: inline-block; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Unnamed Strategy — Run Viewer</h1>
+<p class="subtitle">5 completed runs | Batch: aebfe9ed | Generated 2026-08-13 15:53</p>
+
+<div class="summary">
+  <div class="summary-item">
+    <div class="summary-value" style="color:#22d3ee;">5</div>
+    <div class="summary-label">Total Runs</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#10b981;">+204.41%</div>
+    <div class="summary-label">Mean Return</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#10b981;">+69.35%</div>
+    <div class="summary-label">Mean Alpha</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#f59e0b;">50.2%</div>
+    <div class="summary-label">Avg Win Rate</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#22d3ee;">1.40</div>
+    <div class="summary-label">Avg Profit Factor</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#22d3ee;">0.78</div>
+    <div class="summary-label">Avg Sharpe</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#64748b;">349</div>
+    <div class="summary-label">Avg Trades</div>
+  </div>
+</div>
+
+<div class="strategy-section">
+    <h3>📋 Strategy Details</h3>
+    
+    <div style="margin-top:8px;">
+        <span class="toggle-code" onclick="toggleCode()">▶ Show strategy code</span>
+        <pre id="strategy-code" class="code-block" style="display:none;"></pre>
+    </div>
+</div>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Search by start date or run ID..." onkeyup="filterRuns()">
+  <select id="sort" onchange="sortRuns()">
+    <option value="run_index">Sort by Run #</option>
+    <option value="total_return_pct">Sort by Total Return</option>
+    <option value="cagr_pct">Sort by Annualized Return</option>
+    <option value="alpha_pct">Sort by Alpha</option>
+    <option value="win_rate">Sort by Win Rate</option>
+    <option value="profit_factor">Sort by Profit Factor</option>
+    <option value="sharpe_ratio">Sort by Sharpe</option>
+    <option value="total_trades">Sort by Trade Count</option>
+    <option value="start_date">Sort by Start Date</option>
+  </select>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th onclick="sortTable(0)">#</th>
+      <th onclick="sortTable(1)">Start</th>
+      <th onclick="sortTable(2)">Dur</th>
+      <th onclick="sortTable(3)">Ann Ret</th>
+      <th onclick="sortTable(4)">Total Ret</th>
+      <th onclick="sortTable(5)">Alpha</th>
+      <th onclick="sortTable(6)">Final</th>
+      <th onclick="sortTable(7)">Trades</th>
+      <th onclick="sortTable(8)">Win%</th>
+      <th onclick="sortTable(9)">PF</th>
+      <th onclick="sortTable(10)">Sharpe</th>
+    </tr>
+  </thead>
+  <tbody id="run-table">
+    
+        <tr class="run-row " onclick="toggleRun(1)">
+            <td>1</td>
+            <td>2019-07-06</td>
+            <td>4.5y</td>
+            <td><span class="green">+6.84%</span></td>
+            <td><span class="green">+34.62%</span></td>
+            <td><span class="red">-37.55%</span></td>
+            <td>$134,617.26</td>
+            <td>253</td>
+            <td>42.7%</td>
+            <td>1.16</td>
+            <td>0.41</td>
+        </tr>
+        <tr id="run-1" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+34.62%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+6.84%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#ef4444">-37.55%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.41</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+72.16%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$134,617.26</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">253</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">42.7%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.16</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$1,799.60</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-1,159.11</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+14,187.28 (+21.97%) — ADBE<span class="reason">Take Profit</span></div><div class="trade win">$+12,293.91 (+21.71%) — CVX<span class="reason">Take Profit</span></div><div class="trade win">$+7,114.34 (+21.66%) — AAPL<span class="reason">Take Profit</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-4,951.61 (-6.34%) — BLK<span class="reason">Trailing Stop</span></div><div class="trade loss">$-5,310.86 (-9.18%) — ABBV<span class="reason">Trailing Stop</span></div><div class="trade loss">$-5,624.44 (-10.28%) — ACN<span class="reason">Trailing Stop</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Trailing Stop</span>
+                <span class="exit-count">128 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Time Stop</span>
+                <span class="exit-count">60 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">29 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Death Cross</span>
+                <span class="exit-count">22 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Take Profit</span>
+                <span class="exit-count">14 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(2)">
+            <td>2</td>
+            <td>2016-01-04</td>
+            <td>8.0y</td>
+            <td><span class="green">+18.46%</span></td>
+            <td><span class="green">+287.27%</span></td>
+            <td><span class="green">+115.02%</span></td>
+            <td>$387,274.58</td>
+            <td>389</td>
+            <td>52.4%</td>
+            <td>1.46</td>
+            <td>0.95</td>
+        </tr>
+        <tr id="run-2" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+287.27%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+18.46%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+115.02%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.95</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+172.25%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$387,274.58</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">389</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.4%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.46</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$4,110.60</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-3,106.36</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+30,695.54 (+22.16%) — NEM<span class="reason">Take Profit</span></div><div class="trade win">$+21,806.26 (+16.31%) — PH<span class="reason">Time Stop</span></div><div class="trade win">$+20,778.85 (+21.94%) — HCA<span class="reason">Take Profit</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-13,084.11 (-11.72%) — VIRT<span class="reason">Trailing Stop</span></div><div class="trade loss">$-14,565.96 (-9.18%) — ABBV<span class="reason">Trailing Stop</span></div><div class="trade loss">$-16,296.69 (-11.32%) — GILD<span class="reason">Trailing Stop</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Trailing Stop</span>
+                <span class="exit-count">145 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Time Stop</span>
+                <span class="exit-count">133 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">46 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Death Cross</span>
+                <span class="exit-count">37 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Take Profit</span>
+                <span class="exit-count">28 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(3)">
+            <td>3</td>
+            <td>2015-10-16</td>
+            <td>8.2y</td>
+            <td><span class="green">+20.82%</span></td>
+            <td><span class="green">+372.42%</span></td>
+            <td><span class="green">+201.58%</span></td>
+            <td>$472,424.99</td>
+            <td>398</td>
+            <td>53.0%</td>
+            <td>1.58</td>
+            <td>1.04</td>
+        </tr>
+        <tr id="run-3" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+372.42%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+20.82%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+201.58%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">1.04</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+170.84%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$472,424.99</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">398</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">53.0%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.58</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$4,339.34</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-3,100.26</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+31,126.62 (+23.16%) — BA<span class="reason">Take Profit</span></div><div class="trade win">$+27,128.87 (+15.52%) — ADBE<span class="reason">Time Stop</span></div><div class="trade win">$+22,853.49 (+14.83%) — CAT<span class="reason">Time Stop</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-16,709.45 (-11.32%) — GILD<span class="reason">Trailing Stop</span></div><div class="trade loss">$-17,527.35 (-8.04%) — JNJ<span class="reason">Trailing Stop</span></div><div class="trade loss">$-17,704.25 (-8.65%) — MA<span class="reason">Trailing Stop</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Trailing Stop</span>
+                <span class="exit-count">156 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Time Stop</span>
+                <span class="exit-count">142 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">45 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Death Cross</span>
+                <span class="exit-count">31 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Take Profit</span>
+                <span class="exit-count">24 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(4)">
+            <td>4</td>
+            <td>2015-10-10</td>
+            <td>8.2y</td>
+            <td><span class="green">+15.95%</span></td>
+            <td><span class="green">+237.91%</span></td>
+            <td><span class="green">+64.72%</span></td>
+            <td>$337,911.23</td>
+            <td>413</td>
+            <td>52.1%</td>
+            <td>1.47</td>
+            <td>0.84</td>
+        </tr>
+        <tr id="run-4" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+237.91%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+15.95%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+64.72%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.84</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+173.19%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$337,911.23</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">413</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.47</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$3,163.91</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-2,335.23</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+30,483.48 (+21.97%) — ADBE<span class="reason">Take Profit</span></div><div class="trade win">$+21,449.94 (+21.71%) — CVX<span class="reason">Take Profit</span></div><div class="trade win">$+18,171.88 (+16.31%) — PH<span class="reason">Time Stop</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-10,699.02 (-6.34%) — BLK<span class="reason">Trailing Stop</span></div><div class="trade loss">$-11,064.75 (-9.01%) — KO<span class="reason">Trailing Stop</span></div><div class="trade loss">$-12,329.20 (-8.65%) — MA<span class="reason">Trailing Stop</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Trailing Stop</span>
+                <span class="exit-count">150 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Time Stop</span>
+                <span class="exit-count">138 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">55 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Death Cross</span>
+                <span class="exit-count">39 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Take Profit</span>
+                <span class="exit-count">31 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(5)">
+            <td>5</td>
+            <td>2018-07-10</td>
+            <td>5.5y</td>
+            <td><span class="green">+12.41%</span></td>
+            <td><span class="green">+89.83%</span></td>
+            <td><span class="green">+2.98%</span></td>
+            <td>$189,833.08</td>
+            <td>292</td>
+            <td>50.7%</td>
+            <td>1.33</td>
+            <td>0.64</td>
+        </tr>
+        <tr id="run-5" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+89.83%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+12.41%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+2.98%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.64</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+86.85%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$189,833.08</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">292</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">50.7%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.33</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$2,311.39</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-1,790.00</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+14,922.04 (+22.15%) — AMD<span class="reason">Take Profit</span></div><div class="trade win">$+14,644.40 (+16.31%) — PH<span class="reason">Time Stop</span></div><div class="trade win">$+12,199.33 (+13.58%) — MSFT<span class="reason">Time Stop</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-7,239.01 (-9.18%) — ABBV<span class="reason">Trailing Stop</span></div><div class="trade loss">$-7,516.68 (-9.25%) — CAT<span class="reason">Trailing Stop</span></div><div class="trade loss">$-7,582.18 (-9.18%) — BA<span class="reason">Trailing Stop</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Trailing Stop</span>
+                <span class="exit-count">125 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Time Stop</span>
+                <span class="exit-count">77 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">42 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Death Cross</span>
+                <span class="exit-count">30 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Take Profit</span>
+                <span class="exit-count">18 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+  </tbody>
+</table>
+
+<script>
+let currentSort = { col: 0, asc: true };
+
+function toggleRun(id) {
+    const row = document.getElementById('run-' + id);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
+function toggleCode() {
+    const el = document.getElementById('strategy-code');
+    const toggle = event.target;
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        toggle.textContent = '▼ Hide strategy code';
+    } else {
+        el.style.display = 'none';
+        toggle.textContent = '▶ Show strategy code';
+    }
+}
+
+function filterRuns() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const rows = document.querySelectorAll('.run-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+
+function sortTable(col) {
+    const tbody = document.getElementById('run-table');
+    const rows = Array.from(tbody.querySelectorAll('.run-row'));
+    const asc = currentSort.col === col ? !currentSort.asc : true;
+    currentSort = { col, asc };
+
+    rows.sort((a, b) => {
+        const aVal = a.cells[col].textContent.trim();
+        const bVal = b.cells[col].textContent.trim();
+        const aNum = parseFloat(aVal.replace(/[$%,]/g, '')) || 0;
+        const bNum = parseFloat(bVal.replace(/[$%,]/g, '')) || 0;
+        if (aVal === '—' || aVal === '…') return 1;
+        if (bVal === '—' || bVal === '…') return -1;
+        return asc ? aNum - bNum : bNum - aNum;
+    });
+
+    rows.forEach(row => {
+        const idx = row.cells[0].textContent.trim();
+        const detail = document.getElementById('run-' + idx);
+        tbody.appendChild(row);
+        if (detail) tbody.appendChild(detail);
+    });
+}
+
+function sortRuns() {
+    const sortKey = document.getElementById('sort').value;
+    const colMap = {
+        'run_index': 0, 'start_date': 1, 'total_return_pct': 4,
+        'cagr_pct': 3, 'alpha_pct': 5, 'win_rate': 8,
+        'profit_factor': 9, 'sharpe_ratio': 10, 'total_trades': 7
+    };
+    sortTable(colMap[sortKey] || 0);
+}
+</script>
+
+</body>
+</html>

@@ -33,13 +33,14 @@ class AlpacaClient:
         self.api = tradeapi.REST(self.api_key, self.secret_key, base_url=base_url)
 
     def get_account(self) -> Dict[str, Any]:
-        """Get account details: equity, cash, buying power."""
+        """Get account details: equity, cash, buying power, account number."""
         account = self.api.get_account()
         return {
             "equity": float(account.equity),
             "cash": float(account.cash),
             "buying_power": float(account.buying_power),
             "status": account.status,
+            "account_number": getattr(account, "account_number", None),
         }
 
     def get_portfolio_history(

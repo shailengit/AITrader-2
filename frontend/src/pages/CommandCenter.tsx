@@ -6,6 +6,7 @@ import {
 } from '../lib/regime';
 import {
   fetchLivePnl, fetchEquityCurve, type LivePnl, type LivePosition, type EquityCurve,
+  type AccountLive, type AccountEquity,
 } from '../lib/alpaca';
 import { request } from '../lib/api';
 import { DriftAlertStrip } from '../components/shared/DriftAlertStrip';
@@ -13,8 +14,8 @@ import { HypothesisBacklogCard } from '../components/shared/HypothesisBacklogCar
 
 /* ------------------------------------------------------------------ *
  * Real backend data sources wired into this dashboard:
- *  - /api/alpaca/live         portfolio value, unrealized P&L, positions
- *  - /api/alpaca/equity-curve equity history (portfolio performance)
+ *  - /api/alpaca/live         portfolio value, unrealized P&L, positions (all accounts)
+ *  - /api/alpaca/equity-curve equity history (portfolio performance, per account)
  *  - /api/markov/regimes      market regime per sector
  *  - /api/sectors             sector ETF momentum
  *  - /api/coach/metrics/overview  win-rate / trade stats (may be empty)
@@ -59,20 +60,32 @@ export default function CommandCenter() {
   }, []);
 
   const summary = summarizeRegimes(sectors);
-  const livePl = live?.total_unrealized_pl ?? 0;
-  const nPos = live?.n_positions ?? 0;
   const winRate = coach?.kpis && (coach.kpis.n_trades ?? 0) > 0 ? (coach.kpis.win_rate ?? 0) : null;
 
-  // Build equity curve points (drop leading zero days before the account had value).
-  const curveData = equity?.configured && equity.equity && equity.dates
-    ? equity.dates.map((d, i) => ({ date: d, value: equity.equity![i] ?? 0 }))
+  // All accounts returned by the backend (configured or not).
+  const accounts: AccountLive[] = live?.accounts ?? [];
+  const configuredAccounts = accounts.filter((a) => a.configured);
+
+  // Aggregate KPIs across every configured account.
+  const totalEquity = configuredAccounts.reduce((s, a) => s + (a.account?.equity ?? 0), 0);
+  const totalPl = configuredAccounts.reduce((s, a) => s + (a.total_unrealized_pl ?? 0), 0);
+  const totalPos = configuredAccounts.reduce((s, a) => s + (a.n_positions ?? 0), 0);
+  const totalCash = configuredAccounts.reduce((s, a) => s + (a.account?.cash ?? 0), 0);
+  const totalBuyingPower = configuredAccounts.reduce((s, a) => s + (a.account?.buying_power ?? 0), 0);
+
+  // Equity curve: use the first configured account for the headline chart.
+  const equityAccounts: AccountEquity[] = equity?.accounts ?? [];
+  const primaryEquity = equityAccounts.find((a) => a.configured);
+
+  const curveData = primaryEquity?.configured && primaryEquity.equity && primaryEquity.dates
+    ? primaryEquity.dates.map((d, i) => ({ date: d, value: primaryEquity.equity![i] ?? 0 }))
         .filter((p) => p.value > 0)
     : [];
   const equityChange = curveData.length >= 2 ? curveData[curveData.length - 1].value - curveData[0].value : null;
   const equityChangePct = curveData.length >= 2 && curveData[0].value > 0
     ? (curveData[curveData.length - 1].value / curveData[0].value - 1) : null;
 
-  const positions: LivePosition[] = live?.positions ?? [];
+  const anyConfigured = live?.configured ?? false;
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 24px 48px' }}>
@@ -83,14 +96,14 @@ export default function CommandCenter() {
             Command Center
           </h1>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
-            Portfolio &amp; market snapshot · as of {equity?.dates?.[equity.dates.length - 1] ?? '—'}
+            Portfolio &amp; market snapshot · {configuredAccounts.length} Alpaca account{configuredAccounts.length === 1 ? '' : 's'}
           </div>
         </div>
         <span style={{
           fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 999,
           background: 'var(--accent-glow)', color: 'var(--accent)',
         }}>
-          {live?.configured ? (live.paper ? 'Paper account' : 'Live account') : 'Read-only'}
+          {anyConfigured ? (configuredAccounts[0]?.paper ? 'Paper accounts' : 'Live accounts') : 'Read-only'}
         </span>
       </div>
 
@@ -98,27 +111,27 @@ export default function CommandCenter() {
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 18 }}>
-        <Kpi label="Portfolio Value" value={fmtMoney(live?.account?.equity, 2)}
+        <Kpi label="Portfolio Value" value={fmtMoney(totalEquity, 2)}
              delta={equityChange != null ? `${equityChange >= 0 ? '▲' : '▼'} ${fmtMoney(Math.abs(equityChange), 2)}` : null}
              deltaCls={equityChange != null && equityChange >= 0 ? 'up' : equityChange != null ? 'down' : 'flat'}
              sub={equityChangePct != null ? `${fmtPct(equityChangePct)} over ${curveData.length} days` : 'loading…'} />
-        <Kpi label="Day / Unrealized P&L" value={fmtMoney(livePl, 2)}
-             delta={live?.total_unrealized_pl_pct != null ? `${livePl >= 0 ? '▲' : '▼'} ${fmtPct(live.total_unrealized_pl_pct)}` : null}
-             deltaCls={livePl >= 0 ? 'up' : 'down'}
-             sub={live?.configured ? (live.strategy_name ?? 'Alpaca') : 'Alpaca not configured'} />
+        <Kpi label="Day / Unrealized P&L" value={fmtMoney(totalPl, 2)}
+             delta={totalPl >= 0 ? '▲' : '▼'}
+             deltaCls={totalPl >= 0 ? 'up' : 'down'}
+             sub={anyConfigured ? (live?.strategy_name ?? 'Alpaca') : 'Alpaca not configured'} />
         <Kpi label="Win Rate" value={winRate != null ? winRate.toFixed(1) + '%' : '—'}
              delta={coach?.kpis?.n_trades ? `${coach.kpis.n_trades} closed trades` : null}
              deltaCls="flat"
              sub={coach?.kpis?.n_trades ? fmtMoney(coach.kpis.total_pnl, 2) : 'no logged trades'} />
-        <Kpi label="Active Positions" value={String(nPos)}
-             delta={live?.configured ? (live.paper ? 'Paper' : 'Live') : null}
+        <Kpi label="Active Positions" value={String(totalPos)}
+             delta={anyConfigured ? `${configuredAccounts.length} account${configuredAccounts.length === 1 ? '' : 's'}` : null}
              deltaCls="flat"
-             sub={live?.configured ? `${fmtMoney(live.account?.cash, 0)} cash` : '—'} />
+             sub={anyConfigured ? `${fmtMoney(totalCash, 0)} cash` : '—'} />
       </div>
 
       {/* Main grid: equity curve + regime/sectors */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14, marginTop: 14 }}>
-        <Panel title="Equity Curve" caption="Portfolio performance, trailing 3 months">
+        <Panel title="Equity Curve" caption={primaryEquity ? `${primaryEquity.label} · trailing 3 months` : 'Portfolio performance, trailing 3 months'}>
           {equity == null ? (
             <Empty>Loading equity history…</Empty>
           ) : !equity.configured ? (
@@ -190,6 +203,25 @@ export default function CommandCenter() {
         </Panel>
       </div>
 
+      {/* Per-account cards */}
+      <div style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Alpaca Accounts</h2>
+          <span style={{ fontSize: 11, color: 'var(--subtle)' }}>{fmtMoney(totalBuyingPower, 0)} total buying power</span>
+        </div>
+        {!anyConfigured ? (
+          <Panel title="Alpaca Accounts">
+            <Empty>{live?.reason ?? 'Add Alpaca keys to the root .env to see live positions.'}</Empty>
+          </Panel>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>
+            {accounts.map((a) => (
+              <AccountCard key={a.label} account={a} equity={equityAccounts.find((e) => e.label === a.label)} />
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Sector momentum + positions table */}
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginTop: 14 }}>
         <Panel title="Sector Momentum" caption="3-month ETF performance">
@@ -212,34 +244,37 @@ export default function CommandCenter() {
           )}
         </Panel>
 
-        <Panel title="Active Positions" caption={live?.configured ? `${nPos} open · ${fmtMoney(live.account?.buying_power, 0)} buying power` : 'Alpaca not configured'}>
-          {!live?.configured ? (
+        <Panel title="Active Positions" caption={anyConfigured ? `${totalPos} open across ${configuredAccounts.length} account${configuredAccounts.length === 1 ? '' : 's'}` : 'Alpaca not configured'}>
+          {!anyConfigured ? (
             <Empty>{live?.reason ?? 'Add Alpaca keys to the root .env to see live positions.'}</Empty>
-          ) : positions.length === 0 ? (
-            <Empty>No open positions.</Empty>
+          ) : totalPos === 0 ? (
+            <Empty>No open positions across any account.</Empty>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                 <thead>
                   <tr>
-                    {['Symbol', 'Qty', 'Entry', 'Current', 'Market Value', 'P&L'].map((h) => (
+                    {['Account', 'Symbol', 'Qty', 'Entry', 'Current', 'Market Value', 'P&L'].map((h) => (
                       <th key={h} style={{ textAlign: 'left', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--subtle)', padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {positions.map((p) => (
-                    <tr key={p.ticker}>
-                      <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', fontWeight: 700 }}>{p.ticker}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{p.qty}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.avg_entry_price, 2)}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.current_price, 2)}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.market_value, 2)}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: p.unrealized_pl >= 0 ? 'var(--good)' : 'var(--bad)' }}>
-                        {fmtMoney(p.unrealized_pl, 2)} <span style={{ fontSize: 10.5, fontWeight: 600 }}>({fmtPct(p.unrealized_pl_pct)})</span>
-                      </td>
-                    </tr>
-                  ))}
+                  {configuredAccounts.flatMap((a) =>
+                    (a.positions ?? []).map((p) => (
+                      <tr key={a.label + ':' + p.ticker}>
+                        <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{a.label}</td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', fontWeight: 700 }}>{p.ticker}</td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{p.qty}</td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.avg_entry_price, 2)}</td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.current_price, 2)}</td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.market_value, 2)}</td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: p.unrealized_pl >= 0 ? 'var(--good)' : 'var(--bad)' }}>
+                          {fmtMoney(p.unrealized_pl, 2)} <span style={{ fontSize: 10.5, fontWeight: 600 }}>({fmtPct(p.unrealized_pl_pct)})</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -285,6 +320,125 @@ export default function CommandCenter() {
           ))}
         </div>
       </Panel>
+    </div>
+  );
+}
+
+function AccountCard({ account, equity }: { account: AccountLive; equity?: AccountEquity }) {
+  const positions: LivePosition[] = account.positions ?? [];
+  const pl = account.total_unrealized_pl ?? 0;
+  const plPct = account.total_unrealized_pl_pct;
+
+  const curveData = equity?.configured && equity.equity && equity.dates
+    ? equity.dates.map((d, i) => ({ date: d, value: equity.equity![i] ?? 0 })).filter((p) => p.value > 0)
+    : [];
+
+  return (
+    <div style={{ padding: 20, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>{account.label}</div>
+        {account.configured ? (
+          <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+            {account.paper ? 'Paper' : 'Live'}
+          </span>
+        ) : (
+          <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--surface-raised)', color: 'var(--subtle)' }}>
+            Unconfigured
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--subtle)', marginBottom: 12 }}>
+        {account.account_number ?? '—'}
+      </div>
+
+      {!account.configured ? (
+        <Empty>{account.reason ?? 'Not configured.'}</Empty>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
+            <Stat label="Equity" value={fmtMoney(account.account?.equity, 2)} />
+            <Stat label="Cash" value={fmtMoney(account.account?.cash, 0)} />
+            <Stat label="Buying Power" value={fmtMoney(account.account?.buying_power, 0)} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Unrealized P&amp;L</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: pl >= 0 ? 'var(--good)' : 'var(--bad)' }}>
+              {fmtMoney(pl, 2)}
+              {plPct != null && <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 6 }}>({fmtPct(plPct)})</span>}
+            </div>
+          </div>
+
+          {curveData.length > 0 && (
+            <div style={{ width: '100%', height: 90, marginBottom: 12 }}>
+              <ResponsiveContainer>
+                <AreaChart data={curveData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id={`eqFill-${account.label}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                  <Tooltip
+                    formatter={(value) => {
+                      const v = typeof value === 'number' ? value : Number(value ?? 0);
+                      return ['$' + v.toLocaleString(undefined, { maximumFractionDigits: 2 }), 'Equity'];
+                    }}
+                    labelStyle={{ fontFamily: 'var(--font-sf-text)', fontSize: 11 }}
+                    contentStyle={{
+                      background: 'var(--surface-overlay)', border: '1px solid var(--border)',
+                      borderRadius: 8, color: 'var(--foreground)', fontSize: 12,
+                    }}
+                  />
+                  <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={1.5} fill={`url(#eqFill-${account.label})`} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          <div style={{ fontSize: 10, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 600, marginBottom: 6 }}>
+            Open Positions ({positions.length})
+          </div>
+          {positions.length === 0 ? (
+            <Empty>No open positions.</Empty>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    {['Symbol', 'Qty', 'Entry', 'Current', 'Mkt Val', 'P&L'].map((h) => (
+                      <th key={h} style={{ textAlign: 'left', fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--subtle)', padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {positions.map((p) => (
+                    <tr key={p.ticker}>
+                      <td style={{ padding: '8px', borderBottom: '1px solid var(--border)', fontWeight: 700 }}>{p.ticker}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{p.qty}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.avg_entry_price, 2)}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.current_price, 2)}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>{fmtMoney(p.market_value, 2)}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: p.unrealized_pl >= 0 ? 'var(--good)' : 'var(--bad)' }}>
+                        {fmtMoney(p.unrealized_pl, 2)} <span style={{ fontSize: 10, fontWeight: 600 }}>({fmtPct(p.unrealized_pl_pct)})</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 9.5, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, marginTop: 3 }}>{value}</div>
     </div>
   );
 }

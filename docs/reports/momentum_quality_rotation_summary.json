@@ -1,0 +1,86 @@
+{
+  "initial_capital": 100000.0,
+  "final_portfolio": 2287902.52,
+  "total_return_pct": 2187.9,
+  "cagr_pct": 87.1,
+  "sharpe_ratio": 1.75,
+  "max_drawdown_pct": 38.29,
+  "total_trades": 293,
+  "win_rate": 32.1,
+  "profit_factor": 2.57,
+  "avg_winner": 33513.1,
+  "avg_loser": -6168.54,
+  "exit_reasons": {
+    "Take Profit": 34,
+    "Rotated Out": 105,
+    "Trailing Stop": 148,
+    "Stop Loss": 2,
+    "Time Stop": 4
+  },
+  "spy_return_pct": 98.08,
+  "alpha_pct": 2089.82,
+  "top_winners": [
+    {
+      "ticker": "SATS",
+      "return_pct": 54.2,
+      "pnl_dollars": 344641.73,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "KTOS",
+      "return_pct": 55.05,
+      "pnl_dollars": 247549.66,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "VSAT",
+      "return_pct": 67.79,
+      "pnl_dollars": 181694.6,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "ARWR",
+      "return_pct": 51.75,
+      "pnl_dollars": 179402.88,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "LUMN",
+      "return_pct": 53.93,
+      "pnl_dollars": 157244.65,
+      "exit_reason": "Take Profit"
+    }
+  ],
+  "top_losers": [
+    {
+      "ticker": "GILD",
+      "return_pct": -8.12,
+      "pnl_dollars": -36939.06,
+      "exit_reason": "Rotated Out"
+    },
+    {
+      "ticker": "PTGX",
+      "return_pct": -14.56,
+      "pnl_dollars": -37752.89,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "TSLA",
+      "return_pct": -14.12,
+      "pnl_dollars": -38716.79,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "SATS",
+      "return_pct": -8.81,
+      "pnl_dollars": -61451.66,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "ALK",
+      "return_pct": -12.89,
+      "pnl_dollars": -66240.01,
+      "exit_reason": "Trailing Stop"
+    }
+  ]
+}

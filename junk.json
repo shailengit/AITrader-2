@@ -1,0 +1,23 @@
+{
+“providers”: {
+“ollama”: {
+“baseUrl”: “http://localhost:11434/v1”,
+“api”: “openai-completions”,
+“apiKey”: “ollama”,
+“compat”: {
+“supportsDeveloperRole”: false,
+“supportsReasoningEffort”: false
+}
+}
+},
+“models”: [
+{
+“id”: “deepseek-v4-flash:0731-cloud”,
+“name”: “DeepSeek V4 Flash (Ollama)”,
+“provider”: “ollama”,
+“model_string”: “deepseek-v4-flash:0731-cloud”,
+“contextWindow”: 1000000,
+“maxTokens”: 8192
+}
+]
+}

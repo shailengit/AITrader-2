@@ -236,10 +236,13 @@ export function TerminalHost() {
 
       ws.onclose = (event) => {
         if (intentionallyClosedRef.current) return;
-        if (event.code === 1000 || event.code === 1001) {
-          handleDisconnected(event.code);
-          return;
-        }
+        // NOTE: Normal closes (1000/1001) are no longer treated as
+        // permanent — see Terminal.tsx for the full rationale. A normal
+        // close from navigation, a backend restart, or a network blip
+        // now goes through the same backoff reconnection as any other
+        // drop, so the web terminal stops showing "Session ended" for
+        // sessions that are actually still alive on the backend. Only an
+        // exhausted retry budget surfaces the disconnected state.
         if (reconnectAttemptsRef.current < MAX_AUTO_RECONNECTS) {
           const attempt = reconnectAttemptsRef.current++;
           const delay = Math.min(

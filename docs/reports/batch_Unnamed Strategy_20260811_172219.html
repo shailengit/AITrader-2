@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unnamed Strategy — Run Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 24px; }
+  h1 { font-size: 1.8rem; margin-bottom: 4px; background: linear-gradient(135deg, #22d3ee, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+  .controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .controls input, .controls select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; }
+  .controls input { flex: 1; min-width: 200px; }
+  .controls select { cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; padding: 10px 8px; color: #64748b; font-weight: 500; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; border-bottom: 2px solid #1e293b; cursor: pointer; user-select: none; }
+  th:hover { color: #22d3ee; }
+  td { padding: 8px; border-bottom: 1px solid #1e293b; }
+  tr.run-row:hover { background: #1a2332; cursor: pointer; }
+  .green { color: #10b981; }
+  .red { color: #ef4444; }
+  .opacity-50 { opacity: 0.5; }
+  .run-detail td { padding: 16px 24px; background: #0f172a; border-bottom: 2px solid #22d3ee; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .detail-card { background: #1a2332; border-radius: 8px; padding: 12px; }
+  .detail-wide { grid-column: span 1; }
+  .detail-title { font-size: 0.85rem; font-weight: 600; color: #22d3ee; margin-bottom: 8px; }
+  .trade { padding: 4px 0; font-size: 0.8rem; border-bottom: 1px solid #1e293b; }
+  .trade.win { color: #10b981; }
+  .trade.loss { color: #ef4444; }
+  .trade .reason { color: #64748b; font-size: 0.7rem; margin-left: 8px; }
+  .exit-row { display: flex; gap: 12px; padding: 4px 0; font-size: 0.8rem; border-bottom: 1px solid #1e293b; }
+  .exit-name { flex: 1; color: #94a3b8; }
+  .exit-count { width: 100px; color: #64748b; }
+  .exit-pnl { width: 120px; text-align: right; }
+  .summary { display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+  .summary-item { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 12px 20px; text-align: center; }
+  .summary-value { font-size: 1.3rem; font-weight: 700; }
+  .summary-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+  .strategy-section { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .strategy-section h3 { color: #22d3ee; font-size: 1rem; margin-bottom: 8px; }
+  .params-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .param-item { display: flex; justify-content: space-between; padding: 4px 8px; background: #1a2332; border-radius: 4px; font-size: 0.8rem; }
+  .param-key { color: #64748b; }
+  .param-val { color: #e2e8f0; font-family: 'JetBrains Mono', monospace; }
+  pre.code-block { background: #1a2332; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-size: 0.75rem; line-height: 1.4; overflow-x: auto; max-height: 300px; color: #e2e8f0; }
+  .toggle-code { color: #22d3ee; cursor: pointer; font-size: 0.8rem; margin-top: 4px; display: inline-block; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Unnamed Strategy — Run Viewer</h1>
+<p class="subtitle">10 completed runs | Batch: 17eab2b0 | Generated 2026-08-11 17:22</p>
+
+<div class="summary">
+  <div class="summary-item">
+    <div class="summary-value" style="color:#22d3ee;">10</div>
+    <div class="summary-label">Total Runs</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#10b981;">+6064.19%</div>
+    <div class="summary-label">Mean Return</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#10b981;">+5323.80%</div>
+    <div class="summary-label">Mean Alpha</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#f59e0b;">51.0%</div>
+    <div class="summary-label">Avg Win Rate</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#22d3ee;">1.63</div>
+    <div class="summary-label">Avg Profit Factor</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#22d3ee;">0.73</div>
+    <div class="summary-label">Avg Sharpe</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-value" style="color:#64748b;">1194</div>
+    <div class="summary-label">Avg Trades</div>
+  </div>
+</div>
+
+<div class="strategy-section">
+    <h3>📋 Strategy Details</h3>
+    
+    <div style="margin-top:8px;">
+        <span class="toggle-code" onclick="toggleCode()">▶ Show strategy code</span>
+        <pre id="strategy-code" class="code-block" style="display:none;"></pre>
+    </div>
+</div>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Search by start date or run ID..." onkeyup="filterRuns()">
+  <select id="sort" onchange="sortRuns()">
+    <option value="run_index">Sort by Run #</option>
+    <option value="total_return_pct">Sort by Total Return</option>
+    <option value="cagr_pct">Sort by Annualized Return</option>
+    <option value="alpha_pct">Sort by Alpha</option>
+    <option value="win_rate">Sort by Win Rate</option>
+    <option value="profit_factor">Sort by Profit Factor</option>
+    <option value="sharpe_ratio">Sort by Sharpe</option>
+    <option value="total_trades">Sort by Trade Count</option>
+    <option value="start_date">Sort by Start Date</option>
+  </select>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th onclick="sortTable(0)">#</th>
+      <th onclick="sortTable(1)">Start</th>
+      <th onclick="sortTable(2)">Dur</th>
+      <th onclick="sortTable(3)">Ann Ret</th>
+      <th onclick="sortTable(4)">Total Ret</th>
+      <th onclick="sortTable(5)">Alpha</th>
+      <th onclick="sortTable(6)">Final</th>
+      <th onclick="sortTable(7)">Trades</th>
+      <th onclick="sortTable(8)">Win%</th>
+      <th onclick="sortTable(9)">PF</th>
+      <th onclick="sortTable(10)">Sharpe</th>
+    </tr>
+  </thead>
+  <tbody id="run-table">
+    
+        <tr class="run-row " onclick="toggleRun(1)">
+            <td>1</td>
+            <td>2016-08-03</td>
+            <td>9.8y</td>
+            <td><span class="green">+5.61%</span></td>
+            <td><span class="green">+70.98%</span></td>
+            <td><span class="red">-239.88%</span></td>
+            <td>$170,984.13</td>
+            <td>771</td>
+            <td>48.1%</td>
+            <td>1.11</td>
+            <td>0.35</td>
+        </tr>
+        <tr id="run-1" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+70.98%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+5.61%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#ef4444">-239.88%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.35</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+310.87%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$170,984.13</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">771</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">48.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.11</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$1,743.12</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-1,456.26</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+35,714.52 (+178.53%) — LNTH<span class="reason">Rotated Out</span></div><div class="trade win">$+26,125.95 (+59.49%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+25,114.53 (+46.34%) — CVNA<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-8,356.67 (-21.71%) — COKE<span class="reason">Stop Loss</span></div><div class="trade loss">$-8,557.44 (-22.89%) — YOU<span class="reason">Stop Loss</span></div><div class="trade loss">$-8,729.28 (-24.69%) — CVNA<span class="reason">Stop Loss</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">736 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">35 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(2)">
+            <td>2</td>
+            <td>2009-09-24</td>
+            <td>16.7y</td>
+            <td><span class="green">+28.95%</span></td>
+            <td><span class="green">+6856.24%</span></td>
+            <td><span class="green">+5985.63%</span></td>
+            <td>$6,956,243.56</td>
+            <td>1304</td>
+            <td>51.1%</td>
+            <td>1.67</td>
+            <td>0.79</td>
+        </tr>
+        <tr id="run-2" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+6856.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+28.95%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+5985.63%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.79</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+870.62%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$6,956,243.56</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">1304</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">51.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.67</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$24,010.11</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-14,971.63</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+1,268,068.67 (+90.04%) — ARWR<span class="reason">Rotated Out</span></div><div class="trade win">$+1,139,259.75 (+45.40%) — SNDK<span class="reason">Rotated Out</span></div><div class="trade win">$+628,736.92 (+71.46%) — SMCI<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-237,397.82 (-14.09%) — VSCO<span class="reason">Rotated Out</span></div><div class="trade loss">$-242,045.32 (-20.93%) — TSLA<span class="reason">Stop Loss</span></div><div class="trade loss">$-262,216.30 (-18.52%) — ATI<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">1249 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">55 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(3)">
+            <td>3</td>
+            <td>2015-09-12</td>
+            <td>10.7y</td>
+            <td><span class="green">+36.82%</span></td>
+            <td><span class="green">+2779.18%</span></td>
+            <td><span class="green">+2416.21%</span></td>
+            <td>$2,879,179.11</td>
+            <td>849</td>
+            <td>48.1%</td>
+            <td>2.12</td>
+            <td>0.91</td>
+        </tr>
+        <tr id="run-3" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+2779.18%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+36.82%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+2416.21%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.91</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+362.97%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$2,879,179.11</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">849</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">48.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">2.12</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$12,424.96</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-5,415.34</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+607,017.43 (+55.89%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+431,758.62 (+165.43%) — APP<span class="reason">Rotated Out</span></div><div class="trade win">$+372,253.71 (+74.49%) — VSAT<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-59,208.74 (-20.93%) — TSLA<span class="reason">Stop Loss</span></div><div class="trade loss">$-80,967.64 (-11.53%) — ALB<span class="reason">Rotated Out</span></div><div class="trade loss">$-95,164.81 (-5.41%) — ARWR<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">809 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">40 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(4)">
+            <td>4</td>
+            <td>2001-09-27</td>
+            <td>24.7y</td>
+            <td><span class="green">+19.42%</span></td>
+            <td><span class="green">+7883.24%</span></td>
+            <td><span class="green">+6825.68%</span></td>
+            <td>$7,983,244.49</td>
+            <td>1351</td>
+            <td>52.1%</td>
+            <td>1.65</td>
+            <td>0.67</td>
+        </tr>
+        <tr id="run-4" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+7883.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+19.42%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+6825.68%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.67</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+1057.56%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$7,983,244.49</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">1351</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.65</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$27,789.07</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-18,319.78</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+2,490,915.12 (+165.43%) — APP<span class="reason">Rotated Out</span></div><div class="trade win">$+736,751.68 (+59.49%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+724,231.86 (+40.64%) — HOOD<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-271,217.30 (-10.02%) — CACI<span class="reason">Rotated Out</span></div><div class="trade loss">$-274,291.76 (-8.12%) — GILD<span class="reason">Rotated Out</span></div><div class="trade loss">$-291,609.23 (-22.89%) — YOU<span class="reason">Stop Loss</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">1286 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">65 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(5)">
+            <td>5</td>
+            <td>2008-08-08</td>
+            <td>17.8y</td>
+            <td><span class="green">+27.88%</span></td>
+            <td><span class="green">+7883.24%</span></td>
+            <td><span class="green">+7170.28%</span></td>
+            <td>$7,983,244.49</td>
+            <td>1351</td>
+            <td>52.1%</td>
+            <td>1.65</td>
+            <td>0.79</td>
+        </tr>
+        <tr id="run-5" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+7883.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+27.88%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+7170.28%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.79</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+712.96%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$7,983,244.49</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">1351</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.65</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$27,789.07</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-18,319.78</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+2,490,915.12 (+165.43%) — APP<span class="reason">Rotated Out</span></div><div class="trade win">$+736,751.68 (+59.49%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+724,231.86 (+40.64%) — HOOD<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-271,217.30 (-10.02%) — CACI<span class="reason">Rotated Out</span></div><div class="trade loss">$-274,291.76 (-8.12%) — GILD<span class="reason">Rotated Out</span></div><div class="trade loss">$-291,609.23 (-22.89%) — YOU<span class="reason">Stop Loss</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">1286 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">65 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(6)">
+            <td>6</td>
+            <td>2002-08-26</td>
+            <td>23.8y</td>
+            <td><span class="green">+20.24%</span></td>
+            <td><span class="green">+7883.24%</span></td>
+            <td><span class="green">+6752.61%</span></td>
+            <td>$7,983,244.49</td>
+            <td>1351</td>
+            <td>52.1%</td>
+            <td>1.65</td>
+            <td>0.68</td>
+        </tr>
+        <tr id="run-6" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+7883.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+20.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+6752.61%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.68</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+1130.64%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$7,983,244.49</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">1351</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.65</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$27,789.07</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-18,319.78</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+2,490,915.12 (+165.43%) — APP<span class="reason">Rotated Out</span></div><div class="trade win">$+736,751.68 (+59.49%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+724,231.86 (+40.64%) — HOOD<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-271,217.30 (-10.02%) — CACI<span class="reason">Rotated Out</span></div><div class="trade loss">$-274,291.76 (-8.12%) — GILD<span class="reason">Rotated Out</span></div><div class="trade loss">$-291,609.23 (-22.89%) — YOU<span class="reason">Stop Loss</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">1286 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">65 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(7)">
+            <td>7</td>
+            <td>2003-10-03</td>
+            <td>22.7y</td>
+            <td><span class="green">+21.32%</span></td>
+            <td><span class="green">+7883.24%</span></td>
+            <td><span class="green">+6872.76%</span></td>
+            <td>$7,983,244.49</td>
+            <td>1351</td>
+            <td>52.1%</td>
+            <td>1.65</td>
+            <td>0.70</td>
+        </tr>
+        <tr id="run-7" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+7883.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+21.32%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+6872.76%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.70</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+1010.49%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$7,983,244.49</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">1351</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.65</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$27,789.07</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-18,319.78</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+2,490,915.12 (+165.43%) — APP<span class="reason">Rotated Out</span></div><div class="trade win">$+736,751.68 (+59.49%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+724,231.86 (+40.64%) — HOOD<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-271,217.30 (-10.02%) — CACI<span class="reason">Rotated Out</span></div><div class="trade loss">$-274,291.76 (-8.12%) — GILD<span class="reason">Rotated Out</span></div><div class="trade loss">$-291,609.23 (-22.89%) — YOU<span class="reason">Stop Loss</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">1286 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">65 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(8)">
+            <td>8</td>
+            <td>2014-11-27</td>
+            <td>11.5y</td>
+            <td><span class="green">+36.97%</span></td>
+            <td><span class="green">+3636.08%</span></td>
+            <td><span class="green">+3291.57%</span></td>
+            <td>$3,736,078.18</td>
+            <td>905</td>
+            <td>50.3%</td>
+            <td>1.48</td>
+            <td>0.92</td>
+        </tr>
+        <tr id="run-8" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+3636.08%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+36.97%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+3291.57%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.92</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+344.50%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$3,736,078.18</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">905</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">50.3%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.48</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$23,398.93</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-15,946.01</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+667,302.23 (+156.05%) — PR<span class="reason">Rotated Out</span></div><div class="trade win">$+632,099.36 (+81.77%) — ARWR<span class="reason">Rotated Out</span></div><div class="trade win">$+591,867.68 (+45.40%) — SNDK<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-179,860.96 (-14.09%) — VSCO<span class="reason">Rotated Out</span></div><div class="trade loss">$-209,683.17 (-21.01%) — OKTA<span class="reason">Stop Loss</span></div><div class="trade loss">$-225,507.59 (-19.58%) — POWL<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">865 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">40 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(9)">
+            <td>9</td>
+            <td>2008-03-18</td>
+            <td>18.2y</td>
+            <td><span class="green">+27.20%</span></td>
+            <td><span class="green">+7883.24%</span></td>
+            <td><span class="green">+7188.35%</span></td>
+            <td>$7,983,244.49</td>
+            <td>1351</td>
+            <td>52.1%</td>
+            <td>1.65</td>
+            <td>0.78</td>
+        </tr>
+        <tr id="run-9" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+7883.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+27.20%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+7188.35%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.78</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+694.90%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$7,983,244.49</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">1351</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.65</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$27,789.07</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-18,319.78</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+2,490,915.12 (+165.43%) — APP<span class="reason">Rotated Out</span></div><div class="trade win">$+736,751.68 (+59.49%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+724,231.86 (+40.64%) — HOOD<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-271,217.30 (-10.02%) — CACI<span class="reason">Rotated Out</span></div><div class="trade loss">$-274,291.76 (-8.12%) — GILD<span class="reason">Rotated Out</span></div><div class="trade loss">$-291,609.23 (-22.89%) — YOU<span class="reason">Stop Loss</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">1286 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">65 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+        <tr class="run-row " onclick="toggleRun(10)">
+            <td>10</td>
+            <td>2002-03-15</td>
+            <td>24.2y</td>
+            <td><span class="green">+19.83%</span></td>
+            <td><span class="green">+7883.24%</span></td>
+            <td><span class="green">+6974.75%</span></td>
+            <td>$7,983,244.49</td>
+            <td>1351</td>
+            <td>52.1%</td>
+            <td>1.65</td>
+            <td>0.67</td>
+        </tr>
+        <tr id="run-10" class="run-detail" style="display:none;">
+            <td colspan="11">
+                
+        <div class="detail-grid">
+            <div class="detail-card">
+                <div class="detail-title">📊 Key Metrics</div>
+                <div class="exit-row"><span class="exit-name">Total Return</span><span class="exit-pnl" style="color:#10b981">+7883.24%</span></div>
+                <div class="exit-row"><span class="exit-name">Annualized (CAGR)</span><span class="exit-pnl" style="color:#10b981">+19.83%</span></div>
+                <div class="exit-row"><span class="exit-name">Alpha vs SPY</span><span class="exit-pnl" style="color:#10b981">+6974.75%</span></div>
+                <div class="exit-row"><span class="exit-name">Sharpe Ratio</span><span class="exit-pnl">0.67</span></div>
+                <div class="exit-row"><span class="exit-name">SPY Return</span><span class="exit-pnl">+908.49%</span></div>
+                <div class="exit-row"><span class="exit-name">Final Portfolio</span><span class="exit-pnl">$7,983,244.49</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">📈 Trade Stats</div>
+                <div class="exit-row"><span class="exit-name">Total Trades</span><span class="exit-pnl">1351</span></div>
+                <div class="exit-row"><span class="exit-name">Win Rate</span><span class="exit-pnl">52.1%</span></div>
+                <div class="exit-row"><span class="exit-name">Profit Factor</span><span class="exit-pnl">1.65</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Winner</span><span class="exit-pnl" style="color:#10b981">$27,789.07</span></div>
+                <div class="exit-row"><span class="exit-name">Avg Loser</span><span class="exit-pnl" style="color:#ef4444">$-18,319.78</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">🏆 Top Winners</div>
+                <div class="trade win">$+2,490,915.12 (+165.43%) — APP<span class="reason">Rotated Out</span></div><div class="trade win">$+736,751.68 (+59.49%) — VICR<span class="reason">Rotated Out</span></div><div class="trade win">$+724,231.86 (+40.64%) — HOOD<span class="reason">Rotated Out</span></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">💀 Top Losers</div>
+                <div class="trade loss">$-271,217.30 (-10.02%) — CACI<span class="reason">Rotated Out</span></div><div class="trade loss">$-274,291.76 (-8.12%) — GILD<span class="reason">Rotated Out</span></div><div class="trade loss">$-291,609.23 (-22.89%) — YOU<span class="reason">Stop Loss</span></div>
+            </div>
+            <div class="detail-card detail-wide">
+                <div class="detail-title">📋 Exit Reasons</div>
+                
+            <div class="exit-row">
+                <span class="exit-name">Rotated Out</span>
+                <span class="exit-count">1286 trades</span>
+            </div>
+            <div class="exit-row">
+                <span class="exit-name">Stop Loss</span>
+                <span class="exit-count">65 trades</span>
+            </div>
+            </div>
+        </div>
+            </td>
+        </tr>
+  </tbody>
+</table>
+
+<script>
+let currentSort = { col: 0, asc: true };
+
+function toggleRun(id) {
+    const row = document.getElementById('run-' + id);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
+function toggleCode() {
+    const el = document.getElementById('strategy-code');
+    const toggle = event.target;
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        toggle.textContent = '▼ Hide strategy code';
+    } else {
+        el.style.display = 'none';
+        toggle.textContent = '▶ Show strategy code';
+    }
+}
+
+function filterRuns() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const rows = document.querySelectorAll('.run-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+
+function sortTable(col) {
+    const tbody = document.getElementById('run-table');
+    const rows = Array.from(tbody.querySelectorAll('.run-row'));
+    const asc = currentSort.col === col ? !currentSort.asc : true;
+    currentSort = { col, asc };
+
+    rows.sort((a, b) => {
+        const aVal = a.cells[col].textContent.trim();
+        const bVal = b.cells[col].textContent.trim();
+        const aNum = parseFloat(aVal.replace(/[$%,]/g, '')) || 0;
+        const bNum = parseFloat(bVal.replace(/[$%,]/g, '')) || 0;
+        if (aVal === '—' || aVal === '…') return 1;
+        if (bVal === '—' || bVal === '…') return -1;
+        return asc ? aNum - bNum : bNum - aNum;
+    });
+
+    rows.forEach(row => {
+        const idx = row.cells[0].textContent.trim();
+        const detail = document.getElementById('run-' + idx);
+        tbody.appendChild(row);
+        if (detail) tbody.appendChild(detail);
+    });
+}
+
+function sortRuns() {
+    const sortKey = document.getElementById('sort').value;
+    const colMap = {
+        'run_index': 0, 'start_date': 1, 'total_return_pct': 4,
+        'cagr_pct': 3, 'alpha_pct': 5, 'win_rate': 8,
+        'profit_factor': 9, 'sharpe_ratio': 10, 'total_trades': 7
+    };
+    sortTable(colMap[sortKey] || 0);
+}
+</script>
+
+</body>
+</html>

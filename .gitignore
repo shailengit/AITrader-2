@@ -74,3 +74,6 @@ backend/RESULTS.md
 strategies/_generated/
 backend/logs/strategy_lab/
 strategies/all_trades_*.csv
+
+# backups
+.env.bak*

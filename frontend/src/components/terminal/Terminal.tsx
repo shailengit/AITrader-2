@@ -141,11 +141,17 @@ export function TerminalComponent({ sessionId, onReady, onDisconnected }: Termin
         if (intentionallyClosedRef.current) {
           return;
         }
-        if (event.code === 1000 || event.code === 1001) {
-          // Normal closure — don't reconnect.
-          onDisconnectedRef.current?.(event.code);
-          return;
-        }
+        // NOTE: We no longer special-case normal closes (1000/1001) to
+        // give up. Previously a normal close from the server/browser
+        // (navigation, a backend restart, a transient network blip) was
+        // treated as permanent, which surfaced "Session ended" and made
+        // the web terminal appear to "die for no reason" while the
+        // backend session stayed alive. Treat every close the same and
+        // let the backoff reconnection absorb it; only when retries are
+        // exhausted do we surface the disconnected state. A genuine
+        // teardown is still protected by intentionallyClosedRef above,
+        // and if the server truly ended the shell, reconnecting just
+        // spawns a fresh one.
         if (reconnectAttemptsRef.current < MAX_AUTO_RECONNECTS) {
           const attempt = reconnectAttemptsRef.current++;
           const delay = Math.min(

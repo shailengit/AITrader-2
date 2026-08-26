@@ -1,0 +1,131 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>TradeCraft — Minimal Elegant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fafaf8; --surface:#ffffff; --raised:#f4f4f1; --overlay:#eeeee9;
+  --line:#e9e8e2; --line2:#dddcd4;
+  --fg:#191917; --muted:#6f6e68; --subtle:#a3a29a;
+  --accent:#a05b2c; --accent-ink:#fff; --glow:rgba(160,91,44,.12);
+  --good:#3f7d5c; --bad:#b0473a;
+  --serif:'Newsreader','Instrument Serif','Georgia',serif;
+  --shadow:0 1px 2px rgba(20,20,16,.04),0 6px 24px -12px rgba(20,20,16,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--fg);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.app{display:grid;grid-template-columns:224px 1fr;min-height:100vh}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:26px 16px;display:flex;flex-direction:column;gap:26px}
+.brand{display:flex;align-items:center;gap:12px;padding:2px 8px}
+.logo{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--fg);display:grid;place-items:center;font-weight:500;font-size:11px;letter-spacing:.02em}
+.bn b{font-family:var(--serif);font-size:17px;letter-spacing:-.01em;font-weight:500}
+.bn small{display:block;color:var(--subtle);font-size:9.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;margin-top:2px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);padding:4px 10px 8px;font-weight:500}
+.nav-item{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px;color:var(--muted);font-weight:400;cursor:pointer}
+.nav-item svg{width:16px;height:16px;stroke-width:1.5}
+.nav-item:hover{color:var(--fg)}
+.nav-item.active{color:var(--fg);font-weight:500}
+.nav-item.active svg{color:var(--accent)}
+.nav-item.active .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:auto}
+.user{margin-top:auto;display:flex;align-items:center;gap:12px;padding:11px 8px;border-top:1px solid var(--line)}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--fg);color:var(--surface);display:grid;place-items:center;font-weight:500;font-size:11px}
+.um .nm{font-weight:500;font-size:12.5px}.um .em{font-size:10.5px;color:var(--subtle);margin-top:1px}
+.main{padding:40px 48px 56px;display:flex;flex-direction:column;gap:26px;background:radial-gradient(900px 400px at 85% -5%,rgba(160,91,44,.03),transparent 60%),var(--bg)}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.titles h1{font-family:var(--serif);font-size:34px;letter-spacing:-.015em;font-weight:500;line-height:1.1}
+.titles p{color:var(--muted);font-size:13.5px;margin-top:8px}
+.actions{display:flex;align-items:center;gap:12px}
+.search{display:flex;align-items:center;gap:10px;background:transparent;border-bottom:1px solid var(--line2);padding:8px 2px;color:var(--subtle);min-width:210px;font-size:13px}
+.search svg{width:15px;height:15px}
+.iconbtn{width:36px;height:36px;display:grid;place-items:center;background:transparent;border:1px solid var(--line);border-radius:50%;color:var(--muted);cursor:pointer}
+.iconbtn svg{width:15px;height:15px}
+.btn{border:1px solid var(--line2);background:transparent;color:var(--fg);padding:9px 16px;border-radius:999px;font-weight:500;font-size:13px;cursor:pointer}
+.btn.ghost:hover{background:var(--raised)}
+.btn.primary{background:var(--fg);color:var(--surface);border-color:transparent;font-weight:500}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;border-bottom:1px solid var(--line);padding-bottom:26px}
+.kpi{background:transparent;border:0;padding:4px 2px}
+.kic{width:30px;height:30px;border-radius:8px;background:var(--raised);display:grid;place-items:center;color:var(--accent);margin-bottom:16px}
+.kic svg{width:15px;height:15px;stroke-width:1.6}
+.kpi .k{font-size:11px;color:var(--subtle);font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+.kpi .v{font-family:var(--serif);font-size:30px;font-weight:500;letter-spacing:-.02em;margin-top:6px;line-height:1.1}
+.kpi .d{font-size:12px;margin-top:7px;font-weight:500;letter-spacing:.01em}.kpi .sub{font-size:11px;color:var(--subtle);margin-top:2px}
+.d.up,.up{color:var(--good)}.d.down,.bad{color:var(--bad)}.flat{color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 300px;gap:22px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:var(--shadow)}
+.panelhead{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.panelhead h3{font-family:var(--serif);font-size:16px;font-weight:500;letter-spacing:-.01em}
+.panelhead .cap{font-size:11.5px;color:var(--subtle);margin-top:4px}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);align-items:center}
+.legend i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
+.legend .lg.a{background:var(--accent)}.legend .lg.b{background:#cfcec6}
+.legend .link{color:var(--accent);font-weight:500;cursor:pointer}
+.chart svg{width:100%;height:220px;display:block}
+.gl{stroke:#efeee8;stroke-width:1}
+.g0{stop-color:var(--accent)}.g1{stop-color:var(--accent)}
+.area{fill:url(#fillg)}.linep{fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round}
+.lineb{fill:none;stroke:#cfcec6;stroke-width:1.4;stroke-dasharray:5 5}
+.regime{display:flex;gap:12px;margin-bottom:18px}
+.rbox{flex:1;text-align:center;padding:14px 8px;border-radius:12px;background:var(--raised)}
+.rk{font-size:10px;color:var(--subtle);letter-spacing:.06em;text-transform:uppercase;font-weight:500}
+.rv{font-family:var(--serif);font-weight:500;margin-top:5px;font-size:16px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.tk{font-weight:500;font-size:13px}.tk span{display:block;font-size:10.5px;color:var(--subtle);font-weight:400}
+.pr{text-align:right}.pr b{display:block;font-size:13px;font-weight:500}.pr small{font-size:11px;font-weight:500}
+.tablepanel{padding:20px 24px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--subtle);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2);font-weight:500}
+td{padding:14px 12px;border-bottom:1px solid var(--line);color:var(--muted)}
+tbody tr:last-child td{border-bottom:0}
+td b{color:var(--fg);font-weight:500} td.good b{color:var(--good)} td.bad b{color:var(--bad)}
+td.good span,td.bad span{font-size:11px;font-weight:500}
+.sym{position:relative}.sectag{display:block;font-size:10.5px;color:var(--subtle);font-weight:400;margin-top:1px}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:500;padding:3px 0;border-radius:0;letter-spacing:.03em}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%}
+.pill.live{color:var(--good)}.pill.live::before{background:var(--good)}
+.pill.flat{color:var(--muted)}.pill.flat::before{background:var(--subtle)}
+</style></head><body><div class="app"><aside class="side">
+      <div class="brand"><div class="logo">TC</div><div class="bn"><b>TradeCraft</b><small>Platform</small></div></div>
+      <nav class="nav"><div class="nav-label">Workspace</div><div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview<span class="dot"></span></div><div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3"/><path d="M12 3v9h9"/></svg>Sector Rotation</div><div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9v7l4 2v-9z"/></svg>AI Screener</div><div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>QuantGen</div><div class="nav-label">Intelligence</div><div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Markov</div><div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Trade Coach</div><div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>Terminal</div></nav>
+      <div class="user"><div class="avatar">AK</div><div class="um"><div class="nm">Alex Kaushik</div><div class="em">alex@tradecraft.io</div></div></div>
+    </aside><main class="main"><div class="top"><div class="titles"><h1>Overview</h1><p>Portfolio &amp; market snapshot, Aug 2026</p></div><div class="actions"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Search tickers, strategies…</span></div><div class="iconbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="btn ghost">Aug 13, 2026</div><div class="btn primary">Run Scan</div></div></div><div class="kpis"><div class="kpi"><div class="kic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div><div class="k">Portfolio Value</div><div class="v">$284,320</div><div class="d up">▲ +2.4%</div><div class="sub">+$6,740 today</div></div><div class="kpi"><div class="kic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="k">Day P/L</div><div class="v">+$6,740</div><div class="d up">▲ +1.9%</div><div class="sub">SPX +0.8%</div></div><div class="kpi"><div class="kic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></div><div class="k">Win Rate</div><div class="v">68.4%</div><div class="d up">▲ 3.2 pts</div><div class="sub">Last 90 days</div></div><div class="kpi"><div class="kic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div><div class="k">Active Positions</div><div class="v">18</div><div class="d flat">◆ 4 sectors</div><div class="sub">2 long · 16 short</div></div></div>
+      <div class="grid">
+      <div class="panel chartpanel">
+        <div class="panelhead"><div><h3>Equity Curve</h3><div class="cap">Cumulative strategy performance, trailing 12 months</div></div>
+        <div class="legend"><span><i class="lg a"></i>Portfolio</span><span><i class="lg b"></i>SPX</span></div></div>
+        <div class="chart">
+          <svg viewBox="0 0 800 230" preserveAspectRatio="none">
+            <defs><linearGradient id="fillg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="g0" stop-opacity=".28"/><stop offset="1" class="g1" stop-opacity="0"/></linearGradient></defs>
+            <line class="gl" x1="0" y1="60" x2="800" y2="60"/><line class="gl" x1="0" y1="120" x2="800" y2="120"/><line class="gl" x1="0" y1="180" x2="800" y2="180"/>
+            <path class="area" d="M0,190 C80,178 120,150 180,155 C240,160 280,120 340,126 C400,132 440,90 500,96 C560,102 600,64 660,70 C700,74 740,50 800,40 L800,230 L0,230 Z"/>
+            <path class="linep" d="M0,190 C80,178 120,150 180,155 C240,160 280,120 340,126 C400,132 440,90 500,96 C560,102 600,64 660,70 C700,74 740,50 800,40"/>
+            <path class="lineb" d="M0,196 C100,200 180,186 260,190 C340,196 420,178 500,182 C580,186 660,170 740,174 C770,176 786,178 800,176"/>
+          </svg>
+        </div>
+      </div>
+      <div class="panel sidepanel">
+        <div class="panelhead"><div><h3>Market Regime</h3><div class="cap">Current macro environment</div></div></div>
+        <div class="regime"><div class="rbox"><div class="rk">Regime</div><div class="rv">Risk-On</div></div>
+        <div class="rbox"><div class="rk">Trend</div><div class="rv up">▲ Bull</div></div></div>
+        <div class="row"><div class="tk">NVDA<span>Technology</span></div><div class="pr"><b>$138.20</b><small class="good">+3.4%</small></div></div>
+        <div class="row"><div class="tk">MSFT<span>Technology</span></div><div class="pr"><b>$482.55</b><small class="good">+1.2%</small></div></div>
+        <div class="row"><div class="tk">XLE<span>Energy</span></div><div class="pr"><b>$94.10</b><small class="bad">−0.8%</small></div></div>
+        <div class="row"><div class="tk">XLF<span>Financials</span></div><div class="pr"><b>$46.88</b><small class="good">+0.5%</small></div></div>
+      </div></div>
+      
+      <div class="panel tablepanel">
+        <div class="panelhead"><div><h3>Active Positions</h3><div class="cap">Open trades, ranked by P/L</div></div>
+        <div class="legend"><span class="link">View all</span></div></div>
+        <table>
+          <thead><tr><th>Symbol</th><th>Sector</th><th>Position</th><th>Entry</th><th>Current</th><th>P/L</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="sym"><b>NVDA</b><span class="sectag">Technology</span></td><td>Technology</td><td>Long · 120</td><td>$131.40</td><td>$138.20</td><td class="good"><b>+$816</b> <span>+5.2%</span></td><td><span class="pill live">Live</span></td></tr>
+            <tr><td class="sym"><b>MSFT</b><span class="sectag">Technology</span></td><td>Technology</td><td>Long · 40</td><td>$472.00</td><td>$482.55</td><td class="good"><b>+$422</b> <span>+2.2%</span></td><td><span class="pill live">Live</span></td></tr>
+            <tr><td class="sym"><b>XLE</b><span class="sectag">Energy</span></td><td>Energy</td><td>Short · 200</td><td>$96.40</td><td>$94.10</td><td class="good"><b>+$460</b> <span>+2.4%</span></td><td><span class="pill live">Live</span></td></tr>
+            <tr><td class="sym"><b>IWM</b><span class="sectag">Small Cap</span></td><td>Small Cap</td><td>Long · 90</td><td>$221.80</td><td>$219.90</td><td class="bad"><b>−$171</b> <span>−0.9%</span></td><td><span class="pill flat">Held</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main></div></body></html>

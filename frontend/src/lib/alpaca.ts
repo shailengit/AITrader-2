@@ -15,11 +15,12 @@ export interface LiveAccount {
   buying_power: number;
 }
 
-export interface LivePnl {
+export interface AccountLive {
+  label: string;
+  account_number?: string;
   configured: boolean;
   reason?: string;
   paper?: boolean;
-  strategy_name?: string;
   account?: LiveAccount;
   n_positions?: number;
   positions?: LivePosition[];
@@ -27,7 +28,16 @@ export interface LivePnl {
   total_unrealized_pl_pct?: number;
 }
 
-export interface EquityCurve {
+export interface LivePnl {
+  configured: boolean;
+  reason?: string;
+  strategy_name?: string;
+  accounts?: AccountLive[];
+}
+
+export interface AccountEquity {
+  label: string;
+  account_number?: string;
   configured: boolean;
   reason?: string;
   period?: string;
@@ -37,6 +47,13 @@ export interface EquityCurve {
   end_equity?: number | null;
   change?: number | null;
   change_pct?: number | null;
+}
+
+export interface EquityCurve {
+  configured: boolean;
+  reason?: string;
+  period?: string;
+  accounts?: AccountEquity[];
 }
 
 import { request } from "@/lib/api";

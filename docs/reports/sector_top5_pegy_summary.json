@@ -1,0 +1,83 @@
+{
+  "initial_capital": 100000.0,
+  "final_portfolio": 164806.82,
+  "total_return_pct": 64.81,
+  "cagr_pct": 10.52,
+  "sharpe_ratio": 0.54,
+  "max_drawdown_pct": 44.87,
+  "total_trades": 86,
+  "win_rate": 44.2,
+  "profit_factor": 1.25,
+  "avg_winner": 5148.41,
+  "avg_loser": -3268.76,
+  "exit_reasons": {
+    "Trailing Stop": 81,
+    "Take Profit": 5
+  },
+  "spy_return_pct": 98.08,
+  "alpha_pct": -33.28,
+  "top_winners": [
+    {
+      "ticker": "LNTH",
+      "return_pct": 51.97,
+      "pnl_dollars": 35849.2,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "BLDR",
+      "return_pct": 50.44,
+      "pnl_dollars": 19410.14,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "AAL",
+      "return_pct": 19.29,
+      "pnl_dollars": 16694.1,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "UAL",
+      "return_pct": 22.76,
+      "pnl_dollars": 14212.48,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "MU",
+      "return_pct": 24.41,
+      "pnl_dollars": 14043.76,
+      "exit_reason": "Trailing Stop"
+    }
+  ],
+  "top_losers": [
+    {
+      "ticker": "UBER",
+      "return_pct": -13.79,
+      "pnl_dollars": -10205.58,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "ALK",
+      "return_pct": -12.48,
+      "pnl_dollars": -10555.3,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "JBL",
+      "return_pct": -12.95,
+      "pnl_dollars": -10655.72,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "FLG",
+      "return_pct": -10.69,
+      "pnl_dollars": -11207.75,
+      "exit_reason": "Trailing Stop"
+    },
+    {
+      "ticker": "MPWR",
+      "return_pct": -11.78,
+      "pnl_dollars": -11300.79,
+      "exit_reason": "Trailing Stop"
+    }
+  ]
+}
