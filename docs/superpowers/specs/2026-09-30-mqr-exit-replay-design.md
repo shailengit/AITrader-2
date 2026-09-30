@@ -178,6 +178,45 @@ trading-calendar position, not calendar-day difference.
 Both fractions are reported in the phase-1 output. The gate passes on the hard requirement;
 the soft expectation is reported either as corroboration or as a second-order bug.
 
+### 7.1 Gate outcome (verified 2026-09-30)
+
+The gate was run exhaustively over all 29,736 trades. Results, and the precise
+claim each supports:
+
+| Measure | Result |
+|---|---|
+| Short-hold trades reproduced on **date + price** | **6,092 / 6,093 = 0.9998** |
+| Short-hold trades reproduced on **date** | **6,093 / 6,093 = 1.0000** |
+| Date mismatches anywhere in the corpus (capped replay) | **0 / 29,736** |
+| Capped replay reproduced on date + price | 29,425 / 29,736 = 0.9895 |
+| Long-hold (≥14d) reproduced, uncapped | 13,236 / 23,643 = **0.5598** vs predicted ≈0.56 |
+
+The soft rate landing at 0.5598 against an independent prediction of ≈0.56 — derived
+before any code existed, from the 65.4% price-rule exit share and the 20.5%
+short-held share — is strong corroboration that the rule semantics are right.
+
+**One enumerated exception class, and it is not a semantics bug.** Of the 6,093
+short-hold trades, 6,092 reproduce exactly on both date and price. The remaining
+price differences (311 capped, ~1% of the corpus) share a single cause:
+
+- The single short-hold price mismatch is ALB entered 2022-06-02, triggered
+  2022-06-13 (both dates correct, reason `Trailing Stop` correct). The recorded
+  fill is 211.91, a value that appears in **no bar of ALB's 8,203-row history** —
+  not as a close, not as an open, on any date. The panel's close is 210.14 and the
+  next open 211.32.
+- The ~1% of long-hold price differences behave the same way: IDCC triggered
+  2023-03-22 records 69.33, matching none of the surrounding bars (close 69.00,
+  low 68.98, high 70.86, next open 69.10, next close 69.56).
+
+Cause: the price panel was **revised after those backtests wrote their rows**
+(data-vintage drift). This is **common-mode** — every policy replays against the
+same current panel — so it cannot bias a policy *comparison*, only the absolute
+level. It is reported, not silently absorbed.
+
+**Consequence for the phase-1 claim:** the engine's rule semantics are established
+(100% date agreement over 29,736 trades). Absolute price levels carry a ~1%
+vintage uncertainty that is identical across policies.
+
 ## 8. Policies evaluated
 
 Baseline: MQR's current price rules (hard stop 0.20, trailing 0.12, activation 0.0,
@@ -210,7 +249,18 @@ assumed one.
    tail was censored is visible as such.
 3. **Rank by dollars, not percent.** Report total P&L impact on the fixed entry set; a
    percentage improvement on a small position is not a decision.
-4. **Next-open fills only.** Never the signal day's close. No look-ahead.
+4. **Fill convention matches the recorded data — and is verified, not assumed.**
+   AMENDED 2026-09-30 during implementation: this originally read "next-open fills
+   only, never the signal day's close". That makes the recorded baseline
+   irreproducible, because **the historic `journal_trade` data is CLOSE-filled**.
+   Verified directly: of 600 sampled short-hold trades, **600 matched the trigger
+   day's close and 0 matched the next open**. The adapter's next-open logic
+   postdates the rows that wrote `journal_trade`.
+
+   So the primary convention is `fill="close"` (gate, and the apples-to-apples
+   baseline for every policy). `fill="next_open"` is retained and is reported as
+   a **sensitivity check** on winning policies, so the look-ahead optimism of
+   trading at an observed close is quantified rather than assumed away.
 5. **Report the censored count and the delisted/missing-ticker count.** Delisting
    correlates with poor outcomes, so silently dropping those trades flatters every policy.
 6. **A policy is only a candidate if it wins out-of-sample.** In-sample winners are

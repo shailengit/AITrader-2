@@ -26,7 +26,7 @@ def test_hard_stop_fires_at_boundary():
     p = ExitPolicy(hard_stop_loss=0.20, trailing_stop=OFF)
     b = bars([("2020-01-02", 100, 100, 80, 80),      # close -20% -> trigger
               ("2020-01-03", 79, 79, 78, 78)])
-    out = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p)
+    out = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p, fill="next_open")
     assert out.exit_reason == "Stop Loss"
     assert out.exit_date == pd.Timestamp("2020-01-02")   # trigger date
     assert out.exit_px == 79.0                            # NEXT open
@@ -42,7 +42,7 @@ def test_hard_stop_does_not_fire_just_above_boundary():
 def test_take_profit_fires_at_boundary():
     p = ExitPolicy(take_profit=0.50, trailing_stop=OFF, hard_stop_loss=OFF)
     b = bars([("2020-01-02", 100, 151, 100, 150), ("2020-01-03", 152, 152, 150, 151)])
-    out = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p)
+    out = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p, fill="next_open")
     assert out.exit_reason == "Take Profit" and out.exit_px == 152.0
 
 
@@ -74,7 +74,7 @@ def test_precedence_hard_stop_beats_trailing_on_same_bar():
     p = ExitPolicy(hard_stop_loss=0.20, trailing_stop=0.05,
                    trailing_stop_activation=0.0, take_profit=OFF)
     b = bars([("2020-01-02", 100, 100, 70, 70), ("2020-01-03", 70, 70, 69, 69)])
-    out = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p)
+    out = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p, fill="next_open")
     assert out.exit_reason == "Stop Loss"     # hard stop is first in precedence
 
 
@@ -108,3 +108,15 @@ def test_current_mqr_policy_matches_live_constants():
     assert CURRENT_MQR_POLICY.trailing_stop_activation == 0.0
     assert CURRENT_MQR_POLICY.take_profit == 0.50
     assert CURRENT_MQR_POLICY.time_stop_days == 120
+
+
+def test_close_fill_is_the_default_and_matches_recorded_convention():
+    """journal_trade is close-filled (verified 600/600), so close is the default:
+    the recorded baseline is only reproducible with the convention it used."""
+    p = ExitPolicy(hard_stop_loss=0.20, trailing_stop=OFF)
+    b = bars([("2020-01-02", 100, 100, 80, 80), ("2020-01-03", 79, 79, 78, 78)])
+    default = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p)
+    explicit = replay_position(100.0, pd.Timestamp("2020-01-01"), b, p, fill="close")
+    assert default.exit_px == 80.0          # trigger bar's close
+    assert explicit.exit_px == default.exit_px
+    assert default.observed_fully is True

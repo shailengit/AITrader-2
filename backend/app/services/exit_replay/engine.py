@@ -61,6 +61,30 @@ def _trailing_triggered(entry_px, peak, close, trail, activation) -> bool:
     return (peak - close) / peak >= trail
 
 
+def _fill_price(opens, closes, i, n, panel, ticker, trigger_date, fill: str):
+    """Return (price, observed_fully) for an exit triggered at bar i.
+
+    fill="close"     -- the trigger bar's close. This is the convention the
+                        historic journal_trade data uses (verified: 600/600
+                        short-hold samples match the trigger-day close, 0 match
+                        the next open), so it is the default and the only way to
+                        reproduce the recorded baseline.
+    fill="next_open" -- the following trading day's open, which is what the
+                        CURRENT adapter does and is the more realistic fill.
+                        Used as a sensitivity check, since it avoids the
+                        look-ahead optimism of trading at an observed close.
+    """
+    if fill == "close":
+        return float(closes[i]), True
+    if i + 1 < n:
+        return float(opens[i + 1]), True
+    if panel is not None and ticker:
+        got = panel.next_open(ticker, trigger_date)
+        if got is not None:
+            return float(got), True
+    return float(closes[i]), False      # no later bar at all: fall back, not fully observed
+
+
 def replay_position(
     entry_px: float,
     entry_date: pd.Timestamp,
@@ -69,12 +93,15 @@ def replay_position(
     cap_date: Optional[pd.Timestamp] = None,
     panel=None,
     ticker: Optional[str] = None,
+    fill: str = "close",
 ) -> ReplayOutcome:
     """Walk bars forward from a fixed entry, applying `policy`.
 
     `cap_date` is the trade's actual rotation date. Rotation is held fixed in
     phase 1, so the replay ends there as 'Rotated Out' rather than modelling a
     cross-sectional re-ranking.
+
+    `fill` follows the recorded data's convention by default; see _fill_price.
     """
     entry_date = pd.Timestamp(entry_date)
     forward = bars[bars["Date"] > entry_date]
@@ -139,24 +166,17 @@ def replay_position(
 
         if reason is not None:
             trigger_date = pd.Timestamp(dates[i])
-            if i + 1 < n:                       # fill at the NEXT trading day's open
-                return ReplayOutcome(trigger_date, float(opens[i + 1]), reason,
-                                     hold, mae, mfe, True)
-            fill = panel.next_open(ticker, trigger_date) if (panel is not None and ticker) else None
-            if fill is None:                    # no later bar: fall back, not fully observed
-                return ReplayOutcome(trigger_date, close, reason, hold, mae, mfe, False)
-            return ReplayOutcome(trigger_date, float(fill), reason, hold, mae, mfe, True)
+            px, observed = _fill_price(opens, closes, i, n, panel, ticker,
+                                       trigger_date, fill)
+            return ReplayOutcome(trigger_date, px, reason, hold, mae, mfe, observed)
 
     # Window exhausted without a price rule firing.
     last_date = pd.Timestamp(dates[last_i])
     hold = int((dates[last_i] - entry_np) / one_day)
     capped = cap_date is not None and pd.Timestamp(cap_date) <= last_date
     if capped:
-        fill = panel.next_open(ticker, last_date) if (panel is not None and ticker) else None
-        if fill is None and last_i + 1 < n:
-            fill = float(opens[last_i + 1])
-        px = float(fill) if fill is not None else closes[last_i]
-        return ReplayOutcome(last_date, px, "Rotated Out",
-                             hold, mae, mfe, fill is not None)
+        px, observed = _fill_price(opens, closes, last_i, n, panel, ticker,
+                                   last_date, fill)
+        return ReplayOutcome(last_date, px, "Rotated Out", hold, mae, mfe, observed)
     return ReplayOutcome(last_date, closes[last_i], "Window End",
                          hold, mae, mfe, False)
