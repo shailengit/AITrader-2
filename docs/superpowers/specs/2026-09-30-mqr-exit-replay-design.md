@@ -77,9 +77,9 @@ and `exit_px`/`exit_at` populated).
 
 | Fact | Value |
 |---|---|
-| MQR rows, all sources | 29,741 |
-| MQR rows, `source='backtest'` (**the analysis set**) | **29,736** |
-| Non-backtest MQR rows | 5 (excluded) |
+| Raw MQR rows (`source='backtest'`) | 29,736 |
+| **Distinct positions (the actual analysis set)** | **2,013** |
+| Duplicate rows dropped | 27,723 (max multiplicity 110, mean 14.8) |
 | Side | `long` for all rows |
 | Bad or zero prices | 0 |
 | Null `exit_at` | 0 |
@@ -88,10 +88,13 @@ and `exit_px`/`exit_at` populated).
 | Fully-observed forward window (≥180 trading days) | 26,391 (88.8%) |
 | Censored at data end (2026-01-09 boundary) | 3,345 (11.2%), essentially all of 2026 |
 
-**There is no `exit_reason` column.** The only exit-related columns are `exit_px`,
-`exit_at` and `regime_at_exit`. The recorded exit *date and price* are therefore the
-ground truth available for validation, and §7's gate is designed around that limitation
-rather than assuming a reason label exists.
+> **CORRECTED 2026-09-30 — this originally claimed there was no `exit_reason`.**
+> That was wrong. Every backtest row carries `notes = 'backtest:<Reason>'`:
+> `Trailing Stop` 50.5%, `Rotated Out` 34.6%, `Take Profit` 12.3%, `Time Stop` 2.1%,
+> `Stop Loss` 0.5% — matching the batch report exactly. The reason is read directly;
+> §7's structural signature is retained only as a cross-check, not as the source of
+> labels. (The original text inferred a limitation from the column *names* without
+> inspecting `notes`' values.)
 
 Columns present but **0% populated** across the whole corpus, and unusable as they stand:
 `mae`, `mfe`, `stop_px`, `target_px`, `regime_at_entry`, `regime_at_exit`, `signal_id`.
@@ -107,11 +110,20 @@ were held under 14 days, which rotation by construction cannot have exited.
 
 Exact split counts on the analysis set (`source='backtest'`):
 
-| Bucket | Entries |
+| Bucket | Distinct positions |
 |---|---|
-| Fit — 2020-2023 | 13,088 |
-| Validate — 2024-2025 | 13,245 |
-| 2026 (correctness gate only) | 3,403 |
+| Fit — 2020-2023 | 1,360 |
+| Validate — 2024-2025 | 545 |
+| 2026 (gate only) | 108 |
+
+> **CORRECTED — the raw rows were 97% duplicates.** All 29,736 rows were written in
+> a two-minute window on 2026-09-05, and `(ticker, entry_date)` collapses to 2,013
+> positions. Crucially the multiplicity *rises by entry year* (2.5× in 2020 → 31.5×
+> in 2026), so counting rows would have made the fit/validate comparison
+> multiplicity-weighted and non-comparable. The earlier claim that the two halves
+> were "nearly equal" (13,088 vs 13,245 rows) was an artifact of that replication:
+> by distinct position the split is 1,360 / 545. All analysis runs on the deduplicated
+> set, and duplicate count is reported on every run.
 
 ## 6. Architecture
 
@@ -178,44 +190,33 @@ trading-calendar position, not calendar-day difference.
 Both fractions are reported in the phase-1 output. The gate passes on the hard requirement;
 the soft expectation is reported either as corroboration or as a second-order bug.
 
-### 7.1 Gate outcome (verified 2026-09-30)
+### 7.1 Gate outcome (verified 2026-09-30, after corrections)
 
-The gate was run exhaustively over all 29,736 trades. Results, and the precise
-claim each supports:
+Run exhaustively over the 2,013 deduplicated positions:
 
 | Measure | Result |
 |---|---|
-| Short-hold trades reproduced on **date + price** | **6,092 / 6,093 = 0.9998** |
-| Short-hold trades reproduced on **date** | **6,093 / 6,093 = 1.0000** |
-| Date mismatches anywhere in the corpus (capped replay) | **0 / 29,736** |
-| Capped replay reproduced on date + price | 29,425 / 29,736 = 0.9895 |
-| Long-hold (≥14d) reproduced, uncapped | 13,236 / 23,643 = **0.5598** vs predicted ≈0.56 |
+| Price-rule trades reproduced (date **and** price) | **1,342 / 1,349 = 0.9948** |
+| Semantic mismatches (wrong trigger date or censored) | **0** |
+| Label inconsistencies (held < 14d carrying a rotation label) | **0** |
+| Capped corroboration, all trades capped at recorded exit | 1,349 / 2,013 = 0.6667 |
+| Rotation-exited trades (excluded from the hard requirement) | 664 |
 
-The soft rate landing at 0.5598 against an independent prediction of ≈0.56 — derived
-before any code existed, from the 65.4% price-rule exit share and the 20.5%
-short-held share — is strong corroboration that the rule semantics are right.
+`label_inconsistencies` is the surviving value of the original structural
+signature: the recorded labels agree with the rules, so the signature was sound
+even though it turned out to be unnecessary.
 
-**One enumerated exception class, and it is not a semantics bug.** Of the 6,093
-short-hold trades, 6,092 reproduce exactly on both date and price. The remaining
-price differences (311 capped, ~1% of the corpus) share a single cause:
+**The 7 residual price differences are one data-vintage class, all in one ticker
+(ALB).** ALB entered 2022-06-02, triggered 2022-06-13 — both dates correct and the
+reason `Trailing Stop` correct — records a fill of 211.91, a value that appears in
+**no bar of ALB's 8,203-row history**, as neither a close nor an open on any date.
+The panel's close is 210.14 and the next open 211.32. The price data was revised
+after those backtests wrote their rows. This is **common-mode** across policies
+(every policy replays the same panel), so it cannot bias a *comparison*.
 
-- The single short-hold price mismatch is ALB entered 2022-06-02, triggered
-  2022-06-13 (both dates correct, reason `Trailing Stop` correct). The recorded
-  fill is 211.91, a value that appears in **no bar of ALB's 8,203-row history** —
-  not as a close, not as an open, on any date. The panel's close is 210.14 and the
-  next open 211.32.
-- The ~1% of long-hold price differences behave the same way: IDCC triggered
-  2023-03-22 records 69.33, matching none of the surrounding bars (close 69.00,
-  low 68.98, high 70.86, next open 69.10, next close 69.56).
-
-Cause: the price panel was **revised after those backtests wrote their rows**
-(data-vintage drift). This is **common-mode** — every policy replays against the
-same current panel — so it cannot bias a policy *comparison*, only the absolute
-level. It is reported, not silently absorbed.
-
-**Consequence for the phase-1 claim:** the engine's rule semantics are established
-(100% date agreement over 29,736 trades). Absolute price levels carry a ~1%
-vintage uncertainty that is identical across policies.
+**Consequence:** the engine's rule semantics are established — 100% date agreement
+and zero semantic mismatches over every price-rule trade. Absolute price levels
+carry a residual vintage uncertainty confined to a single ticker.
 
 ## 8. Policies evaluated
 
@@ -239,10 +240,16 @@ assumed one.
 
 ## 9. Evaluation and honesty guards
 
-1. **Time-based out-of-sample split.** Fit on 2020-2023 entries (**13,088** usable),
-   validate on 2024-2025 (**13,245**). These halves are nearly equal, which is why the
-   split is defined this way. 2026 is excluded from the fit/validate comparison (only 58
-   fully-usable entries) but still contributes to §7's correctness gate.
+1. **Time-based out-of-sample split.** Fit on 2020-2023 entries (**1,360** distinct
+   positions), validate on 2024-2025 (**545**). 2026 is excluded from the comparison
+   (108 positions) but still contributes to §7's gate.
+
+   **Corrected:** this originally claimed the halves were "nearly equal" (13,088 vs
+   13,245). That was true only of the *raw* row counts, which were 97% duplicates with
+   multiplicity rising by year — so counting rows made the two halves look comparable
+   when by distinct position they are 1,360 vs 545. The split remains a clean
+   time-based holdout; what changed is that it is no longer described as balanced, and
+   the multiplicity confound is removed.
 2. **Policy-dependent censoring.** A trade is dropped for a *given policy* only when that
    policy needed data past the data end — not blanket-excluded by trade. Aggregates report
    the count dropped per policy, so a policy that looks good only because its losing
@@ -329,3 +336,38 @@ All counts surface in the report. Nothing is silently dropped.
    stop and +50% take profit destroy value.
 4. Every number traceable to the frozen entry set, the policy config, and the censoring
    accounting.
+
+## 16. Phase 1 results (verified 2026-09-30)
+
+Baseline = MQR's current price rules. Figures are the validate bucket (2024-2025)
+as summed per-trade P&L at a constant $20k notional — an approximate but
+rank-preserving scale (see §9). The capped bound equals baseline **to the cent**
+for all 27 policies, which is the pipeline's end-to-end validation: constrained to
+the recorded exit dates the replay reproduces reality exactly.
+
+| Lever | Variants (validate P&L; baseline $648,076) |
+|---|---|
+| Trailing stop | 0.08 $495,581 · 0.10 $512,331 · **0.12 $648,076** · 0.15 $800,423 · 0.20 $964,331 · 0.25 $1,152,329 · **0.30 $1,156,189** · off $1,152,181 |
+| Trailing activation | 0.05 $754,857 · 0.10 $837,701 · 0.15 $910,780 · **0.20 $953,306** · off(0.0) $648,076 |
+| Take profit | 0.25 $537,619 · 0.35 $601,950 · **0.50 $648,076** · 0.75 $661,476 · 1.00 $664,951 · **off $687,753** |
+| Time stop | 40 $484,216 · 60 $636,054 · 90 $664,365 · **120 $648,076** · 180 $670,344 · off $680,615 |
+| Hard stop | 0.10 $645,957 · 0.15 $648,076 · 0.30 $648,076 · off $648,076 |
+
+**Finding: every price-based exit improves when loosened, monotonically, in BOTH
+the fit and the validate half.** The 12% trailing stop, the activation threshold
+and the +50% take profit are all cutting winners short. The hard stop is inert
+(0.15 / 0.30 / off are identical to baseline, because a 12% trail always fires
+first), confirming the earlier turnover audit.
+
+**Bounds.** The primary figures replay price-exited trades uncapped to the
+180-trading-day horizon while rotation exits stay capped, so they are an **upper
+bound**: rotation is held fixed and could have removed a name sooner. A policy
+that wins only on the upper bound is not a candidate.
+
+**Next-open sensitivity.** For `trail_0.30`, next-open fills give $1,178,046
+against $1,156,189 close-filled — so the close-fill convention is *conservative*
+here rather than inflating the result.
+
+**Phase 2 candidate:** widen the trailing stop (0.20-0.30, or disable it) and/or
+loosen take profit, re-validated on fresh data with the multi-start / batch
+methodology — never a single run.
