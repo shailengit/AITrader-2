@@ -26,9 +26,12 @@ export function StrategyCoachBadge({ strategyPath }: { strategyPath: string }) {
 
   if (!s) return <div style={{ fontSize: 12, opacity: .6 }}>Coach: unavailable</div>;
 
+  const hasBacktest = s.backtested?.total_return != null || s.backtested?.sharpe != null;
   const deployedBadge = s.is_deployed
     ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(16,185,129,.15)', color: '#10B981', fontSize: 11, fontWeight: 600 }}>DEPLOYED</span>
-    : <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,.05)', color: 'inherit', fontSize: 11, opacity: .7 }}>BACKTESTED</span>;
+    : hasBacktest
+      ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,.05)', color: 'inherit', fontSize: 11, opacity: .7 }}>BACKTESTED</span>
+      : <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,.05)', color: 'inherit', fontSize: 11, opacity: .5 }}>NOT BACKTESTED</span>;
 
   // live_pnl / regime attribution total_pnl are DOLLARS (JournalTrade.pnl is
   // Numeric $). backtested.total_return is a fractional return (1.0 = 100%).

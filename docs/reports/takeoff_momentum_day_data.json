@@ -1,0 +1,543 @@
+{
+  "strategy": "takeoff_momentum_day",
+  "capital": 100000.0,
+  "trade_days": [
+    "2026-07-30",
+    "2026-08-03",
+    "2026-08-05",
+    "2026-08-28",
+    "2026-08-31",
+    "2026-09-01"
+  ],
+  "summary": {
+    "initial_capital": 100000.0,
+    "final_portfolio": 98630.59,
+    "total_return_pct": -1.37,
+    "cagr_pct": -13.06,
+    "sharpe_ratio": -1.04,
+    "max_drawdown_pct": 1.92,
+    "total_trades": 9,
+    "win_rate": 33.3,
+    "profit_factor": 0.66,
+    "avg_winner": 892.81,
+    "avg_loser": -674.64,
+    "exit_reasons": {
+      "Trailing Stop": 5,
+      "Stop Loss": 1,
+      "End of Day": 3
+    },
+    "spy_return_pct": 3.8,
+    "alpha_pct": -5.17,
+    "top_winners": [
+      {
+        "ticker": "AMZN",
+        "return_pct": 1.82,
+        "pnl_dollars": 1605.28,
+        "exit_reason": "End of Day"
+      },
+      {
+        "ticker": "SRPT",
+        "return_pct": 0.9,
+        "pnl_dollars": 891.35,
+        "exit_reason": "Trailing Stop"
+      },
+      {
+        "ticker": "EMN",
+        "return_pct": 1.86,
+        "pnl_dollars": 181.81,
+        "exit_reason": "End of Day"
+      },
+      {
+        "ticker": "APO",
+        "return_pct": -1.17,
+        "pnl_dollars": -116.18,
+        "exit_reason": "Trailing Stop"
+      },
+      {
+        "ticker": "CME",
+        "return_pct": -0.45,
+        "pnl_dollars": -448.46,
+        "exit_reason": "End of Day"
+      }
+    ],
+    "top_losers": [
+      {
+        "ticker": "CME",
+        "return_pct": -0.45,
+        "pnl_dollars": -448.46,
+        "exit_reason": "End of Day"
+      },
+      {
+        "ticker": "AEIS",
+        "return_pct": -0.56,
+        "pnl_dollars": -501.8,
+        "exit_reason": "Trailing Stop"
+      },
+      {
+        "ticker": "TTEK",
+        "return_pct": -2.1,
+        "pnl_dollars": -629.2,
+        "exit_reason": "Stop Loss"
+      },
+      {
+        "ticker": "WFRD",
+        "return_pct": -1.07,
+        "pnl_dollars": -1064.85,
+        "exit_reason": "Trailing Stop"
+      },
+      {
+        "ticker": "MMSI",
+        "return_pct": -1.84,
+        "pnl_dollars": -1287.36,
+        "exit_reason": "Trailing Stop"
+      }
+    ]
+  },
+  "trades": [
+    {
+      "ticker": "MMSI",
+      "side": "BUY",
+      "entry_date": "2026-07-30",
+      "exit_date": "2026-07-30",
+      "entry_price": 81.0,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 2,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:32"
+    },
+    {
+      "ticker": "MMSI",
+      "side": "SELL",
+      "entry_date": "2026-07-30",
+      "exit_date": "2026-07-30",
+      "entry_price": 81.0,
+      "exit_price": 79.51,
+      "return_pct": -1.84,
+      "holding_days": 105,
+      "exit_reason": "Trailing Stop",
+      "pnl_dollars": -1287.36,
+      "entry_time": "09:32",
+      "exit_time": "11:41"
+    },
+    {
+      "ticker": "TTEK",
+      "side": "BUY",
+      "entry_date": "2026-07-30",
+      "exit_date": "2026-07-30",
+      "entry_price": 34.09,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 0,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:30"
+    },
+    {
+      "ticker": "TTEK",
+      "side": "SELL",
+      "entry_date": "2026-07-30",
+      "exit_date": "2026-07-30",
+      "entry_price": 34.09,
+      "exit_price": 33.38,
+      "return_pct": -2.1,
+      "holding_days": 1,
+      "exit_reason": "Stop Loss",
+      "pnl_dollars": -629.2,
+      "entry_time": "09:30",
+      "exit_time": "09:31"
+    },
+    {
+      "ticker": "AMZN",
+      "side": "BUY",
+      "entry_date": "2026-08-03",
+      "exit_date": "2026-08-03",
+      "entry_price": 279.01,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 0,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:30"
+    },
+    {
+      "ticker": "AMZN",
+      "side": "SELL",
+      "entry_date": "2026-08-03",
+      "exit_date": "2026-08-03",
+      "entry_price": 279.01,
+      "exit_price": 284.09,
+      "return_pct": 1.82,
+      "holding_days": 385,
+      "exit_reason": "End of Day",
+      "pnl_dollars": 1605.28,
+      "entry_time": "09:30",
+      "exit_time": "15:55"
+    },
+    {
+      "ticker": "EMN",
+      "side": "BUY",
+      "entry_date": "2026-08-03",
+      "exit_date": "2026-08-03",
+      "entry_price": 70.66,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 0,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:30"
+    },
+    {
+      "ticker": "EMN",
+      "side": "SELL",
+      "entry_date": "2026-08-03",
+      "exit_date": "2026-08-03",
+      "entry_price": 70.66,
+      "exit_price": 71.98,
+      "return_pct": 1.86,
+      "holding_days": 367,
+      "exit_reason": "End of Day",
+      "pnl_dollars": 181.81,
+      "entry_time": "09:30",
+      "exit_time": "15:55"
+    },
+    {
+      "ticker": "AEIS",
+      "side": "BUY",
+      "entry_date": "2026-08-05",
+      "exit_date": "2026-08-05",
+      "entry_price": 344.85,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 0,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:30"
+    },
+    {
+      "ticker": "AEIS",
+      "side": "SELL",
+      "entry_date": "2026-08-05",
+      "exit_date": "2026-08-05",
+      "entry_price": 344.85,
+      "exit_price": 342.92,
+      "return_pct": -0.56,
+      "holding_days": 32,
+      "exit_reason": "Trailing Stop",
+      "pnl_dollars": -501.8,
+      "entry_time": "09:30",
+      "exit_time": "10:03"
+    },
+    {
+      "ticker": "APO",
+      "side": "BUY",
+      "entry_date": "2026-08-05",
+      "exit_date": "2026-08-05",
+      "entry_price": 133.62,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 0,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:30"
+    },
+    {
+      "ticker": "APO",
+      "side": "SELL",
+      "entry_date": "2026-08-05",
+      "exit_date": "2026-08-05",
+      "entry_price": 133.62,
+      "exit_price": 132.05,
+      "return_pct": -1.17,
+      "holding_days": 15,
+      "exit_reason": "Trailing Stop",
+      "pnl_dollars": -116.18,
+      "entry_time": "09:30",
+      "exit_time": "09:45"
+    },
+    {
+      "ticker": "SRPT",
+      "side": "BUY",
+      "entry_date": "2026-08-28",
+      "exit_date": "2026-08-28",
+      "entry_price": 21.71,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 0,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:30"
+    },
+    {
+      "ticker": "SRPT",
+      "side": "SELL",
+      "entry_date": "2026-08-28",
+      "exit_date": "2026-08-28",
+      "entry_price": 21.71,
+      "exit_price": 21.91,
+      "return_pct": 0.9,
+      "holding_days": 42,
+      "exit_reason": "Trailing Stop",
+      "pnl_dollars": 891.35,
+      "entry_time": "09:30",
+      "exit_time": "10:12"
+    },
+    {
+      "ticker": "CME",
+      "side": "BUY",
+      "entry_date": "2026-08-31",
+      "exit_date": "2026-08-31",
+      "entry_price": 286.48,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 1,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:31"
+    },
+    {
+      "ticker": "CME",
+      "side": "SELL",
+      "entry_date": "2026-08-31",
+      "exit_date": "2026-08-31",
+      "entry_price": 286.48,
+      "exit_price": 285.2,
+      "return_pct": -0.45,
+      "holding_days": 383,
+      "exit_reason": "End of Day",
+      "pnl_dollars": -448.46,
+      "entry_time": "09:31",
+      "exit_time": "15:55"
+    },
+    {
+      "ticker": "WFRD",
+      "side": "BUY",
+      "entry_date": "2026-09-01",
+      "exit_date": "2026-09-01",
+      "entry_price": 97.81,
+      "exit_price": 0,
+      "return_pct": 0.0,
+      "holding_days": 0,
+      "exit_reason": "New Entry",
+      "pnl_dollars": 0.0,
+      "entry_time": "09:30"
+    },
+    {
+      "ticker": "WFRD",
+      "side": "SELL",
+      "entry_date": "2026-09-01",
+      "exit_date": "2026-09-01",
+      "entry_price": 97.81,
+      "exit_price": 96.76,
+      "return_pct": -1.07,
+      "holding_days": 38,
+      "exit_reason": "Trailing Stop",
+      "pnl_dollars": -1064.85,
+      "entry_time": "09:30",
+      "exit_time": "10:23"
+    }
+  ],
+  "daily_equity": [
+    {
+      "date": "2026-07-30",
+      "time": "09:32",
+      "value": 100000.0,
+      "cash": 0.0,
+      "holdings": 70000.0,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-07-30",
+      "time": "11:41",
+      "value": 98712.64,
+      "cash": 98712.64,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-07-30",
+      "time": "09:30",
+      "value": 100000.0,
+      "cash": 0.0,
+      "holdings": 30000.0,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-07-30",
+      "time": "09:31",
+      "value": 99370.8,
+      "cash": 99370.8,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-07-31",
+      "time": "15:55",
+      "value": 98083.44,
+      "cash": 98083.44,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-03",
+      "time": "09:30",
+      "value": 98083.44,
+      "cash": 0.0,
+      "holdings": 88275.1,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-08-03",
+      "time": "15:55",
+      "value": 99688.72,
+      "cash": 99688.72,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-03",
+      "time": "09:30",
+      "value": 98083.44,
+      "cash": 0.0,
+      "holdings": 9808.34,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-08-03",
+      "time": "15:55",
+      "value": 98265.25,
+      "cash": 98265.25,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-04",
+      "time": "15:55",
+      "value": 99870.53,
+      "cash": 99870.53,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-05",
+      "time": "09:30",
+      "value": 99870.53,
+      "cash": 0.0,
+      "holdings": 89883.48,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-08-05",
+      "time": "10:03",
+      "value": 99368.73,
+      "cash": 99368.73,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-05",
+      "time": "09:30",
+      "value": 99870.53,
+      "cash": 0.0,
+      "holdings": 9987.05,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-08-05",
+      "time": "09:45",
+      "value": 99754.35,
+      "cash": 99754.35,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-06",
+      "time": "15:55",
+      "value": 99252.55,
+      "cash": 99252.55,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-07",
+      "time": "15:55",
+      "value": 99252.55,
+      "cash": 99252.55,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-28",
+      "time": "09:30",
+      "value": 99252.55,
+      "cash": 0.0,
+      "holdings": 99252.55,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-08-28",
+      "time": "10:12",
+      "value": 100143.9,
+      "cash": 100143.9,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-08-31",
+      "time": "09:31",
+      "value": 100143.9,
+      "cash": 0.0,
+      "holdings": 100143.9,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-08-31",
+      "time": "15:55",
+      "value": 99695.44,
+      "cash": 99695.44,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-09-01",
+      "time": "09:30",
+      "value": 99695.44,
+      "cash": 0.0,
+      "holdings": 99695.44,
+      "n_holdings": 1
+    },
+    {
+      "date": "2026-09-01",
+      "time": "10:23",
+      "value": 98630.59,
+      "cash": 98630.59,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-09-02",
+      "time": "15:55",
+      "value": 98630.59,
+      "cash": 98630.59,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-09-03",
+      "time": "15:55",
+      "value": 98630.59,
+      "cash": 98630.59,
+      "holdings": 0.0,
+      "n_holdings": 0
+    },
+    {
+      "date": "2026-09-04",
+      "time": "15:55",
+      "value": 98630.59,
+      "cash": 98630.59,
+      "holdings": 0.0,
+      "n_holdings": 0
+    }
+  ]
+}

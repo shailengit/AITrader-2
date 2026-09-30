@@ -44,28 +44,58 @@ TAKE_PROFIT = 0.50         # +50% take profit
 TIME_STOP_DAYS = 120       # time stop
 BEAR_EXPOSURE = 0.50       # cut exposure when SPY < SMA200
 
+# Defaults are the verified 100-run baseline (269 trades/run, Sharpe 1.58).
+# Do not move one without re-measuring: the numbers are only comparable to a
+# sweep variant if the baseline runs on exactly these values.
+DEFAULTS = {
+    "sizing_method": "linear",           # momentum-proportional
+    "hard_stop_loss": HARD_STOP,         # 20% hard stop
+    "trailing_stop": TRAILING_STOP,      # 12% trailing stop
+    "trailing_stop_activation": 0.0,     # 0 = trail armed from entry (baseline)
+    "take_profit": TAKE_PROFIT,          # +50% take profit
+    "time_stop_days": TIME_STOP_DAYS,    # 120d time stop
+    "min_hold_days": MIN_HOLD_DAYS,      # 14d before rotation can sell
+    "max_sector_count": MAX_SECTOR_COUNT,
+    "re_score_holdings": True,           # re-score holdings on current momentum daily
+    "protect_winners": True,             # keep profitable names that leave top-N
+    "bear_exposure": BEAR_EXPOSURE,      # 50% exposure in bear market
+    "cost_bps": 0.0,                     # 0 = costless fills (baseline)
+}
+
 
 class MomentumQualityRotation(SectorScannerTop5Rotation, Strategy):
     """Top-5 momentum names with a market regime filter to cut drawdown."""
 
-    def __init__(self):
+    def __init__(self, **overrides):
         super().__init__()
+        # Sweep levers without editing the module. Unknown keys raise rather
+        # than silently no-op, so a typo'd sweep cannot masquerade as a
+        # baseline run.
+        unknown = set(overrides) - set(DEFAULTS)
+        if unknown:
+            raise TypeError(
+                f"unknown MomentumQualityRotation parameter(s): {sorted(unknown)}; "
+                f"valid: {sorted(DEFAULTS)}"
+            )
+        self.p = {**DEFAULTS, **overrides}
 
     def get_name(self) -> str:
         return "Momentum Quality Rotation"
 
     def get_rotation_config(self) -> RotationConfig:
         return RotationConfig(
-            sizing_method="linear",        # momentum-proportional
-            hard_stop_loss=HARD_STOP,      # 20% hard stop
-            trailing_stop=TRAILING_STOP,   # 12% trailing stop
-            take_profit=TAKE_PROFIT,       # +50% take profit
-            time_stop_days=TIME_STOP_DAYS, # 120d time stop
-            min_hold_days=MIN_HOLD_DAYS,   # 14d before rotation can sell
-            max_sector_count=MAX_SECTOR_COUNT,
-            re_score_holdings=True,        # re-score holdings on current momentum daily
-            protect_winners=True,          # keep profitable names that leave top-N
-            bear_exposure=BEAR_EXPOSURE,   # 50% exposure in bear market
+            sizing_method=self.p["sizing_method"],
+            hard_stop_loss=self.p["hard_stop_loss"],
+            trailing_stop=self.p["trailing_stop"],
+            trailing_stop_activation=self.p["trailing_stop_activation"],
+            take_profit=self.p["take_profit"],
+            time_stop_days=self.p["time_stop_days"],
+            min_hold_days=self.p["min_hold_days"],
+            max_sector_count=self.p["max_sector_count"],
+            re_score_holdings=self.p["re_score_holdings"],
+            protect_winners=self.p["protect_winners"],
+            bear_exposure=self.p["bear_exposure"],
+            cost_bps=self.p["cost_bps"],
             exit_priority=[
                 "hard_stop_loss",
                 "trailing_stop",

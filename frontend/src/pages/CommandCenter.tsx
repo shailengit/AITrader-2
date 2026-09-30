@@ -73,14 +73,32 @@ export default function CommandCenter() {
   const totalCash = configuredAccounts.reduce((s, a) => s + (a.account?.cash ?? 0), 0);
   const totalBuyingPower = configuredAccounts.reduce((s, a) => s + (a.account?.buying_power ?? 0), 0);
 
-  // Equity curve: use the first configured account for the headline chart.
+  // Equity curve: aggregate equity across ALL configured accounts by date so
+  // the headline chart reflects the combined portfolio, not just the first
+  // (MQR) account.
   const equityAccounts: AccountEquity[] = equity?.accounts ?? [];
-  const primaryEquity = equityAccounts.find((a) => a.configured);
+  const configuredEquity = equityAccounts.filter(
+    (a) => a.configured && a.dates && a.equity && a.equity.length > 0,
+  );
 
-  const curveData = primaryEquity?.configured && primaryEquity.equity && primaryEquity.dates
-    ? primaryEquity.dates.map((d, i) => ({ date: d, value: primaryEquity.equity![i] ?? 0 }))
-        .filter((p) => p.value > 0)
-    : [];
+  const aggMap = new Map<string, number>();
+  for (const a of configuredEquity) {
+    a.dates!.forEach((d, i) => {
+      const v = a.equity![i] ?? 0;
+      if (v > 0) aggMap.set(d, (aggMap.get(d) ?? 0) + v);
+    });
+  }
+  const curveData = [...aggMap.entries()]
+    .map(([date, value]) => ({ date, value }))
+    .sort((x, y) => x.date.localeCompare(y.date))
+    .slice(-2); // show only the last 2 days (yesterday + today), dropping the funding ramp-up
+
+  // Alpaca's portfolio-history equity for TODAY can lag the real-time account
+  // equity (get_account). Override the last point with the live sum so the
+  // headline chart reflects the true current portfolio value.
+  if (curveData.length > 0 && totalEquity > 0) {
+    curveData[curveData.length - 1].value = totalEquity;
+  }
   const equityChange = curveData.length >= 2 ? curveData[curveData.length - 1].value - curveData[0].value : null;
   const equityChangePct = curveData.length >= 2 && curveData[0].value > 0
     ? (curveData[curveData.length - 1].value / curveData[0].value - 1) : null;
@@ -131,7 +149,7 @@ export default function CommandCenter() {
 
       {/* Main grid: equity curve + regime/sectors */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14, marginTop: 14 }}>
-        <Panel title="Equity Curve" caption={primaryEquity ? `${primaryEquity.label} · trailing 3 months` : 'Portfolio performance, trailing 3 months'}>
+        <Panel title="Equity Curve" caption={`${configuredEquity.length} account${configuredEquity.length === 1 ? '' : 's'} aggregated · trailing 3 months`}>
           {equity == null ? (
             <Empty>Loading equity history…</Empty>
           ) : !equity.configured ? (

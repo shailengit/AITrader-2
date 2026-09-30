@@ -5,9 +5,9 @@ Surfaces the live paper/live Alpaca account state so the Command Center's
 without requiring a manual deploy in Strategy Lab.
 
 Supports multiple Alpaca paper accounts. Each account maps to a credential
-prefix (see AlpacaClient): the default (no prefix) account, the "LS" account,
-and the "3" account. The account number and friendly label are derived at
-runtime from the /account response where possible.
+prefix (see AlpacaClient): the "1", "2", and "3" accounts. The friendly label is
+the account's own name from ALPACA_<n>_NAME in the root .env (never a strategy
+name), and the account number is the live value from the /account response.
 """
 from __future__ import annotations
 
@@ -17,7 +17,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
@@ -32,23 +33,37 @@ router = APIRouter(prefix="/alpaca", tags=["alpaca"])
 # (see app/services/alpaca_runner.py:_load_active_strategy_class).
 DEFAULT_STRATEGY_NAME = "Golden Cross Rotation v2"
 
-# Account registry: (friendly label, credential prefix).
-#   ""  -> ALPACA_API_KEY / ALPACA_SECRET_KEY        (default account)
-#   "LS"-> ALPACA_LS_API_KEY / ALPACA_LS_SECRET_KEY
-#   "3" -> ALPACA_3_API_KEY / ALPACA_3_SECRET_KEY
-ACCOUNT_PREFIXES: List[Tuple[str, str]] = [
-    ("MomentumQualityRotation", ""),
-    ("DailyGoldenCrossRotation", "LS"),
-    ("SectorScannerTop5Rotation", "3"),
-]
+# Account registry: credential prefixes, in display order.
+#   "1" -> ALPACA_1_API_KEY / ALPACA_1_SECRET_KEY / ALPACA_1_NAME
+#   "2" -> ALPACA_2_API_KEY / ALPACA_2_SECRET_KEY / ALPACA_2_NAME
+#   "3" -> ALPACA_3_API_KEY / ALPACA_3_SECRET_KEY / ALPACA_3_NAME
+#
+# The display label is the account's OWN name — ALPACA_<n>_NAME in the root
+# .env ("Acct#1" …) — not the strategy currently deployed on it, so the label
+# stays true when a strategy moves account.
+#
+# Read through os.getenv, like ALPACA_<n>_API_KEY: main.py loads .env with
+# python-dotenv at *startup* (override=True) and nothing re-reads it per request,
+# so a rename in .env needs a backend restart (`launchctl kickstart -k
+# gui/$(id -u)/com.tradecraft.alpaca-backend`) before it appears here.
+ACCOUNT_PREFIXES: List[str] = ["1", "2", "3"]
 
-# Account number -> friendly label, derived at runtime from /account.
-# Unknown account numbers fall back to the configured label.
-ACCOUNT_NUMBER_LABELS: Dict[str, str] = {
-    "PA3QALHOBO67": "MomentumQualityRotation",
-    "PA3EW6COMH40": "DailyGoldenCrossRotation",
-    "PA3Q31C2WTO3": "SectorScannerTop5Rotation",
-}
+
+def _account_label(prefix: str) -> str:
+    """Display name for one account, from ALPACA_<n>_NAME in .env.
+
+    Falls back to "Account <n>" when the key is unset or blank.
+    """
+    env_key = f"ALPACA_{prefix}_NAME" if prefix else "ALPACA_NAME"
+    name = (os.getenv(env_key) or "").strip()
+    if name:
+        return name
+    return f"Account {prefix}" if prefix else "Account"
+
+
+def _account_registry() -> List[Tuple[str, str]]:
+    """(display label, credential prefix) for each configured account."""
+    return [(_account_label(prefix), prefix) for prefix in ACCOUNT_PREFIXES]
 
 
 def get_session():
@@ -82,15 +97,9 @@ def _is_configured() -> bool:
     )
 
 
-def _resolve_label(label: str, account_number: Optional[str]) -> str:
-    """Prefer the runtime account number to pick a friendly label."""
-    if account_number and account_number in ACCOUNT_NUMBER_LABELS:
-        return ACCOUNT_NUMBER_LABELS[account_number]
-    return label
-
-
-def _build_live_account(label: str, prefix: str) -> Dict[str, Any]:
+def _build_live_account(prefix: str) -> Dict[str, Any]:
     """Fetch live state for one account; never raises."""
+    label = _account_label(prefix)
     try:
         client = AlpacaClient(prefix=prefix)
     except ValueError as e:  # missing/invalid keys
@@ -111,7 +120,7 @@ def _build_live_account(label: str, prefix: str) -> Dict[str, Any]:
     account_number = account.get("account_number")
 
     return {
-        "label": _resolve_label(label, account_number),
+        "label": label,
         "account_number": account_number,
         "configured": True,
         "paper": client.paper,
@@ -127,8 +136,9 @@ def _build_live_account(label: str, prefix: str) -> Dict[str, Any]:
     }
 
 
-def _build_equity_account(label: str, prefix: str, period: str, timeframe: str) -> Dict[str, Any]:
+def _build_equity_account(prefix: str, period: str, timeframe: str) -> Dict[str, Any]:
     """Fetch equity history for one account; never raises."""
+    label = _account_label(prefix)
     try:
         client = AlpacaClient(prefix=prefix)
     except ValueError as e:
@@ -156,7 +166,7 @@ def _build_equity_account(label: str, prefix: str, period: str, timeframe: str) 
         pass
 
     return {
-        "label": _resolve_label(label, account_number),
+        "label": label,
         "account_number": account_number,
         "configured": True,
         "period": period,
@@ -174,7 +184,7 @@ def get_live(
     db: Session = Depends(get_session),
 ) -> Dict[str, Any]:
     """Return live account equity, open positions, and unrealized P&L for all accounts."""
-    accounts = [_build_live_account(label, prefix) for label, prefix in ACCOUNT_PREFIXES]
+    accounts = [_build_live_account(prefix) for prefix in ACCOUNT_PREFIXES]
     if not any(a.get("configured") for a in accounts):
         return {
             "configured": False,
@@ -196,8 +206,8 @@ def get_equity_curve(
 ) -> Dict[str, Any]:
     """Return each account's equity curve (portfolio history) over a period."""
     accounts = [
-        _build_equity_account(label, prefix, period, timeframe)
-        for label, prefix in ACCOUNT_PREFIXES
+        _build_equity_account(prefix, period, timeframe)
+        for prefix in ACCOUNT_PREFIXES
     ]
     if not any(a.get("configured") for a in accounts):
         return {
@@ -211,3 +221,35 @@ def get_equity_curve(
         "period": period,
         "accounts": accounts,
     }
+
+
+# ── Account admin (liquidate / update keys) ──────────────────────────
+
+class UpdateKeysRequest(BaseModel):
+    api_key: str
+    secret_key: str
+    account_number: Optional[str] = None
+
+
+@router.post("/{prefix}/liquidate")
+def liquidate_account(prefix: str) -> Dict[str, Any]:
+    """Cancel all open orders and close all positions on a paper account."""
+    from app.services.alpaca_account_admin import liquidate_account as _liq
+    try:
+        return _liq(prefix)
+    except Exception as e:
+        raise HTTPException(500, detail={"error": str(e)})
+
+
+@router.post("/{prefix}/update-keys")
+def update_account_keys(prefix: str, body: UpdateKeysRequest) -> Dict[str, Any]:
+    """Swap an account's API key/secret in .env and its account number in
+    strategy_accounts.py. The account number is auto-fetched from Alpaca using
+    the new keys if not provided, so the user only pastes the two keys."""
+    from app.services.alpaca_account_admin import update_account_keys as _upd
+    try:
+        return _upd(prefix, body.api_key, body.secret_key, body.account_number)
+    except ValueError as e:
+        raise HTTPException(400, detail={"error": str(e)})
+    except Exception as e:
+        raise HTTPException(500, detail={"error": str(e)})

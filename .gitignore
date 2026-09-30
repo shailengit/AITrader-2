@@ -77,3 +77,15 @@ strategies/all_trades_*.csv
 
 # backups
 .env.bak*
+
+# dev.sh server logs (backend/frontend output)
+.dev-logs/
+
+# Scratch / stray files that must never be committed.
+# `junk` held live Alpaca paper API keys in plaintext (2026-09-30) — this repo
+# is PUBLIC. Keep these ignored so a stray `git add -A` cannot leak them.
+junk
+junk.*
+/JUNK*
+backend/test.txt
+*.keyfile

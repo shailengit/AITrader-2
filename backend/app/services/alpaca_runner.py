@@ -13,6 +13,7 @@ Usage:
 
 import os
 import logging
+import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
@@ -33,9 +34,25 @@ CRISIS_DRAWDOWN = 0.20
 class StrategyRunner:
     """Generic daily strategy runner that connects any Strategy to Alpaca."""
 
-    def __init__(self, strategy: Strategy):
+    def __init__(self, strategy: Strategy, prefix: str = ""):
         self.strategy = strategy
-        self.alpaca = AlpacaClient()
+        self.alpaca = AlpacaClient(prefix=prefix)
+        # Honor the strategy's RotationConfig for exits/protection/min-hold so
+        # the live runner trades the same parameters the backtest used (instead
+        # of always using these module-level defaults).
+        try:
+            _cfg = self.strategy.get_rotation_config()
+            self.min_hold_days = int(getattr(_cfg, "min_hold_days", MIN_HOLD_DAYS) or MIN_HOLD_DAYS)
+            self.trailing_stop = float(getattr(_cfg, "trailing_stop", TRAILING_STOP_PCT) or 0.0)
+            self.take_profit = float(getattr(_cfg, "take_profit", TAKE_PROFIT_PCT) or 0.0)
+            self.hard_stop_loss = float(getattr(_cfg, "hard_stop_loss", 0.0) or 0.0)
+            self.protect_winners = bool(getattr(_cfg, "protect_winners", False))
+        except Exception:
+            self.min_hold_days = MIN_HOLD_DAYS
+            self.trailing_stop = TRAILING_STOP_PCT
+            self.take_profit = TAKE_PROFIT_PCT
+            self.hard_stop_loss = 0.0
+            self.protect_winners = False
         self.db_url = (
             f"postgresql://{os.getenv('DB_USER', 'postgres')}:"
             f"{os.getenv('DB_PASSWORD')}@"
@@ -98,20 +115,38 @@ class StrategyRunner:
                     except Exception:
                         pass
 
-                order = self.alpaca.submit_trailing_stop(
-                    symbol=ticker,
-                    qty=qty,
-                    side="sell",
-                    trail_percent=TRAILING_STOP_PCT * 100,
-                )
+                # Alpaca reserves the position qty while an order is open, and a
+                # cancel doesn't release it instantly. Submitting immediately
+                # after a cancel can fail with "insufficient qty available
+                # (requested: N, available: 0)". Retry with a short delay so the
+                # cancel propagates and the trailing stop actually lands.
+                order = None
+                for attempt in range(3):
+                    try:
+                        order = self.alpaca.submit_trailing_stop(
+                            symbol=ticker,
+                            qty=qty,
+                            side="sell",
+                            trail_percent=self.trailing_stop * 100,
+                        )
+                        break
+                    except Exception as e:
+                        if attempt < 2:
+                            logger.warning(
+                                "Trailing stop submit for %s failed (attempt %d/3): %s — retrying",
+                                ticker, attempt + 1, e,
+                            )
+                            time.sleep(2)
+                        else:
+                            raise
                 protection_orders.append({
                     "ticker": ticker,
                     "qty": qty,
-                    "trail_percent": TRAILING_STOP_PCT,
+                    "trail_percent": self.trailing_stop,
                     "order_id": order["id"],
                 })
                 logger.info("ATTACH TRAILING STOP %s: %d shares @ %.0f%% trail",
-                            ticker, qty, TRAILING_STOP_PCT * 100)
+                            ticker, qty, self.trailing_stop * 100)
 
             except Exception as e:
                 logger.error("Failed to re-attach trailing stop for %s: %s", ticker, e)
@@ -208,10 +243,20 @@ class StrategyRunner:
             if rotated_out and not exit_check.should_close:
                 # Enforce minimum hold days before closing for rotation
                 hold_days = self._get_hold_days(ticker, as_of_date)
-                if hold_days < MIN_HOLD_DAYS:
+                if hold_days < self.min_hold_days:
                     logger.info("HOLD %s: held %d/%d days, skipping rotation close",
-                                ticker, hold_days, MIN_HOLD_DAYS)
+                                ticker, hold_days, self.min_hold_days)
                     continue
+                if self.protect_winners:
+                    # Keep a holding that drops out of the top-N if it is still
+                    # above its entry price (mirrors the backtest adapter's
+                    # protect_winners behavior so winners can run).
+                    cprice = pos.get("current_price")
+                    eprice = pos.get("avg_entry_price")
+                    if cprice and eprice and cprice > eprice:
+                        logger.info("PROTECT %s: above entry ($%.2f > $%.2f), keeping despite rotation",
+                                    ticker, cprice, eprice)
+                        continue
                 exit_check = ExitCheck(should_close=True, reason="Rotated Out")
 
             if exit_check.should_close:
@@ -261,8 +306,8 @@ class StrategyRunner:
                         symbol=signal.ticker,
                         qty=qty,
                         side="buy" if signal.side == "long" else "sell",
-                        take_profit_pct=TAKE_PROFIT_PCT,
-                        trailing_stop_pct=TRAILING_STOP_PCT,
+                        take_profit_pct=self.take_profit,
+                        trailing_stop_pct=self.trailing_stop,
                         entry_price=signal.price,
                     )
                     result["orders_placed"].append({

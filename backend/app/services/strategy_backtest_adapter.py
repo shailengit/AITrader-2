@@ -31,6 +31,65 @@ from app.services.strategy_base import Strategy, Signal, ExitCheck, RotationConf
 logger = logging.getLogger(__name__)
 
 
+def trailing_stop_triggered(
+    entry_price: float,
+    peak_price: float,
+    current_price: float,
+    trailing_stop: float,
+    activation: float = 0.0,
+) -> bool:
+    """Should the trailing stop fire?
+
+    The trail only arms once the position has been up by `activation` at its
+    PEAK. Peak-based rather than current-gain-based on purpose: the peak only
+    rises, so once armed the stop stays armed. A current-gain check would
+    disarm on exactly the pullback the trail exists to catch.
+
+    `activation=0.0` reproduces the original behaviour exactly — peak_price is
+    initialised to the entry price and only rises, so peak_gain >= 0 always
+    holds and the arming test always passes.
+    """
+    if trailing_stop <= 0:
+        return False
+    peak_gain = (peak_price - entry_price) / entry_price
+    if peak_gain < activation:
+        return False
+    drawdown = (peak_price - current_price) / peak_price
+    return drawdown >= trailing_stop
+
+
+def trade_cost(notional: float, cost_bps: float) -> float:
+    """Dollar cost of one fill at `cost_bps` per side.
+
+    Notional is always a magnitude here (buy notional and sell proceeds are both
+    shares * price, both factors positive and separately guarded), so a
+    non-positive value means invalid data rather than a real fill. Treat it as
+    no fill instead of inventing a cost from it.
+    """
+    if cost_bps <= 0 or notional <= 0:
+        return 0.0
+    return notional * cost_bps / 10_000.0
+
+
+def round_trip_pnl(
+    shares: int, entry_price: float, exit_price: float, cost_bps: float
+) -> float:
+    """Net dollars for a completed round trip, BOTH fill costs deducted.
+
+    At cost_bps=0 this equals the original `shares * (exit - entry)`, so
+    default behaviour is unchanged. Costs must be inside this figure (not just
+    the cash balance) or win rate and profit factor stay inflated.
+    """
+    buy_notional = shares * entry_price
+    sell_notional = shares * exit_price
+    return (
+        sell_notional
+        - buy_notional
+        - trade_cost(buy_notional, cost_bps)
+        - trade_cost(sell_notional, cost_bps)
+    )
+
+
 class StrategyBacktestAdapter:
     """Runs a daily backtest simulation for any Strategy ABC subclass.
 
@@ -155,7 +214,54 @@ class StrategyBacktestAdapter:
                     return tc[ds]
             return 0.0
 
-        # ── 2c. Precompute SPY SMA(200) for bear market detection ──────
+        # ── 2c. Open-price cache (for realistic NEXT-OPEN fills) ──────────
+        # Signal generation uses the signal day's close, but a real account
+        # fills on the NEXT trading day's open. Pre-fetch Open bars for every
+        # ticker in the close cache so the simulation can execute at next-open
+        # instead of the (optimistic) signal-day close. `_open_idx` maps
+        # date -> index into the open arrays for fast lookahead-by-1.
+        open_cache: Dict[str, Dict[str, float]] = {}
+        _open_dates_cache: Dict[str, List[str]] = {}
+        try:
+            from app.utils.security import get_safe_table_name
+            for tk_lower in list(price_cache.keys()):
+                try:
+                    safe = get_safe_table_name(tk_lower)
+                    with db_engine.connect() as conn:
+                        odf = pd.read_sql(
+                            f'SELECT "Date", "Open" FROM "{safe}" '
+                            f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
+                            f'ORDER BY "Date"',
+                            conn,
+                        )
+                    if odf is None or odf.empty:
+                        continue
+                    odates = odf["Date"].astype(str).str[:10].tolist()
+                    opens = odf["Open"].astype(float).tolist()
+                    open_cache[tk_lower] = dict(zip(odates, opens))
+                    _open_dates_cache[tk_lower] = odates
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        def get_next_open(ticker: str, date_str: str) -> float:
+            """Return the NEXT trading day's open price strictly after date_str."""
+            tk = ticker.lower()
+            odates = _open_dates_cache.get(tk)
+            if not odates:
+                return 0.0
+            okeys = open_cache.get(tk, {})
+            # Find the first open strictly after date_str
+            next_open = None
+            cur = pd.Timestamp(date_str)
+            for od in odates:
+                if pd.Timestamp(od) > cur:
+                    next_open = okeys.get(od)
+                    if next_open is not None and float(next_open) > 0:
+                        return float(next_open)
+            return 0.0
+
         spy_sma200: Optional[pd.Series] = None
         spy_close_series: Optional[pd.Series] = None
         if cfg.bear_exposure < 1.0:
@@ -224,9 +330,13 @@ class StrategyBacktestAdapter:
                             reason = "Stop Loss"
 
                     elif exit_type == "trailing_stop" and cfg.trailing_stop > 0:
-                        peak = h["peak_price"]
-                        drawdown = (peak - current_price) / peak
-                        if drawdown >= cfg.trailing_stop:
+                        if trailing_stop_triggered(
+                            h["entry_price"],
+                            h["peak_price"],
+                            current_price,
+                            cfg.trailing_stop,
+                            cfg.trailing_stop_activation,
+                        ):
                             reason = "Trailing Stop"
 
                     elif exit_type == "take_profit" and cfg.take_profit > 0:
@@ -238,18 +348,31 @@ class StrategyBacktestAdapter:
                             reason = "Time Stop"
 
                 if reason is not None:
+                    # Realistic exit: the exit condition is evaluated on the
+                    # current day's price, but the sell fills at the NEXT
+                    # trading day's OPEN.
+                    exit_price = current_price
+                    nopen = get_next_open(ticker, current_date)
+                    if nopen and nopen > 0:
+                        exit_price = nopen
+                    buy_notional = h["shares"] * h["entry_price"]
+                    pnl = round_trip_pnl(
+                        h["shares"], h["entry_price"], exit_price, cfg.cost_bps
+                    )
+                    ret = pnl / buy_notional if buy_notional > 0 else 0.0
                     trades.append({
                         "ticker": ticker, "side": "SELL",
                         "entry_date": h["entry_date"],
                         "exit_date": current_date,
                         "entry_price": round(h["entry_price"], 2),
-                        "exit_price": round(current_price, 2),
+                        "exit_price": round(exit_price, 2),
                         "return_pct": round(ret * 100, 2),
                         "holding_days": hold_days,
                         "exit_reason": reason,
                         "pnl_dollars": round(pnl, 2),
                     })
-                    cash += h["shares"] * current_price
+                    sell_proceeds = h["shares"] * exit_price
+                    cash += sell_proceeds - trade_cost(sell_proceeds, cfg.cost_bps)
                     to_remove.append(ticker)
 
             for t in to_remove:
@@ -348,10 +471,27 @@ class StrategyBacktestAdapter:
 
             top_tickers = {c["ticker"] for c in top_n}
 
+            # Buy/hold spread: a holding is kept while it ranks within
+            # `rotation_hold_rank` candidates (a wider band than the buy cap),
+            # so winners that merely dip in rank are not churned out. When
+            # rotation_hold_rank is 0 (default), the hold band equals the buy cap.
+            hold_rank = cfg.rotation_hold_rank if cfg.rotation_hold_rank > 0 else cfg_max_holdings
+            hold_set: List[Dict[str, Any]] = []
+            hold_sector_counts: Dict[str, int] = {}
+            for c in all_candidates:
+                if len(hold_set) >= hold_rank:
+                    break
+                sec = c.get("sector", "Unknown")
+                if hold_sector_counts.get(sec, 0) >= cfg.max_sector_count:
+                    continue
+                hold_set.append(c)
+                hold_sector_counts[sec] = hold_sector_counts.get(sec, 0) + 1
+            hold_tickers = {c["ticker"] for c in hold_set}
+
             # ── 3d. Sell dropped holdings (after min hold days) ─────────
             to_drop: List[str] = []
             for ticker in list(holdings.keys()):
-                if ticker not in top_tickers:
+                if ticker not in hold_tickers:
                     h = holdings[ticker]
                     hold_days = (
                         pd.Timestamp(current_date) -
@@ -373,8 +513,16 @@ class StrategyBacktestAdapter:
                 h = holdings[ticker]
                 current_price = get_price(ticker, current_date)
                 if current_price > 0:
-                    ret = (current_price - h["entry_price"]) / h["entry_price"]
-                    pnl = h["shares"] * (current_price - h["entry_price"])
+                    # Rotation exit also fills at the NEXT open.
+                    exit_price = current_price
+                    nopen = get_next_open(ticker, current_date)
+                    if nopen and nopen > 0:
+                        exit_price = nopen
+                    buy_notional = h["shares"] * h["entry_price"]
+                    pnl = round_trip_pnl(
+                        h["shares"], h["entry_price"], exit_price, cfg.cost_bps
+                    )
+                    ret = pnl / buy_notional if buy_notional > 0 else 0.0
                     hold_days = (
                         pd.Timestamp(current_date) -
                         pd.Timestamp(h["entry_date"])
@@ -384,13 +532,14 @@ class StrategyBacktestAdapter:
                         "entry_date": h["entry_date"],
                         "exit_date": current_date,
                         "entry_price": round(h["entry_price"], 2),
-                        "exit_price": round(current_price, 2),
+                        "exit_price": round(exit_price, 2),
                         "return_pct": round(ret * 100, 2),
                         "holding_days": hold_days,
                         "exit_reason": "Rotated Out",
                         "pnl_dollars": round(pnl, 2),
                     })
-                    cash += h["shares"] * current_price
+                    sell_proceeds = h["shares"] * exit_price
+                    cash += sell_proceeds - trade_cost(sell_proceeds, cfg.cost_bps)
                 del holdings[ticker]
 
             # ── 3e. Buy new top picks ───────────────────────────────────
@@ -406,7 +555,15 @@ class StrategyBacktestAdapter:
 
                     if total_score > 0:
                         for c in new_entries:
+                            # Realistic entry: the signal is generated on the
+                            # current (signal) day's CLOSE, but a real account
+                            # fills at the NEXT trading day's OPEN. `get_next_open`
+                            # returns that next-open price (falls back to the
+                            # signal-day close if no next open is known).
                             price = c["price"] if c["price"] > 0 else get_price(c["ticker"], current_date)
+                            next_open = get_next_open(c["ticker"], current_date)
+                            if next_open and next_open > 0:
+                                price = next_open
                             if price <= 0:
                                 continue
 
@@ -418,13 +575,17 @@ class StrategyBacktestAdapter:
                             target_value = portfolio_value * weight * exposure
                             shares = int(target_value / price)
                             cost = shares * price
-                            if cost > cash:
-                                shares = int(cash / price)
+                            fee = trade_cost(cost, cfg.cost_bps)
+                            if cost + fee > cash:
+                                # Leave room for the fee: cash must cover
+                                # notional + commission, not just notional.
+                                shares = int(cash / (price * (1 + cfg.cost_bps / 10_000.0)))
                                 cost = shares * price
+                                fee = trade_cost(cost, cfg.cost_bps)
                             if shares <= 0:
                                 continue
 
-                            cash -= cost
+                            cash -= cost + fee
                             holdings[c["ticker"]] = {
                                 "entry_date": current_date,
                                 "entry_price": price,
@@ -512,6 +673,20 @@ def _compute_summary(
     ).days / 365.25
     cagr = ((portfolio_value / capital) ** (1 / max(years, 0.01)) - 1) * 100
 
+    # ── Per-year / annualized metrics ────────────────────────────────────
+    # Runs in an experiment have ARBITRARY lengths (randomized start dates),
+    # so lifetime totals (total_return_pct, total_trades) aren't comparable
+    # across runs. Report everything normalized per year instead.
+    n_sell = len(sell_trades)
+    years_r = max(years, 0.01)
+    trades_per_year = n_sell / years_r
+    # Annualized alpha = CAGR minus SPY's annualized return (geometric, not
+    # the lifetime `total_ret - spy_ret` which conflates run length).
+    spy_cagr = 0.0
+    if spy_ret != 0.0:
+        spy_cagr = ((1.0 + spy_ret / 100.0) ** (1.0 / years_r) - 1.0) * 100.0
+    alpha_per_year = cagr - spy_cagr
+
     # Annualized Sharpe
     sharpe = 0.0
     max_dd = 0.0
@@ -549,6 +724,10 @@ def _compute_summary(
         "final_portfolio": portfolio_value,
         "total_return_pct": _json_safe(round(total_ret, 2)),
         "cagr_pct": _json_safe(round(cagr, 2)),
+        "num_years": _json_safe(round(years, 2)),
+        "trades_per_year": _json_safe(round(trades_per_year, 2)),
+        "spy_cagr_pct": _json_safe(round(spy_cagr, 2)),
+        "alpha_per_year_pct": _json_safe(round(alpha_per_year, 2)),
         "sharpe_ratio": _json_safe(round(sharpe, 2)),
         "max_drawdown_pct": _json_safe(max_dd_pct),
         "total_trades": len(sell_trades),
@@ -580,6 +759,10 @@ def _empty_summary(capital: float) -> Dict[str, Any]:
         "final_portfolio": capital,
         "total_return_pct": 0.0,
         "cagr_pct": 0.0,
+        "num_years": 0.0,
+        "trades_per_year": 0.0,
+        "spy_cagr_pct": 0.0,
+        "alpha_per_year_pct": 0.0,
         "sharpe_ratio": 0.0,
         "max_drawdown_pct": 0.0,
         "total_trades": 0,

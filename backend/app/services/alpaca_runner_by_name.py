@@ -12,7 +12,7 @@ Examples:
 
 <strategy_module> is the strategy filename WITHOUT .py (imported from
 app.services.strategies). <prefix> is the ALPACA_<PREFIX>_KEY credential prefix
-('' = default keys, 'LS', '3', etc.). Real orders ARE placed.
+('' = default keys, '1', '2', '3', etc.). Real orders ARE placed.
 """
 import importlib
 import logging
@@ -50,13 +50,28 @@ def main() -> None:
         sys.exit(2)
 
     strategy = strategy_cls()
-    runner = StrategyRunner(strategy)
-    runner.alpaca = AlpacaClient(prefix=prefix)
+    runner = StrategyRunner(strategy, prefix=prefix)
 
     acct = runner.alpaca.get_account()
     print(f"Running {strategy.get_name()} on account {acct.get('account_number')} (prefix '{prefix or 'default'}')")
 
     result = runner.run_daily()
+
+    # Reconcile the account's actual positions into the Coach journal so the
+    # Trade Coach shows live performance for this strategy. Failure-isolated.
+    try:
+        from app.services.coach.alpaca_journal import reconcile_account_positions
+        positions = runner.alpaca.get_positions()
+        fills = runner.alpaca.get_closed_fills(limit=200)
+        rec = reconcile_account_positions(
+            f"backend/app/services/strategies/{module_name}.py",
+            prefix,
+            positions,
+            closed_fills=fills,
+        )
+        print(f"  Coach journal reconcile: {rec}")
+    except Exception as _re:
+        print(f"  Coach journal reconcile skipped: {_re}")
 
     print("=" * 60)
     print(f"  {strategy.get_name()} — DAILY RUN (prefix '{prefix or 'default'}')")

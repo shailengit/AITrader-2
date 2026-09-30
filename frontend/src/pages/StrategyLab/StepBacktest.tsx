@@ -7,10 +7,13 @@ import {
   type ExperimentRow,
 } from "../../lib/strategyLab";
 import { LiveActivity } from "./LiveActivity";
+import { BrainStrategyList } from "../../components/strategy-lab/BrainStrategyList";
+import { BrainChat } from "../../components/strategy-lab/BrainChat";
 
 interface StepBacktestProps {
   strategyClassPath: string;
   onWinnerPicked: (experimentId: string) => void;
+  onSelectStrategy: (path: string) => void;
 }
 
 type WinnerMetric = "bear" | "mean";
@@ -69,7 +72,7 @@ function clearBatchState() {
   sessionStorage.removeItem(STORAGE_KEY_BATCH);
 }
 
-export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktestProps) {
+export function StepBacktest({ strategyClassPath, onWinnerPicked, onSelectStrategy }: StepBacktestProps) {
   const savedBatch = loadBatchState();
   const isResumed = savedBatch !== null && savedBatch.strategyClassPath === strategyClassPath;
 
@@ -194,6 +197,8 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
       </div>
 
       <div className="slab-page-body">
+        <BrainStrategyList activePath={strategyClassPath} onSelect={onSelectStrategy} />
+
         {!batchId && (
           <ConfigForm
             nRuns={nRuns}
@@ -343,6 +348,10 @@ export function StepBacktest({ strategyClassPath, onWinnerPicked }: StepBacktest
             )}
           </>
         )}
+
+        <div style={{ marginTop: 28 }}>
+          <BrainChat strategyClassPath={strategyClassPath} />
+        </div>
       </div>
     </>
   );

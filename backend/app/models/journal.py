@@ -126,6 +126,7 @@ class JournalTrade(Base):
     mfe: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
     regime_at_entry: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     regime_at_exit: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(Text, nullable=False, default="live", server_default=text("'live'"))
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text_default_now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text_default_now())
@@ -150,6 +151,7 @@ class JournalTrade(Base):
             "mfe": float(self.mfe) if self.mfe is not None else None,
             "regime_at_entry": self.regime_at_entry,
             "regime_at_exit": self.regime_at_exit,
+            "source": self.source,
             "notes": self.notes,
         }
 

@@ -256,3 +256,77 @@ When generating code, avoid these common issues:
 8. **`TIME_STOP_DAYS = 9999`** — stale positions held forever
 9. **`MIN_HOLD_DAYS = 0`** — excessive churn
 10. **NaN/Infinity in KPIs** — sanitize with `_json_safe()` before serialization
+
+## Empirical Findings (Golden Cross Volume Rotation, 2020-2026 backtest)
+
+These are measured results from a real sweep on the AITrader-2 stack. They are
+strong priors for future rotation strategies, not guarantees.
+
+### Crossover MA choice (the single biggest lever)
+- **EMA10/EMA200 is the sweet spot** (+766% ret, 38.2% CAGR, alpha +22.8%,
+  Sharpe 1.59, PF 3.06). Fast EMA catches trends early; 200-day EMA slow line
+  keeps it in genuine uptrends.
+- **EMA20/EMA200** is solid but weaker (+341%, 24.9% CAGR, Sharpe 1.13).
+- **EMA5/EMA200 is too fast** (+73%, alpha -6.8%, 146 death crosses = whipsaw).
+- **SMA slow line collapses the edge**: EMA20/SMA200 and SMA10/SMA200 both
+  drop to ~83-85% return, negative alpha, worse drawdowns. The **EMA slow line
+  is critical** — do not use SMA for the 200-day trend line.
+- Rule of thumb: fast EMA 10 > 20 > 5; slow line must be EMA200, not SMA200.
+
+### Volume confirmation
+- **1.5x 50-day volume filter is too restrictive** — keeps the strategy
+  chronically underinvested (baseline +28% vs SPY +160%). Loosening to **1.0x**
+  (volume just above the 50-day average) was the single biggest single-lever
+  win (+168% ret, alpha +0.6, Sharpe 0.81, PF 1.60).
+- A volume filter that's too tight starves the strategy of candidates. When a
+  strategy underperforms SPY, check whether it's underinvested before tuning exits.
+- **Spike-window confirmation (volume 1.5x the 10-day avg at any point in a
+  recent window) does NOT beat a simple 1.0x cross-day check.** On the EMA10/200
+  base, every spike-window variant (win 3/5/7/10) underperformed the 1.0x
+  cross-day reference (766.5%). The looser the volume filter, the better — the
+  spike requirement is still a drag. Best spike window was 5d (549.8%); 2.0x
+  was catastrophic (28.7%, maxDD 59.8%).
+
+### Bear market cash mode
+- **0% exposure (full cash) is too aggressive** — misses the recovery.
+  **50% exposure** is the better drawdown reducer (bear_0.5: +61% vs baseline
+  +28%, Sharpe 0.45). Full cash mode leaves too much upside on the table.
+
+### Exits (individual levers, on EMA20/50 base)
+- **time_stop 120d** (+103%, Sharpe 0.62, maxDD 29.7) and **take_profit 0.30**
+  (+90%, PF 1.43) both help vs baseline (+28%).
+- **trailing_stop 0.25/0.30** hurt badly (+5%) — wider trail stops let winners
+  reverse. Keep trailing stop tight (0.20).
+- **min_hold 7** and **min_hold 14** both hurt — 10 is the sweet spot.
+- **hold_rank 15** is catastrophic (-21%); **hold_rank 20** is neutral. The
+  top-10 hold band is right; widening it too far holds stale names.
+
+### Methodology
+- Make the strategy parameterizable (a `self.p` dict of overrides) so you can
+  sweep configs without editing files. Run one-at-a-time sweeps first, then
+  stack the winners in a combo sweep.
+- The standalone script and in-app class share the same `StrategyBacktestAdapter`,
+  so identical performance is guaranteed by construction — no separate parity check needed.
+- Always compare against SPY (alpha), not just raw return. A strategy can be
+  profitable yet badly underperform buy-and-hold.
+
+### Indicator warmup is a silent backtest killer
+- **`precompute_signals` must load data from an early fixed date (e.g. 2008),
+  NOT from a date near the simulation start.** A hardcoded `load_start="2018-01-01"`
+  truncated history so early-2020 dates had only ~500 bars — EMA200 needs ~830
+  bars to converge. That produced slightly different golden-cross detections in
+  early 2020 (only ~0.8% of signals differed), but those few different entries
+  compounded over the 2020-21 bull run into a **325% return gap** (766.5% vs the
+  correct 441.4%). The inflated number looked "locked in" but was an artifact.
+- **Symptom to watch for:** a strategy's headline return changes dramatically
+  when you change how much history is loaded, even for a start date that should
+  be fully warmed. That means indicators weren't converged.
+- **Fix:** always load from an early fixed date (2008) with a generous LIMIT
+  (5000), so every simulated date has full indicator warmup. Do NOT derive
+  load_start from `first_date - N days` — for early simulation starts that can
+  push it later than a fixed early date and truncate warmup.
+- **Verification:** after changing warmup, confirm the baseline is unchanged for
+  a late start (e.g. 2020) — if it moves, indicators weren't converged before.
+- **A/B in fresh subprocesses:** module-cache contamination can make two configs
+  look identical when they differ, or vice versa. To isolate a load-config effect,
+  run each variant in a fresh `python -c` subprocess, not the same interpreter.

@@ -2,7 +2,7 @@
 
 import os
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import alpaca_trade_api as tradeapi
 
@@ -13,8 +13,8 @@ class AlpacaClient:
     """Wrapper around Alpaca trading and data APIs.
 
     Supports optional key prefix for multiple accounts:
-        client = AlpacaClient()              # uses ALPACA_API_KEY / ALPACA_SECRET_KEY
-        client = AlpacaClient(prefix="LS")   # uses ALPACA_LS_API_KEY / ALPACA_LS_SECRET_KEY
+        client = AlpacaClient(prefix="1")   # uses ALPACA_1_API_KEY / ALPACA_1_SECRET_KEY
+        client = AlpacaClient(prefix="2")   # uses ALPACA_2_API_KEY / ALPACA_2_SECRET_KEY
     """
 
     def __init__(self, prefix: str = ""):
@@ -276,6 +276,36 @@ class AlpacaClient:
         except Exception as e:
             logger.error("Failed to submit trailing stop for %s: %s", symbol, e)
             raise
+
+    def get_closed_fills(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """Return recent closed (filled) orders with fill price/date.
+
+        Used to determine exit prices/dates when reconciling positions into the
+        Coach journal. Returns most-recent-first. Only orders with a non-zero
+        filled quantity are included.
+        """
+        try:
+            raw = self.api.list_orders(status="closed", limit=limit)
+            fills = []
+            for o in raw:
+                if symbol and o.symbol != symbol:
+                    continue
+                fq = getattr(o, "filled_qty", None)
+                if not fq or int(fq or 0) <= 0:
+                    continue
+                fap = getattr(o, "filled_avg_price", None)
+                fa = getattr(o, "filled_at", None)
+                fills.append({
+                    "symbol": o.symbol,
+                    "side": o.side,
+                    "qty": int(fq),
+                    "filled_avg_price": float(fap) if fap else None,
+                    "filled_at": str(fa) if fa else None,
+                })
+            return fills
+        except Exception as e:
+            logger.error("Failed to list closed fills: %s", e)
+            return []
 
     def get_entry_date(self, symbol: str) -> str | None:
         """Get the entry date for a position from order history.

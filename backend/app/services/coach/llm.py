@@ -25,8 +25,12 @@ from app.models.journal import JournalCoachReport
 
 logger = logging.getLogger(__name__)
 
-# Permissive regex for any number in a markdown report
-_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+# Permissive regex for any number in a markdown report. Uses lookarounds so a
+# digit run inside an alphanumeric token (e.g. a truncated trade ID like
+# "582f18d6") is NOT extracted — only standalone numeric values are.
+_NUMBER_RE = re.compile(
+    r"(?<![0-9a-zA-Z])-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?(?![0-9a-zA-Z])"
+)
 
 
 @dataclass
@@ -41,7 +45,22 @@ class ReportResult:
     report_id: Optional[str] = None
 
 
+# Full UUIDs and ISO dates contain digit runs that are NOT metric values. The
+# LLM is instructed to cite trade IDs and dates, so strip these before number
+# extraction — otherwise the validator flags their digits as "invented numbers"
+# and every report that cites an ID/date fails with llm_invented_numbers.
+_UUID_RE = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
+    re.IGNORECASE,
+)
+_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+
+
 def _extract_numbers(text: str) -> List[str]:
+    # Remove full UUIDs and dates so their digits aren't mistaken for metrics.
+    # (Truncated hex IDs are already excluded by the _NUMBER_RE lookarounds.)
+    text = _UUID_RE.sub(" ", text)
+    text = _DATE_RE.sub(" ", text)
     return _NUMBER_RE.findall(text)
 
 
@@ -79,6 +98,11 @@ def _validate_numbers(md: str, bundle: dict) -> Tuple[bool, List[str]]:
             continue
         try:
             f = float(n)
+            # Small integers (0-100) are almost always counts the LLM derived
+            # from the data (e.g. "8 WBD trades", "7-day hold", "20 recent
+            # trades"). Allow them — they're not invented metrics.
+            if f.is_integer() and 0 <= f <= 100:
+                continue
             for fmt in (f"{f:.2f}", f"{f:.0f}", f"{f:.4f}".rstrip("0").rstrip(".")):
                 if fmt in allowed:
                     break

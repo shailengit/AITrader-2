@@ -45,13 +45,16 @@ class RotationConfig:
     sizing_method: str = "linear"            # "linear" or "score_squared"
     hard_stop_loss: float = 0.0              # 0 = disabled
     trailing_stop: float = 0.20
+    trailing_stop_activation: float = 0.0    # Arm the trail only after the position has been up this much at its peak (0 = always armed, original behaviour)
     take_profit: float = 0.30
     time_stop_days: int = 60
     min_hold_days: int = 7
     max_sector_count: int = 2
     re_score_holdings: bool = False          # Re-score existing holdings each day
     protect_winners: bool = False            # Keep a holding that leaves the top-N if it is still profitable (above entry)
+    rotation_hold_rank: int = 0              # Buy/hold spread: keep a holding while it ranks within this many candidates (0 = use max_holdings, no spread)
     bear_exposure: float = 1.0              # Position size multiplier in bear market (1.0 = no reduction)
+    cost_bps: float = 0.0                   # Transaction cost per side, in basis points of filled notional (0 = costless fills, original behaviour)
     exit_priority: List[str] = field(       # Order of exit checks
         default_factory=lambda: [
             "strategy_exit",     # should_exit() — death cross, etc.

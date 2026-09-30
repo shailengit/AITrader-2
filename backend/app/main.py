@@ -102,11 +102,18 @@ async def startup_event():
         database.create_earnings_calendar_table()
     else:
         logger.warning("Database connection failed - some features will use fallback data")
+    # Start the Strategy Lab batch-recovery watchdog so batches orphaned by a
+    # backend restart (left stuck on 'running') are auto-recovered + alerted.
+    try:
+        from app.services.strategy_lab_orchestrator import _ensure_watchdog
+        _ensure_watchdog()
+    except Exception:
+        logger.exception("Failed to start Strategy Lab recovery watchdog")
 
 
 # Import routers
 from app.routers import sectors, screener, quantgen, health, earnings, markov, coach, strategy_lab, terminal
-from app.routers import hypotheses, coach_strategy, alpaca
+from app.routers import hypotheses, coach_strategy, alpaca, brain
 
 # Include routers. Health stays open (harmless, needed by load checks).
 # Everything else requires the API token. The terminal router is protected
@@ -124,6 +131,7 @@ app.include_router(strategy_lab.router, prefix="/api", tags=["AI Strategy Builde
 app.include_router(terminal.router, prefix="/api", tags=["Terminal"])
 app.include_router(hypotheses.router, prefix="/api", tags=["Hypotheses"], dependencies=_AUTH)
 app.include_router(alpaca.router, prefix="/api", tags=["Alpaca"], dependencies=_AUTH)
+app.include_router(brain.router, prefix="/api", tags=["Trading Brain"], dependencies=_AUTH)
 
 
 # Root endpoint (requires the API token; leaks no internal details)

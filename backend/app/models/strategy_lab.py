@@ -90,6 +90,7 @@ class StrategyExperiment(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text_default_uuid())
     session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("strategy_sessions.id", ondelete="CASCADE"), nullable=False)
     batch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    strategy_class_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     run_index: Mapped[int] = mapped_column(Integer, nullable=False)
     start_date: Mapped[Any] = mapped_column(Date, nullable=False)
     end_date: Mapped[Any] = mapped_column(Date, nullable=False)
@@ -112,6 +113,7 @@ class StrategyExperiment(Base):
             "id": str(self.id),
             "session_id": str(self.session_id),
             "batch_id": str(self.batch_id),
+            "strategy_class_path": self.strategy_class_path,
             "run_index": self.run_index,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,

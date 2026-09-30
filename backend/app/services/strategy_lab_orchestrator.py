@@ -14,6 +14,7 @@ Concurrency: ThreadPoolExecutor with max 4 workers (limits DB pressure).
 """
 import importlib.util
 import logging
+import os
 import queue as thread_queue
 import random
 import sys
@@ -62,11 +63,28 @@ class ExperimentBatch:
     queue: thread_queue.Queue = field(default_factory=thread_queue.Queue)
     started_at: str = field(default_factory=lambda: datetime.now().isoformat())
     is_done: bool = False
+    # Set once finalization (report/journal/analysis) has run, so the watchdog
+    # and the worker can't both finalize the same batch.
+    finalized: bool = False
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
 # In-memory store of running batches (one entry per batch_id)
 _RUNNING_BATCHES: Dict[str, ExperimentBatch] = {}
+
+# Watchdog state: batch_ids the recovery watchdog has already finalized.
+# A batch in this set is skipped by the worker's own finalization (so a hung
+# worker thread that finally returns doesn't create duplicate artifacts /
+# duplicate `backtest_analysis` rows). Process-local: after a restart it is
+# empty, so a batch orphaned by the previous process is recovered exactly once.
+_WATCHDOG_RECOVERED: set = set()
+_WATCHDOG_LOCK = threading.Lock()
+# A single backtest run must complete within this many seconds, or the batch is
+# considered orphaned/stuck. The worker's own per-run budget is 600s
+# (`as_completed` timeout), so 30 minutes is a generous 3x buffer — a healthy
+# batch never trips it, while a process restart or a hung worker always does.
+_STALE_RUN_SECONDS = 30 * 60
+_WATCHDOG_STARTED = False
 
 
 def get_batch(batch_id: str) -> Optional[ExperimentBatch]:
@@ -106,7 +124,8 @@ def _random_date_in_range(min_date: str, max_date: str) -> str:
 
 
 def _create_running_experiment(
-    batch_id: str, db_session_id: uuid.UUID, run_index: int, start_date: Any, end_date: Any
+    batch_id: str, db_session_id: uuid.UUID, run_index: int, start_date: Any, end_date: Any,
+    strategy_class_path: str = "",
 ) -> None:
     """Create an experiment row as 'running' BEFORE the backtest runs.
 
@@ -125,6 +144,7 @@ def _create_running_experiment(
             db.add(StrategyExperiment(
                 session_id=db_session_id,
                 batch_id=uuid.UUID(batch_id),
+                strategy_class_path=strategy_class_path or None,
                 run_index=run_index,
                 start_date=start_date,
                 end_date=end_date,
@@ -160,7 +180,8 @@ def _run_one(
     # Create the experiment row as 'running' before the (potentially slow)
     # precompute so the frontend can show live progress immediately.
     if batch_id:
-        _create_running_experiment(batch_id, db_session_id, run_index, as_of, end_date)
+        _create_running_experiment(batch_id, db_session_id, run_index, as_of, end_date,
+                                   strategy_class_path=strategy_class_path)
 
     if strategy_class_path:
         # New mode: import Strategy subclass directly
@@ -252,8 +273,9 @@ def _precompute_for_batch(
 
     Runs in a batch share the same end date and only vary the (randomized)
     start date, so the expensive signal precompute can be done a single time
-    for the widest range and reused by every run. Returns (signals, price_cache)
-    or (None, None) if the strategy doesn't support precompute.
+    for the widest range and reused by every run. Returns (signals,
+    price_cache, strategy_instance) or (None, None, None) if the strategy
+    doesn't support precompute.
     """
     try:
         import pandas as pd
@@ -262,10 +284,10 @@ def _precompute_for_batch(
         import importlib.util, sys
         full_path = REPO_ROOT / strategy_class_path
         if not full_path.exists():
-            return None, None
+            return None, None, None
         spec = importlib.util.spec_from_file_location("_strategy_precompute", str(full_path))
         if spec is None or spec.loader is None:
-            return None, None
+            return None, None, None
         mod = importlib.util.module_from_spec(spec)
         sys.modules["_strategy_precompute"] = mod
         spec.loader.exec_module(mod)
@@ -284,7 +306,7 @@ def _precompute_for_batch(
                 strategy_class = obj
                 break
         if strategy_class is None:
-            return None, None
+            return None, None, None
         strategy = strategy_class()
         with db_engine.connect() as conn:
             spy_dates = pd.read_sql(
@@ -293,7 +315,7 @@ def _precompute_for_batch(
             )
         all_dates = [str(d)[:10] for d in spy_dates["Date"]]
         if not all_dates:
-            return None, None
+            return None, None, None
         signals = strategy.precompute_signals(all_dates, db_engine)
         price_cache = strategy.get_precomputed_price_cache()
         # Precompute the holding re-score map once so score_holding() is a fast
@@ -409,6 +431,7 @@ def _run_strategy_class(
         return {
             "run_index": run_index, "status": "completed",
             "kpis": summary, "equity_curve": equity_curve,
+            "trades": result_data.get("trades", []),
             "started_at": started_at,
             "completed_at": datetime.now().isoformat(),
             "start_date": as_of, "end_date": end_date,
@@ -536,6 +559,312 @@ def _run_code_text(
         }
 
 
+def _send_alert_message(text: str) -> None:
+    """Push an alert to the user's WhatsApp self-chat (fail-isolated).
+
+    Uses `hermes send` (the established delivery path for the trading stack —
+    the same CLI the daily Alpaca portfolio report uses). Never raises: a
+    notification failure must not break a batch or the watchdog.
+    """
+    import shutil
+    import subprocess
+
+    target = os.getenv("STRATEGY_LAB_ALERT_TARGET", "whatsapp:197255030173941@lid")
+    exe = shutil.which("hermes") or "/Users/shailendrakaushik/.local/bin/hermes"
+    try:
+        proc = subprocess.run(
+            [exe, "send", "--to", target, text],
+            capture_output=True, text=True, timeout=30,
+        )
+        logger.info("Sent strategy-lab alert via %s (rc=%s)", exe, proc.returncode)
+    except Exception as e:
+        logger.exception("Failed to send strategy-lab alert: %s", e)
+
+
+def _mark_batch_done(batch: ExperimentBatch) -> None:
+    """Flip a batch to done: set is_done, push the sentinel, clean the map.
+
+    Idempotent — the watchdog and the worker both call this.
+    """
+    with batch.lock:
+        if batch.is_done:
+            return
+        batch.is_done = True
+    # Sentinel for SSE consumers (must be `None` — `drain_events` returns on it).
+    batch.queue.put(None)
+    # Daemon so it never blocks interpreter exit (e.g. in tests/scripts).
+    t = threading.Timer(300.0, lambda: _RUNNING_BATCHES.pop(batch.batch_id, None))
+    t.daemon = True
+    t.start()
+
+
+def _reconstruct_results(batch_id: str) -> List[Dict[str, Any]]:
+    """Rebuild the in-memory `results` list a batch worker would have produced.
+
+    Used by the watchdog to recover a batch orphaned by a backend restart: the
+    worker died mid-batch, so its `all_results` are gone, but every completed
+    run's kpis/equity_curve/trades were persisted to `strategy_experiments`.
+    Returns result dicts in the same shape `_finalize_batch` expects.
+    """
+    try:
+        from app.db.database import SessionLocal
+        from app.models.strategy_lab import StrategyExperiment
+        results = []
+        with SessionLocal() as db:
+            rows = db.query(StrategyExperiment).filter(
+                StrategyExperiment.batch_id == uuid.UUID(batch_id),
+                StrategyExperiment.status == "completed",
+            ).order_by(StrategyExperiment.run_index).all()
+            for r in rows:
+                results.append({
+                    "run_index": r.run_index,
+                    "status": "completed",
+                    "kpis": r.kpis or {},
+                    "equity_curve": r.equity_curve or [],
+                    "trades": r.trades_summary or [],
+                    "start_date": r.start_date.isoformat() if r.start_date else None,
+                    "end_date": r.end_date.isoformat() if r.end_date else None,
+                })
+        return results
+    except Exception as e:
+        logger.exception("Failed to reconstruct results for batch %s: %s", batch_id, e)
+        return []
+
+
+def _finalize_batch(
+    batch: ExperimentBatch,
+    results: List[Dict[str, Any]],
+    strategy_class_path: str = "",
+) -> None:
+    """Generate the HTML report, sidecar meta, Coach journal, and AI learnings.
+
+    This is the same finalization the batch worker runs after all runs finish,
+    extracted so the watchdog can run it identically for a RECOVERED (orphaned)
+    batch. Guarded by `batch.finalized` so the worker and watchdog can't both
+    run it for the same batch (which would duplicate the report, journal rows,
+    and `backtest_analysis` row).
+    """
+    with batch.lock:
+        if batch.finalized:
+            return
+        batch.finalized = True
+
+    report_path = None
+    try:
+        report_path = _generate_batch_report(batch, results)
+    except Exception as report_err:
+        logger.exception("Failed to generate batch report: %s", report_err)
+
+    if strategy_class_path:
+        try:
+            _write_sidecar_meta(strategy_class_path, results)
+        except Exception as meta_err:
+            logger.exception("Failed to write sidecar meta: %s", meta_err)
+
+    if strategy_class_path and report_path:
+        try:
+            from app.services.coach.strategy_lab_journal import journal_strategy_lab_backtest
+            for result in results:
+                if result.get("status") == "completed" and result.get("kpis"):
+                    journal_strategy_lab_backtest(
+                        strategy_class_path,
+                        result.get("kpis"),
+                        result.get("start_date") or "",
+                        result.get("end_date") or "",
+                        trades=result.get("trades"),
+                        report_path=report_path,
+                    )
+        except Exception as journal_err:
+            logger.exception("Strategy Lab journal hook failed: %s", journal_err)
+
+    if strategy_class_path and report_path:
+        try:
+            from app.services.coach.backtest_analysis_service import analyze_backtest_batch
+            analyze_backtest_batch(
+                results, strategy_class_path,
+                report_path=report_path, batch_id=batch.batch_id,
+            )
+        except Exception as analysis_err:
+            logger.exception("Backtest analysis hook failed: %s", analysis_err)
+
+
+def _fail_stale_running(batch: ExperimentBatch, reason: str) -> int:
+    """Mark a batch's stale 'running' rows as failed in the DB (watchdog recovery).
+
+    A batch orphaned by a restart (or a worker killed mid-run) leaves its last
+    in-flight run(s) stuck on 'running' forever — exactly what happened to
+    `daily_golden_cross` (99/100 done, run 100 stuck). This flips those rows to
+    'failed' with a clear error so the frontend counts completed+failed == n_runs
+    and the batch can finalize. Returns how many rows were marked.
+    """
+    n = 0
+    try:
+        from app.db.database import SessionLocal
+        from app.models.strategy_lab import StrategyExperiment
+        from datetime import timedelta
+        cutoff = datetime.utcnow() - timedelta(seconds=_STALE_RUN_SECONDS)
+        with SessionLocal() as db:
+            rows = db.query(StrategyExperiment).filter(
+                StrategyExperiment.batch_id == uuid.UUID(batch.batch_id),
+                StrategyExperiment.status == "running",
+                StrategyExperiment.started_at < cutoff,
+            ).all()
+            for r in rows:
+                r.status = "failed"
+                r.error_message = reason
+                r.completed_at = datetime.now()
+                n += 1
+            db.commit()
+    except Exception as e:
+        logger.exception("Failed to mark stale running rows for %s: %s", batch.batch_id, e)
+    return n
+
+
+def _watchdog_loop() -> None:
+    """Background daemon: recover batches whose runs are stuck on 'running'.
+
+    Every 60s, scan BOTH the in-memory map and the DB for experiment rows stuck
+    on 'running' older than `_STALE_RUN_SECONDS` (30 min). A healthy run
+    completes in ~20-30s, so a run stuck past 30 minutes means either a backend
+    restart (the worker thread is gone) or a genuinely hung worker. In either
+    case that batch can never finish on its own — so the watchdog finalizes it
+    from the last persisted state, marks the stuck runs failed, and alerts the
+    user on WhatsApp. This is the escape logic the user asked for.
+
+    Covering the DB (not just `_RUNNING_BATCHES`) is what lets it also recover
+    a batch orphaned by a PREVIOUS process (the map was wiped on restart) —
+    exactly the daily_golden_cross 99/100 situation.
+    """
+    while True:
+        try:
+            # 1. In-memory batches (a live worker exists for these; recover if
+            #    a run wedged past the budget).
+            batches = list(_RUNNING_BATCHES.values())
+            for batch in batches:
+                try:
+                    with batch.lock:
+                        if batch.is_done or batch.finalized:
+                            continue
+                    marked = _fail_stale_running(
+                        batch,
+                        f"Recovered by watchdog: run exceeded {_STALE_RUN_SECONDS // 60} min (worker hung).",
+                    )
+                    if marked > 0:
+                        _recover_batch(batch, marked)
+                except Exception as batch_err:
+                    logger.exception("Watchdog error for batch %s: %s", batch.batch_id, batch_err)
+
+            # 2. DB-only batches (worker was in a process that died). Find any
+            #    batch with stale 'running' rows and recover it.
+            try:
+                from app.db.database import SessionLocal
+                from app.models.strategy_lab import StrategyExperiment
+                from datetime import timedelta
+                cutoff = datetime.utcnow() - timedelta(seconds=_STALE_RUN_SECONDS)
+                with SessionLocal() as db:
+                    stale_ids = db.query(
+                        StrategyExperiment.batch_id
+                    ).filter(
+                        StrategyExperiment.status == "running",
+                        StrategyExperiment.started_at < cutoff,
+                    ).group_by(StrategyExperiment.batch_id).all()
+                for (bid,) in stale_ids:
+                    bid = str(bid)
+                    with _WATCHDOG_LOCK:
+                        if bid in _WATCHDOG_RECOVERED:
+                            continue
+                        _WATCHDOG_RECOVERED.add(bid)
+                    try:
+                        _recover_db_batch(bid, cutoff)
+                    except Exception as be:
+                        logger.exception("Watchdog DB-recovery error for batch %s: %s", bid, be)
+            except Exception as e:
+                logger.exception("Watchdog DB scan failed: %s", e)
+        except Exception as e:
+            logger.exception("Strategy Lab watchdog error: %s", e)
+        import time as _time
+        _time.sleep(60)
+
+
+def _recover_batch(batch: ExperimentBatch, marked: int) -> None:
+    """Recover an orphaned IN-MEMORY batch: finalize + alert."""
+    results = _reconstruct_results(batch.batch_id)
+    _finalize_batch(batch, results, batch.strategy_class_path)
+    _mark_batch_done(batch)
+    _send_alert_message(
+        "⚠️ Strategy Lab batch auto-recovered by watchdog.\n"
+        f"Batch {batch.batch_id[:8]} · {batch.strategy_class_path or batch.code_text[:40]}\n"
+        f"{len(results)} completed run(s) finalized + {marked} stuck run(s) marked "
+        "failed (backend restarted / worker hung)."
+    )
+
+
+def _recover_db_batch(batch_id: str, cutoff) -> None:
+    """Recover a DB-only orphaned batch (worker process died)."""
+    # Build a shell batch so finalize/report have the fields they need.
+    # Restore strategy_class_path (and end_date) from the persisted rows so the
+    # report/sidecar/journal/analysis hooks fire correctly.
+    try:
+        from app.db.database import SessionLocal
+        from app.models.strategy_lab import StrategyExperiment
+        scp, end = "", ""
+        with SessionLocal() as db:
+            first = db.query(StrategyExperiment).filter(
+                StrategyExperiment.batch_id == uuid.UUID(batch_id),
+            ).order_by(StrategyExperiment.run_index).first()
+            if first is not None:
+                scp = first.strategy_class_path or ""
+                end = first.end_date.isoformat() if first.end_date else ""
+    except Exception as e:
+        logger.exception("Could not read batch %s metadata: %s", batch_id, e)
+        scp, end = "", ""
+
+    batch = ExperimentBatch(
+        batch_id=batch_id,
+        session_id="_",
+        n_runs=_infer_n_runs(batch_id),
+        end_date=end,
+        start_date_min="",
+        start_date_max="",
+        strategy_class_path=scp,
+    )
+    marked = _fail_stale_running(batch, "Recovered by watchdog: run exceeded "
+                                         f"{_STALE_RUN_SECONDS // 60} min (backend restarted / worker hung).")
+    if marked <= 0:
+        return
+    results = _reconstruct_results(batch_id)
+    _finalize_batch(batch, results, scp)
+    _send_alert_message(
+        "⚠️ Strategy Lab batch auto-recovered by watchdog.\n"
+        f"Batch {batch_id[:8]} · {scp or 'unknown strategy'} · {marked} stuck run(s) marked failed\n"
+        f"{len(results)} completed run(s) were finalized from persisted data "
+        "(backend restarted / worker hung)."
+    )
+
+
+def _infer_n_runs(batch_id: str) -> int:
+    try:
+        from app.db.database import SessionLocal
+        from app.models.strategy_lab import StrategyExperiment
+        with SessionLocal() as db:
+            return db.query(StrategyExperiment).filter(
+                StrategyExperiment.batch_id == uuid.UUID(batch_id),
+            ).count()
+    except Exception:
+        return 0
+
+
+def _ensure_watchdog() -> None:
+    global _WATCHDOG_STARTED
+    with _WATCHDOG_LOCK:
+        if _WATCHDOG_STARTED:
+            return
+        _WATCHDOG_STARTED = True
+    t = threading.Thread(target=_watchdog_loop, name="strategy-lab-watchdog", daemon=True)
+    t.start()
+    logger.info("Strategy Lab recovery watchdog started")
+
+
 def run_batch(
     session_id: str,
     n_runs: int,
@@ -574,6 +903,10 @@ def run_batch(
     )
     _RUNNING_BATCHES[batch_id] = batch
 
+    # Start the recovery watchdog (idempotent) so this batch is auto-recovered
+    # if it ever gets orphaned by a restart or a hung worker.
+    _ensure_watchdog()
+
     # Resolve session_id for DB storage (use a random UUID for placeholder '_')
     _db_session_id = uuid.UUID(session_id) if session_id != '_' else uuid.uuid4()
 
@@ -606,12 +939,14 @@ def run_batch(
                     exp = StrategyExperiment(
                         session_id=_db_session_id,
                         batch_id=uuid.UUID(batch_id),
+                        strategy_class_path=strategy_class_path or None,
                         run_index=event["run_index"],
                         start_date=event.get("start_date"),
                         end_date=event.get("end_date"),
                         status=event["status"],
                         kpis=event.get("kpis"),
                         equity_curve=event.get("equity_curve"),
+                        trades_summary=event.get("trades"),
                         error_message=event.get("error_message"),
                     )
                     db.add(exp)
@@ -619,6 +954,7 @@ def run_batch(
                     exp.status = event["status"]
                     exp.kpis = event.get("kpis")
                     exp.equity_curve = event.get("equity_curve")
+                    exp.trades_summary = event.get("trades")
                     exp.error_message = event.get("error_message")
                     exp.completed_at = datetime.now()
                 db.commit()
@@ -671,16 +1007,14 @@ def run_batch(
             with open("/tmp/strategy_lab_worker.log", "a") as _f:
                 _f.write(f"Batch {batch_id} failed: {e}\n{_tb.format_exc()}\n")
         finally:
+            # If the watchdog already recovered this batch (it was orphaned by
+            # the backend restarting, then the worker thread came back), skip
+            # our own finalization to avoid duplicating report/journal rows.
             try:
-                _generate_batch_report(batch, all_results)
-            except Exception as report_err:
-                logger.exception("Failed to generate batch report: %s", report_err)
-            with batch.lock:
-                batch.is_done = True
-            batch.queue.put(None)
-            def _cleanup():
-                _RUNNING_BATCHES.pop(batch_id, None)
-            threading.Timer(300.0, _cleanup).start()
+                _finalize_batch(batch, all_results, strategy_class_path)
+            except Exception as fin_err:
+                logger.exception("Finalize failed for batch %s: %s", batch_id, fin_err)
+            _mark_batch_done(batch)
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
@@ -723,11 +1057,56 @@ def is_batch_done(batch_id: str) -> bool:
         return batch.is_done
 
 
-def _generate_batch_report(batch: ExperimentBatch, results: List[Dict[str, Any]]):
+def _write_sidecar_meta(strategy_class_path: str, results: List[Dict[str, Any]]) -> None:
+    """Write the strategy's `.meta.json` sidecar from a completed batch.
+
+    The Library table (and the Coach badge fallback) read CAGR/Sharpe/Return/
+    Win%/Drawdown/Trades from a co-located `<stem>.meta.json` next to the
+    strategy file. The batch backtest flow never wrote this sidecar, so
+    strategies backtested only via Strategy Lab showed N/A in the Library.
+    This aggregates the completed runs' KPIs as medians (a per-run figure for
+    every metric, including trade count — runs have randomized start dates and
+    so arbitrary lengths, making batch sums meaningless) and writes the
+    sidecar. Failure-isolated.
+    """
+    import json
+    from datetime import datetime, timezone
+
+    if not strategy_class_path:
+        return
+    completed = [r for r in results if r.get("status") == "completed" and r.get("kpis")]
+    if not completed:
+        return
+
+    def _median(key: str) -> float:
+        vals = [float(r["kpis"].get(key) or 0.0) for r in completed]
+        vals.sort()
+        n = len(vals)
+        return vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2
+
+    meta = {
+        "cagr_pct": round(_median("cagr_pct"), 2),
+        "sharpe_ratio": round(_median("sharpe_ratio"), 2),
+        "total_return_pct": round(_median("total_return_pct"), 2),
+        "win_rate": round(_median("win_rate"), 1),
+        "max_drawdown_pct": round(_median("max_drawdown_pct"), 2),
+        "total_trades": int(round(_median("total_trades"))),
+        "last_backtest": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+    }
+    try:
+        full_path = REPO_ROOT / strategy_class_path
+        meta_path = full_path.with_suffix(".meta.json")
+        meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+        logger.info("Wrote sidecar meta for %s: %s", strategy_class_path, meta_path)
+    except Exception as e:
+        logger.exception("Failed to write sidecar meta for %s: %s", strategy_class_path, e)
+
+
+def _generate_batch_report(batch: ExperimentBatch, results: List[Dict[str, Any]]) -> str:
     """Generate the interactive HTML run-viewer report after a batch completes.
 
     Extracts strategy parameters from the code_text, generates the report,
-    and logs the file path so the user can open it.
+    and logs the file path so the user can open it. Returns the report path.
     """
     from app.services.run_viewer_generator import generate_run_viewer
 
@@ -755,6 +1134,12 @@ def _generate_batch_report(batch: ExperimentBatch, results: List[Dict[str, Any]]
             if m:
                 val = m.group(1).strip().strip('"').strip("'")
                 strategy_params[param] = val
+    elif batch.strategy_class_path:
+        # Strategy-class mode: derive a readable name from the file stem so the
+        # report filename is identifiable (not "Unnamed Strategy").
+        from pathlib import Path
+        stem = Path(batch.strategy_class_path).stem
+        strategy_name = stem.replace("_", " ").replace("-", " ").title()
 
     report_path = generate_run_viewer(
         experiments=results,
@@ -785,3 +1170,4 @@ def _generate_batch_report(batch: ExperimentBatch, results: List[Dict[str, Any]]
     print(f"  💡 Click the link above or open in browser:")
     print(f"     open '{report_path}'")
     print(f"{'='*70}\n")
+    return report_path

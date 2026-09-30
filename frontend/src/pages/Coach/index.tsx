@@ -8,11 +8,13 @@ import { RegimeAttribution } from './RegimeAttribution';
 import { MAEvsMFE } from './MAEvsMFE';
 import { WinRateByStrategy } from './WinRateByStrategy';
 import { ReportView } from './ReportView';
+import { BacktestLearnings } from './BacktestLearnings';
 import { DateRangePicker, presetRange, type DateRange } from './DateRangePicker';
 import { coachApi, type ReportDetail, type MAEMFEPoint } from '../../lib/coach';
 
 export default function CoachIndex() {
   const [range, setRange] = useState<DateRange>(presetRange(30));
+  const [source, setSource] = useState<'live' | 'backtest'>('live');
   const [latest, setLatest] = useState<ReportDetail | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const qc = useQueryClient();
@@ -24,18 +26,19 @@ export default function CoachIndex() {
   const strategyFilter = searchParams.get('strategy');
 
   const overview = useQuery({
-    queryKey: ['coach-overview', range, strategyFilter],
+    queryKey: ['coach-overview', range, strategyFilter, source],
     queryFn: () =>
       coachApi.overview({
         period_start: range.start,
         period_end: range.end,
         strategy_path: strategyFilter ?? undefined,
+        source,
       }),
   });
 
   const maeMfe = useQuery({
-    queryKey: ['coach-mae-mfe', range],
-    queryFn: () => coachApi.maeMfe({ period_start: range.start, period_end: range.end }),
+    queryKey: ['coach-mae-mfe', range, source],
+    queryFn: () => coachApi.maeMfe({ period_start: range.start, period_end: range.end, source }),
   });
 
   const reports = useQuery({
@@ -50,13 +53,12 @@ export default function CoachIndex() {
   }, [reports.data, latest]);
 
   const generate = useMutation({
-    mutationFn: () => coachApi.generateReport({ period_start: range.start, period_end: range.end }),
+    mutationFn: () => coachApi.generateReport({ period_start: range.start, period_end: range.end, source }),
     onSuccess: (r) => {
       setLatest(r);
       qc.invalidateQueries({ queryKey: ['coach-reports'] });
     },
   });
-
   useEffect(() => {
     if (!generate.isPending) {
       setElapsed(0);
@@ -82,7 +84,25 @@ export default function CoachIndex() {
             </div>
           )}
         </div>
-        <DateRangePicker value={range} onChange={setRange} />
+        <div className="flex items-center gap-3">
+          <DateRangePicker value={range} onChange={setRange} />
+          <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 8, background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
+            {(['live', 'backtest'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSource(s)}
+                style={{
+                  padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                  border: 'none', cursor: 'pointer', textTransform: 'capitalize',
+                  background: source === s ? 'var(--accent)' : 'transparent',
+                  color: source === s ? 'var(--accent-ink)' : 'var(--subtle)',
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {isEmpty ? (
@@ -96,8 +116,18 @@ export default function CoachIndex() {
           {o.kpis && <KPICards k={o.kpis} />}
           <div className="grid grid-cols-2 gap-4">
             <Card className="p-6">
-              <div className="mb-2 text-sm text-[color:var(--muted)]">Equity Curve</div>
-              <EquityCurve data={o.equity_curve ?? []} />
+              <div className="mb-2 text-sm text-[color:var(--muted)]">
+                {source === 'backtest' ? 'Backtest Returns' : 'Equity Curve'}
+              </div>
+              {source === 'backtest' ? (
+                <div className="text-[color:var(--subtle)] text-sm">
+                  Every Strategy Lab batch produces its own set of independent runs (each with its
+                  own $100k and start date). Open an experiment below to see the per-run equity
+                  curves, or run a single backtest in Strategy Lab.
+                </div>
+              ) : (
+                <EquityCurve data={o.equity_curve ?? []} />
+              )}
             </Card>
             <Card className="p-6">
               <div className="mb-2 text-sm text-[color:var(--muted)]">P&L by Regime</div>
@@ -135,7 +165,9 @@ export default function CoachIndex() {
             Critique unavailable, metrics are up-to-date.
           </div>
         )}
-        {latest ? (
+        {latest && latest.empty ? (
+          <div className="text-[color:var(--subtle)]">{latest.message ?? 'No closed trades in this period to analyze.'}</div>
+        ) : latest ? (
           <ReportView markdown={latest.report_md} />
         ) : (
           <div className="text-[color:var(--subtle)]">No report yet. Click Regenerate.</div>
@@ -168,6 +200,8 @@ export default function CoachIndex() {
           )}
         </ul>
       </Card>
+
+      {source === 'backtest' && <BacktestLearnings strategyName={strategyFilter ?? undefined} />}
     </div>
   );
 }

@@ -129,6 +129,20 @@ export interface DeploymentListItem {
   session_id: string;
 }
 
+export interface AccountDeployInfo {
+  label: string;
+  prefix: string;
+  account_number: string;
+  module_name: string;
+  class_name: string;
+  configured: boolean;
+  equity?: number;
+  cash?: number;
+  n_positions?: number;
+  needs_reset?: boolean;
+  reason?: string;
+}
+
 const base = "/strategy-lab";
 
 async function getJson<T>(url: string): Promise<T> {
@@ -188,6 +202,15 @@ export const strategyLabApi = {
       source_hypothesis_ids: sourceHypothesisIds ?? [],
     }),
 
+  deployStrategyToAccount: (strategyClassPath: string, accountPrefix: string) =>
+    postJson<{ account_prefix: string; strategy_class_path: string; module_name: string; class_name: string; label: string }>(
+      `${base}/deploy-to-account`,
+      { strategy_class_path: strategyClassPath, account_prefix: accountPrefix },
+    ),
+
+  listAccounts: () =>
+    getJson<AccountDeployInfo[]>(`${base}/accounts`),
+
   // ── Experiment endpoints ──
   startExperiments: (id: string, body: { n_runs: number; end_date: string; start_date_min?: string; start_date_max?: string; fixed_start_dates?: string[]; model?: string }) =>
     postJson<{ batch_id: string }>(`${base}/sessions/${id}/experiments`, body),
@@ -229,4 +252,17 @@ export const strategyLabApi = {
 
   loadFromLibrary: (body: { name: string; version?: number }) =>
     postJson<StrategySession>(`${base}/library/load`, body),
+
+  // ── Alpaca account admin (liquidate / update keys) ──
+  liquidateAccount: (prefix: string) =>
+    request<{ prefix: string; orders_cancelled: boolean; positions_closed: number }>(
+      `/alpaca/${prefix}/liquidate`,
+      { method: "POST" }
+    ),
+
+  updateAccountKeys: (prefix: string, body: { api_key: string; secret_key: string; account_number?: string }) =>
+    request<{ prefix: string; account_number: string; env_updated: boolean; strategy_accounts_updated: boolean }>(
+      `/alpaca/${prefix}/update-keys`,
+      { method: "POST", body }
+    ),
 };

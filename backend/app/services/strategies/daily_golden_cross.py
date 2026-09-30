@@ -31,6 +31,22 @@ MAX_VOLATILITY = 0.05
 MAX_SECTOR_COUNT = 2
 SIZING_PCTS = [0.30, 0.25, 0.20, 0.15, 0.10]
 
+# ── Data-driven performance levers ──────────────────────────────────────
+# Death Cross Warning trigger spread. Kept at 0.001 (original): testing showed
+# raising it (0.01) fired too many premature exits and HURT return/CAGR, so the
+# earlier-exit hypothesis was wrong and was reverted.
+DC_WARNING_SPREAD = 0.001
+# Widened from 0.20 to 0.30. Trailing Stop was the worst per-trade exit
+# (-$5,921.04 avg in the aggregate). A wider trail avoids stopping out winners
+# early, letting profitable holds extend. (0.30/0.32/0.34 all measured identical
+# once protect_winners is on, so 0.30 is the clean choice.)
+TRAILING_STOP = 0.30
+# Keep a holding that drops out of the top-N if it is still above its entry price.
+# This lets high-quality winners run toward 20d+ (63.0% win / +$1,801.79 avg), the
+# strongest holding bucket in the aggregate. Measured: return 165.5%->278.7%,
+# CAGR 19.64%->26.59%, Sharpe 0.91->1.21, max DD 26.4%->23.2% across 8 fixed starts.
+PROTECT_WINNERS = True
+
 
 class DailyGoldenCrossRotation(Strategy):
     """Daily golden cross rotation with sector diversification and volatility filter."""
@@ -61,12 +77,13 @@ class DailyGoldenCrossRotation(Strategy):
         return RotationConfig(
             sizing_method="score_squared",
             hard_stop_loss=0.0,       # No hard stop in standalone
-            trailing_stop=0.20,
+            trailing_stop=TRAILING_STOP,
             take_profit=0.30,
             time_stop_days=60,
             min_hold_days=7,
             max_sector_count=MAX_SECTOR_COUNT,
             re_score_holdings=True,    # Re-score holdings using current EMA spread
+            protect_winners=PROTECT_WINNERS,
             bear_exposure=0.50,         # 50% exposure in bear market (matches standalone)
             exit_priority=[
                 "strategy_exit",     # Death cross first (via should_exit)
@@ -227,7 +244,7 @@ class DailyGoldenCrossRotation(Strategy):
                 if last_ema20 < last_ema200:
                     return ExitCheck(should_close=True, reason="Death Cross")
                 spread_pct = (last_ema20 - last_ema200) / last_ema200
-                if spread_pct < 0.001 and close_up_to.iloc[-1] < last_ema20:
+                if spread_pct < DC_WARNING_SPREAD and close_up_to.iloc[-1] < last_ema20:
                     return ExitCheck(should_close=True, reason="Death Cross Warning")
                 return ExitCheck()
 
@@ -252,7 +269,7 @@ class DailyGoldenCrossRotation(Strategy):
             if last_ema20 < last_ema200:
                 return ExitCheck(should_close=True, reason="Death Cross")
             spread_pct = (last_ema20 - last_ema200) / last_ema200
-            if spread_pct < 0.001 and df["Close"].iloc[-1] < last_ema20:
+            if spread_pct < DC_WARNING_SPREAD and df["Close"].iloc[-1] < last_ema20:
                 return ExitCheck(should_close=True, reason="Death Cross Warning")
 
         except Exception:

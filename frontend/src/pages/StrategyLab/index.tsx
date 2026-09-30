@@ -81,6 +81,7 @@ export default function StrategyLabPage() {
                 key={selectedStrategyPath}
                 strategyClassPath={selectedStrategyPath}
                 onWinnerPicked={handleWinnerPicked}
+                onSelectStrategy={handleSelectStrategy}
               />
             </div>
           )}

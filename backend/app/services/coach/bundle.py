@@ -9,21 +9,38 @@ from typing import Any, Dict, Optional
 from app.services.coach import analytics as A
 
 
-def build(session, period_start: date_cls, period_end: date_cls, strategy_id: Optional[uuid.UUID]) -> Dict[str, Any]:
+def build(session, period_start: date_cls, period_end: date_cls, strategy_id: Optional[uuid.UUID], source: Optional[str] = None) -> Dict[str, Any]:
     """Assemble the data bundle. Returns a JSON-serializable dict."""
     warnings: list = []
 
     # 11 base metrics from the analytics module
-    kpis = A.kpis(session, period_start, period_end, strategy_id)
-    pnl_by_regime = A.pnl_by_regime(session, period_start, period_end, strategy_id)
-    win_rate_by_strategy = A.win_rate_by_strategy(session, period_start, period_end)
+    kpis = A.kpis(session, period_start, period_end, strategy_id, source)
+    # For backtest source, the journaled dollar P&L is a meaningless cross-run
+    # sum (each run is its own $100k). Use per-run % returns from
+    # backtest_analysis.run_summary so the LLM critiques real % figures instead
+    # of inventing numbers to match absurd dollar values (which caused
+    # "Critique Unavailable" / llm_invented_numbers).
+    if source == "backtest":
+        bk = A.backtest_kpis(session, strategy_id, source)
+        if bk is not None:
+            kpis = bk
+    pnl_by_regime = A.pnl_by_regime(session, period_start, period_end, strategy_id, source)
+    win_rate_by_strategy = A.win_rate_by_strategy(session, period_start, period_end, source)
     entry_timing_lag = A.entry_timing_lag(session, period_start, period_end, strategy_id)
-    mae_mfe = A.mae_mfe_scatter(session, period_start, period_end, strategy_id)
-    equity = A.equity_curve(session, period_start, period_end, strategy_id)
-    drawdown = A.drawdown_curve(session, period_start, period_end, strategy_id)
-    correlation = A.strategy_correlation_matrix(session, period_start, period_end)
-    recent = A.recent_trades(session, strategy_id=strategy_id, n=20)
+    mae_mfe = A.mae_mfe_scatter(session, period_start, period_end, strategy_id, source)
+    equity = A.equity_curve(session, period_start, period_end, strategy_id, source)
+    drawdown = A.drawdown_curve(session, period_start, period_end, strategy_id, source)
+    correlation = A.strategy_correlation_matrix(session, period_start, period_end, source)
+    recent = A.recent_trades(session, strategy_id=strategy_id, n=20, source=source)
     regime = A.regime_timeline(session, period_start, period_end)
+
+    # For backtest source, the equity/drawdown/pnl_by_regime figures are
+    # cross-run dollar sums (meaningless — each run is its own $100k). Neutralize
+    # them in the bundle so the LLM doesn't try to cite absurd dollar values.
+    if source == "backtest":
+        pnl_by_regime = {}
+        equity = []
+        drawdown = []
 
     # Cap regime_timeline at 90 days, surface a warning
     if len(regime) > 90:

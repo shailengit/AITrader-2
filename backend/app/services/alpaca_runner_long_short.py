@@ -12,6 +12,7 @@ Designed to run on a separate Alpaca account from the long-only strategy.
 
 import os
 import logging
+import time
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -41,7 +42,7 @@ class LongShortStrategyRunner:
     """Daily long/short strategy runner connecting the scan engine to Alpaca."""
 
     def __init__(self):
-        self.alpaca = AlpacaClient(prefix="LS")
+        self.alpaca = AlpacaClient(prefix="2")
         self.db_url = (
             f"postgresql://{os.getenv('DB_USER', 'postgres')}:"
             f"{os.getenv('DB_PASSWORD')}@"
@@ -485,13 +486,31 @@ class LongShortStrategyRunner:
                     except Exception:
                         pass
 
+                # Alpaca reserves the position qty while an order is open, and a
+                # cancel doesn't release it instantly. Submitting immediately
+                # after a cancel can fail with "insufficient qty available
+                # (requested: N, available: 0)". Retry with a short delay so the
+                # cancel propagates and the trailing stop actually lands.
                 side = "sell" if pos["qty"] > 0 else "buy"
-                order = self.alpaca.submit_trailing_stop(
-                    symbol=ticker,
-                    qty=qty,
-                    side=side,
-                    trail_percent=TRAILING_STOP_PCT * 100,
-                )
+                order = None
+                for attempt in range(3):
+                    try:
+                        order = self.alpaca.submit_trailing_stop(
+                            symbol=ticker,
+                            qty=qty,
+                            side=side,
+                            trail_percent=TRAILING_STOP_PCT * 100,
+                        )
+                        break
+                    except Exception as e:
+                        if attempt < 2:
+                            logger.warning(
+                                "Trailing stop submit for %s failed (attempt %d/3): %s — retrying",
+                                ticker, attempt + 1, e,
+                            )
+                            time.sleep(2)
+                        else:
+                            raise
                 protection_orders.append({
                     "ticker": ticker,
                     "qty": qty,

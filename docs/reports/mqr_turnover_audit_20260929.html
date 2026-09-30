@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MQR Turnover Audit</title>
+<style>
+  :root {
+    --bg: #0a0a0f; --panel: #0f172a; --panel2: #1a2332; --line: #1e293b;
+    --line2: #334155; --text: #e2e8f0; --dim: #64748b; --dim2: #94a3b8;
+    --cyan: #22d3ee; --green: #10b981; --red: #ef4444; --amber: #f59e0b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text); padding: 32px 24px; line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 1.9rem; margin-bottom: 6px;
+       background: linear-gradient(135deg, var(--cyan), var(--green));
+       -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  h2 { font-size: 1.15rem; color: var(--cyan); margin: 40px 0 14px; }
+  .sub { color: var(--dim); font-size: 0.9rem; margin-bottom: 28px; }
+  .card { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .verdict { border-left: 3px solid var(--green); }
+  .verdict.neg { border-left-color: var(--amber); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+           gap: 12px; margin-bottom: 16px; }
+  .stat { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 10px; padding: 14px 18px; }
+  .stat-v { font-size: 1.45rem; font-weight: 700; }
+  .stat-l { font-size: 0.68rem; color: var(--dim); text-transform: uppercase;
+            letter-spacing: 0.5px; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-top: 6px; }
+  th { text-align: right; padding: 10px 8px; color: var(--dim); font-weight: 500;
+       text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.5px;
+       border-bottom: 2px solid var(--line); }
+  th:first-child { text-align: left; }
+  td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: right;
+       font-variant-numeric: tabular-nums; }
+  td:first-child { text-align: left; font-weight: 600; }
+  tr.best td { background: rgba(16,185,129,0.06); }
+  tr.worst td { background: rgba(239,68,68,0.07); }
+  .green { color: var(--green); } .red { color: var(--red); }
+  .amber { color: var(--amber); } .cyan { color: var(--cyan); } .dim { color: var(--dim); }
+  .bar-row { display: grid; grid-template-columns: 130px 1fr 92px;
+             align-items: center; gap: 12px; margin: 7px 0; font-size: 0.82rem; }
+  .bar-track { background: var(--panel2); border-radius: 4px; height: 20px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .bar-val { text-align: right; color: var(--dim2); font-variant-numeric: tabular-nums; }
+  .mix-group { margin-bottom: 22px; }
+  .mix-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+  .mix-title span { color: var(--dim); font-weight: 400; }
+  code { background: var(--panel2); padding: 2px 6px; border-radius: 4px;
+         font-family: ui-monospace, 'SF Mono', monospace; font-size: 0.82rem; color: var(--cyan); }
+  ul { margin: 8px 0 0 20px; } li { margin-bottom: 7px; }
+  .note { font-size: 0.82rem; color: var(--dim2); }
+  .kv { display: grid; grid-template-columns: 220px 1fr; gap: 6px 16px;
+        font-size: 0.85rem; margin-top: 8px; }
+  .kv div:nth-child(odd) { color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Momentum Quality Rotation — Turnover Audit</h1>
+  <p class="sub">
+    Audit of the reported 26,891-trade figure, followed by a min_hold_days lever sweep.
+    Period 2020-01-01 → 2026-09-28 · $100,000 capital · generated 2026-09-29
+  </p>
+
+  <div class="card" style="border-left:3px solid var(--red);background:rgba(239,68,68,0.06)">
+    <strong class="red">⚠ Read this before the sweep tables</strong>
+    <p class="note" style="margin-top:8px">
+      <strong>MQR's single-run backtest is path-chaotic</strong>, so the
+      <em>return, CAGR, Sharpe and max-drawdown</em> columns in sections 4 and 5 cannot support a
+      decision. Verified 2026-09-30: varying only the transaction cost while holding everything else
+      fixed gives
+      <span class="red">0 bps → 64.18%</span>,
+      <span class="red">0.1 bps → 68.61%</span> (+4.4 pts on a 0.06%/yr drag),
+      <span class="red">0.5 bps → 96.68%</span> (+32.5 pts on a 0.30%/yr drag),
+      <span class="red">1.0 bps → 56.28%</span>.
+      A repeat of the 5 bps cell reproduced bit-identically, so this is trajectory dependence, not noise.
+    </p>
+    <p class="note" style="margin-top:8px">
+      <strong>Mechanism:</strong> <code>shares = int(target_value / price)</code> truncates. Fees shrink
+      cash → shrink <code>portfolio_value</code> → shrink <code>target_value</code> → a share count flips
+      → a different entry/exit sequence → the error compounds over 400+ trades and 6.75 years. Trade
+      counts differ per cost level (412/413/407/414/410/408), confirming the paths genuinely diverge.
+    </p>
+    <p class="note" style="margin-top:8px">
+      <strong>What still holds:</strong> the audit's arithmetic, the exit-reason counts, the turnover
+      rate, and the conclusion that suppressing one exit re-routes churn — all of these are direct
+      structural counts, not returns. <strong>What does not:</strong> the per-variant return/Sharpe/drawdown
+      figures, and any claim that one bear_exposure level beats another.
+    </p>
+  </div>
+
+  <h2>1 · Headline</h2>
+  <div class="card verdict">
+    <strong class="green">The 26,891 trades were a reporting artifact, not churn.</strong>
+    <p class="note" style="margin-top:8px">
+      The sidecar <code>.meta.json</code> stored a batch-wide <em>sum</em> across all 100 runs while every
+      other KPI in the same file was a <em>median</em>. Real per-run turnover is 269 trades
+      (~60 exits per run-year, ~30-day average hold). The defect affected every strategy's sidecar,
+      inflating trade counts by its last batch's run count (2× to 100×). Fixed.
+    </p>
+  </div>
+  <div class="card verdict neg">
+    <strong class="amber">Neither turnover lever works — turnover is load-bearing.</strong>
+    <p class="note" style="margin-top:8px">
+      Raising <code>min_hold_days</code> suppressed rotation exits but handed them straight to the
+      trailing stop (total turnover −10%). Arming the trailing stop only after a gain suppressed
+      trailing-stop exits but handed them to rotation and the hard stop (total turnover −14%).
+      Both degraded risk-adjusted performance: max drawdown rose 13–16 points and Sharpe fell on
+      <em>every</em> variant. And the backtest models <strong>no transaction costs</strong>
+      (fills at next open, no commission or slippage), so reducing exits has no modelled upside —
+      even at 20bps/side a full 14% turnover cut is worth only 0.68%/yr against a 64% CAGR.
+    </p>
+  </div>
+
+  <h2>2 · The audit, three independent confirmations</h2>
+  <div class="stats">
+    <div class="stat"><div class="stat-v cyan">26,891</div><div class="stat-l">sidecar value</div></div>
+    <div class="stat"><div class="stat-v cyan">26,891</div><div class="stat-l">run-table sum</div></div>
+    <div class="stat"><div class="stat-v cyan">26,891</div><div class="stat-l">exit-reason total</div></div>
+    <div class="stat"><div class="stat-v green">269</div><div class="stat-l">true per-run median</div></div>
+  </div>
+  <div class="card">
+    <div class="kv">
+      <div>Batch</div><div><code>ba0af1a1</code> — 100 runs, starts 2020-01-03 → 2023-12-24, durations 2.4–6.4y</div>
+      <div>Trades per run</div><div>median 264, mean 268.9, range 158–390</div>
+      <div>Trades per year</div><div>median 60.0 (range 55.6–67.1) — stable across runs</div>
+      <div>Root cause</div><div><code>strategy_lab_orchestrator.py:1091</code> — <code>sum(...)</code> where <code>_median()</code> was required</div>
+      <div>Fix</div><div><code>int(round(_median("total_trades")))</code>, pinned by 3 tests</div>
+    </div>
+    <p class="note" style="margin-top:14px">
+      Cross-check: the sweep baseline below measures 61.1 exits/year against the batch's 60.0 — the two
+      harnesses agree, so the turnover rate is real even though the headline count was not.
+    </p>
+  </div>
+
+  <h2>3 · Where the turnover actually comes from</h2>
+  <div class="card">
+    <p class="note" style="margin-bottom:14px">
+      100-run batch, 26,891 exits total. The 20% hard stop is effectively dead code: a 12% trail from
+      peak always fires first, so the hard stop only triggers on a ≥20% single-day gap (0.5% of exits).
+      The 120-day time stop barely binds (2.1%).
+    </p>
+    <div class="mix-group">
+      <div class="bar-row"><span>Trailing Stop 12%</span>
+        <div class="bar-track"><div class="bar-fill" style="width:50.5%;background:var(--red)"></div></div>
+        <span class="bar-val">13,579 · 50.5%</span></div>
+      <div class="bar-row"><span>Rotated Out</span>
+        <div class="bar-track"><div class="bar-fill" style="width:34.6%;background:var(--amber)"></div></div>
+        <span class="bar-val">9,300 · 34.6%</span></div>
+      <div class="bar-row"><span>Take Profit +50%</span>
+        <div class="bar-track"><div class="bar-fill" style="width:12.3%;background:var(--green)"></div></div>
+        <span class="bar-val">3,302 · 12.3%</span></div>
+      <div class="bar-row"><span>Time Stop 120d</span>
+        <div class="bar-track"><div class="bar-fill" style="width:2.1%;background:var(--dim)"></div></div>
+        <span class="bar-val">566 · 2.1%</span></div>
+      <div class="bar-row"><span>Stop Loss 20%</span>
+        <div class="bar-track"><div class="bar-fill" style="width:0.5%;background:var(--dim)"></div></div>
+        <span class="bar-val">144 · 0.5%</span></div>
+    </div>
+  </div>
+
+  <h2>4 · min_hold_days lever sweep</h2>
+  <div class="card">
+    <p class="note" style="margin-bottom:10px">
+      One full-period backtest per config, identical window and capital — deterministic and directly
+      comparable. The 100-run randomized batch measures robustness across start dates; it is not the
+      right tool for isolating a single lever.
+    </p>
+    <table>
+      <thead><tr>
+        <th>Variant</th><th>Return %</th><th>CAGR %</th><th>Alpha %</th><th>Sharpe</th>
+        <th>Max DD %</th><th>Trades</th><th>Trades/yr</th><th>Win %</th><th>PF</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>baseline_14</td><td>2727.3</td><td>64.2</td><td>49.0</td><td>1.35</td>
+            <td class="green">44.8</td><td>412</td><td>61.1</td><td>35.9</td><td>1.55</td></tr>
+        <tr class="best"><td>minhold_21</td><td class="green">2798.9</td><td class="green">64.8</td>
+            <td class="green">49.7</td><td>1.34</td><td class="amber">47.5</td><td>372</td>
+            <td>55.2</td><td class="green">39.0</td><td>1.54</td></tr>
+        <tr class="worst"><td>minhold_28</td><td class="red">949.7</td><td class="red">41.7</td>
+            <td class="red">26.6</td><td class="red">0.99</td><td class="red">61.0</td><td>370</td>
+            <td>54.9</td><td>38.4</td><td class="red">1.43</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:12px">
+      SPY CAGR over the same window: 15.13%.
+    </p>
+  </div>
+
+  <div class="card">
+    <strong>Exit mix by variant</strong>
+    <p class="note" style="margin:6px 0 14px">
+      Rotation exits fall as intended — but trailing-stop exits rise to replace them.
+    </p>
+    <div class="mix-group">
+      <div class="mix-title">baseline_14 <span>· 412 exits · 61.1/yr</span></div>
+      <div class="bar-row"><span>Trailing Stop</span>
+        <div class="bar-track"><div class="bar-fill" style="width:52.7%;background:var(--red)"></div></div>
+        <span class="bar-val">217 · 52.7%</span></div>
+      <div class="bar-row"><span>Rotated Out</span>
+        <div class="bar-track"><div class="bar-fill" style="width:33.3%;background:var(--amber)"></div></div>
+        <span class="bar-val">137 · 33.3%</span></div>
+      <div class="bar-row"><span>Take Profit</span>
+        <div class="bar-track"><div class="bar-fill" style="width:10.9%;background:var(--green)"></div></div>
+        <span class="bar-val">45 · 10.9%</span></div>
+    </div>
+    <div class="mix-group">
+      <div class="mix-title">minhold_21 <span>· 372 exits · 55.2/yr</span></div>
+      <div class="bar-row"><span>Trailing Stop</span>
+        <div class="bar-track"><div class="bar-fill" style="width:63.2%;background:var(--red)"></div></div>
+        <span class="bar-val">235 · 63.2%</span></div>
+      <div class="bar-row"><span>Rotated Out</span>
+        <div class="bar-track"><div class="bar-fill" style="width:20.7%;background:var(--amber)"></div></div>
+        <span class="bar-val">77 · 20.7%</span></div>
+      <div class="bar-row"><span>Take Profit</span>
+        <div class="bar-track"><div class="bar-fill" style="width:12.6%;background:var(--green)"></div></div>
+        <span class="bar-val">47 · 12.6%</span></div>
+    </div>
+    <div class="mix-group">
+      <div class="mix-title">minhold_28 <span>· 370 exits · 54.9/yr</span></div>
+      <div class="bar-row"><span>Trailing Stop</span>
+        <div class="bar-track"><div class="bar-fill" style="width:68.4%;background:var(--red)"></div></div>
+        <span class="bar-val">253 · 68.4%</span></div>
+      <div class="bar-row"><span>Rotated Out</span>
+        <div class="bar-track"><div class="bar-fill" style="width:16.2%;background:var(--amber)"></div></div>
+        <span class="bar-val">60 · 16.2%</span></div>
+      <div class="bar-row"><span>Take Profit</span>
+        <div class="bar-track"><div class="bar-fill" style="width:12.4%;background:var(--green)"></div></div>
+        <span class="bar-val">46 · 12.4%</span></div>
+    </div>
+    <p class="note">
+      At 21 days: 60 rotation exits suppressed, but 18 reappear as trailing stops — <strong>30% of the
+      suppressed churn returns immediately</strong>. At 28 days: 77 suppressed, 36 return — <strong>47%</strong>.
+    </p>
+  </div>
+
+  <h2>5 · trailing_stop_activation sweep</h2>
+  <div class="card">
+    <p class="note" style="margin-bottom:10px">
+      The trail arms only once the position has been up by <code>activation</code> at its <em>peak</em>
+      (peak-based, so once armed it stays armed). Same window and capital as the min_hold sweep.
+      <strong>No-op check:</strong> <code>baseline_armed_at_entry</code> reproduces the min_hold sweep's
+      baseline to the cent — 2727.26%, 412 trades, 61.12/yr, identical exit mix — confirming
+      <code>activation=0.0</code> changes nothing.
+    </p>
+    <table>
+      <thead><tr>
+        <th>Variant</th><th>Return %</th><th>CAGR %</th><th>Alpha %</th><th>Sharpe</th>
+        <th>Max DD %</th><th>Trades</th><th>Trades/yr</th><th>Win %</th><th>PF</th>
+      </tr></thead>
+      <tbody>
+        <tr class="best"><td>baseline (armed at entry)</td><td>2727.3</td><td>64.2</td><td>49.0</td>
+            <td class="green">1.35</td><td class="green">44.8</td><td>412</td><td>61.1</td>
+            <td>35.9</td><td>1.55</td></tr>
+        <tr class="worst"><td>arm at +5%</td><td class="red">951.9</td><td class="red">41.8</td>
+            <td class="red">26.6</td><td class="red">1.01</td><td class="red">57.4</td><td>377</td>
+            <td>55.9</td><td>37.9</td><td>1.42</td></tr>
+        <tr><td>arm at +10%</td><td class="green">3454.2</td><td class="green">69.8</td>
+            <td class="green">54.7</td><td class="amber">1.12</td><td class="red">59.9</td><td>376</td>
+            <td>55.8</td><td>37.0</td><td>1.93</td></tr>
+        <tr><td>arm at +15%</td><td>2617.2</td><td>63.2</td><td>48.1</td><td class="red">1.06</td>
+            <td class="red">60.4</td><td>353</td><td class="green">52.4</td><td class="green">41.9</td>
+            <td class="green">2.03</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <strong>Exit mix by variant — trailing-stop exits fall, everything else absorbs the churn</strong>
+    <table style="margin-top:10px">
+      <thead><tr>
+        <th>Variant</th><th>Trailing Stop</th><th>Rotated Out</th><th>Take Profit</th>
+        <th>Stop Loss</th><th>Time Stop</th><th>Total</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>baseline</td><td>217 · 52.7%</td><td>137 · 33.3%</td><td>45 · 10.9%</td>
+            <td class="green">5 · 1.2%</td><td>8 · 1.9%</td><td>412</td></tr>
+        <tr><td>arm at +5%</td><td class="green">141 · 37.4%</td><td>157 · 41.6%</td><td>47 · 12.5%</td>
+            <td class="red">24 · 6.4%</td><td>8 · 2.1%</td><td>377</td></tr>
+        <tr><td>arm at +10%</td><td class="green">112 · 29.8%</td><td>193 · 51.3%</td><td>43 · 11.4%</td>
+            <td class="red">20 · 5.3%</td><td>8 · 2.1%</td><td>376</td></tr>
+        <tr><td>arm at +15%</td><td class="green">86 · 24.4%</td><td>188 · 53.3%</td><td>46 · 13.0%</td>
+            <td class="red">24 · 6.8%</td><td>9 · 2.5%</td><td>353</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:12px">
+      The lever does exactly what it was designed to do — trailing-stop exits fall from 217 to 86
+      (52.7% → 24.4%). But the churn re-routes into <strong>Rotated Out</strong> (137 → 188) and
+      disproportionately into <strong>Stop Loss</strong> (<strong>5 → 24</strong>, ~5× the hard-stop hits).
+      Total turnover falls only 61.1 → 52.4/yr (−14%).
+    </p>
+  </div>
+
+  <div class="card">
+    <strong>What a turnover cut is actually worth</strong>
+    <p class="note" style="margin:6px 0 12px">
+      The adapter models <strong>no transaction costs</strong> — no commission, no slippage. Each round trip
+      trades ~40% of portfolio notional (sell ~1/5, replacement buy ~1/5), so 61.1 exits/yr is
+      ~24.4× portfolio turnover annually. Drag and savings:
+    </p>
+    <table>
+      <thead><tr><th>Cost per side</th><th>Annual drag</th><th>Saved by a −14% turnover cut</th></tr></thead>
+      <tbody>
+        <tr><td>5 bps</td><td>1.22%</td><td>0.17%</td></tr>
+        <tr><td>10 bps</td><td>2.44%</td><td>0.34%</td></tr>
+        <tr><td>20 bps</td><td>4.89%</td><td>0.68%</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:12px">
+      Against a 64.2% CAGR, the best-case saving is well under 1%/yr — purchased with 13–16 points of
+      extra max drawdown and a lower Sharpe. Not a trade worth making.
+    </p>
+  </div>
+
+  <h2>6 · Transaction-cost model &amp; bear_exposure decision</h2>
+  <div class="card">
+    <strong>A cost model now exists</strong>
+    <p class="note" style="margin-top:8px">
+      <code>cost_bps</code> charges the filled notional per side on all three fill paths (main exit,
+      rotation exit, entry), and round-trip P&amp;L includes <em>both</em> fill costs so win rate and
+      profit factor are honest too. Default <code>0.0</code> is a verified no-op — the
+      <code>bear_0.50 / cost_0</code> cell has reproduced <strong>2727.26%</strong> identically across
+      four separate processes. 8 unit tests.
+    </p>
+  </div>
+  <div class="card">
+    <strong>bear_exposure × cost grid</strong>
+    <p class="note" style="margin:6px 0 10px">
+      Requested to raise bear_exposure from 0.50 to 0.75. Grid run because the two questions interact.
+    </p>
+    <table>
+      <thead><tr>
+        <th>bear_exposure</th><th>0 bps CAGR</th><th>5 bps CAGR</th><th>10 bps CAGR</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>0.50 (baseline)</td><td>64.18%</td><td>70.42%</td><td>53.54%</td></tr>
+        <tr><td>0.75 (requested)</td><td>66.50%</td><td class="green">72.70%</td><td class="red">43.40%</td></tr>
+        <tr><td>1.00 (always invested)</td><td>65.40%</td><td>64.40%</td><td>48.50%</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:12px">
+      <strong class="red">Do not read this table.</strong> At 5 bps, adding costs <em>raises</em> every
+      CAGR versus costless fills; at 10 bps, bear 0.75 collapses from best to worst. Both are impossible
+      as cost effects — this grid is what exposed the path chaos. It cannot decide the bear_exposure
+      question in either direction.
+    </p>
+  </div>
+
+  <div class="card">
+    <strong>bear_exposure — decided by multi-start sampling instead</strong>
+    <p class="note" style="margin:6px 0 12px">
+      Six start dates (2020-01-01, 2020-07-01, 2021-01-01, 2021-07-01, 2022-01-01, 2023-01-01), all
+      ending 2026-09-28, <strong>paired</strong> so market conditions cancel. Length-normalized metrics
+      only. <strong>Conclusion: 0.75 is not a validated improvement — keep 0.50.</strong>
+    </p>
+    <table>
+      <thead><tr>
+        <th>bear_exposure</th><th>CAGR median</th><th>CAGR range</th><th>Sharpe median</th><th>Max DD median</th>
+      </tr></thead>
+      <tbody>
+        <tr class="best"><td>0.50 (baseline)</td><td>52.83%</td><td>45.6–64.8%</td>
+            <td>1.19</td><td class="green">43.2%</td></tr>
+        <tr><td>0.75 (requested)</td><td class="green">59.22%</td><td class="red">32.5–72.5%</td>
+            <td>1.23</td><td class="amber">44.8%</td></tr>
+        <tr class="worst"><td>1.00 (always invested)</td><td class="red">50.49%</td><td>38.8–72.3%</td>
+            <td class="red">1.14</td><td>43.0%</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin:12px 0 6px"><strong>Paired deltas vs 0.50 on identical start dates</strong></p>
+    <table>
+      <thead><tr><th>Start</th><th>CAGR Δ</th><th>Max DD Δ</th><th>Sharpe Δ</th></tr></thead>
+      <tbody>
+        <tr><td>2020-01-01</td><td class="green">+2.33</td><td class="red">+4.10</td><td>+0.00</td></tr>
+        <tr><td>2020-07-01</td><td class="green">+21.00</td><td class="green">−0.20</td><td class="green">+0.35</td></tr>
+        <tr><td>2021-01-01</td><td class="green">+16.70</td><td class="red">+9.70</td><td>+0.06</td></tr>
+        <tr><td>2021-07-01</td><td class="red">−17.44</td><td class="red">+3.50</td><td class="red">−0.30</td></tr>
+        <tr><td>2022-01-01</td><td class="green">+1.78</td><td class="red">+4.90</td><td>+0.06</td></tr>
+        <tr><td>2023-01-01</td><td class="red">−12.91</td><td class="red">+1.60</td><td class="red">−0.27</td></tr>
+        <tr><td><strong>median</strong></td><td><strong>+2.05</strong></td><td><strong>+3.80</strong></td><td><strong>+0.03</strong></td></tr>
+        <tr><td><strong>signal</strong></td><td>wins 4/6<br>spread −17.4 to +21.0</td>
+            <td class="red"><strong>worse on 5/6</strong></td><td>better 3/6</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:12px">
+      <strong>Return is noise</strong> — a +2.05 median inside a 38-point spread, winning 4 of 6 starts,
+      losing by 17 on one and winning by 21 on another. <strong>Drawdown is the only directional
+      effect</strong> — worse on 5 of 6 starts, and theory-consistent (more exposure in downtrends means
+      deeper drawdowns). Loosening the filter therefore trades a predicted cost for an unmeasurable gain,
+      with Sharpe flat.
+    </p>
+    <p class="note" style="margin-top:8px">
+      Supporting point for keeping <em>a</em> filter: bear 1.00 (always fully invested) has the lowest
+      median CAGR and lowest Sharpe of the three — worse than 0.50. The regime filter earns its place;
+      loosening it does not.
+    </p>
+  </div>
+
+  <div class="card">
+    <strong>bear_exposure dose-response — and the final verdict</strong>
+    <p class="note" style="margin:6px 0 12px">
+      Since higher exposure made drawdowns consistently <em>worse</em>, the logical next test was
+      <em>lower</em> exposure. Four levels over the same six paired start dates. The 0.50 column
+      reproduced the previous run's values exactly (64.18 / 45.61 / 55.76 / 49.90 / 47.87 / 64.83),
+      confirming harness determinism across five independent processes.
+    </p>
+    <table>
+      <thead><tr>
+        <th>bear_exposure</th><th>CAGR median</th><th>Sharpe median</th><th>Max DD median</th>
+      </tr></thead>
+      <tbody>
+        <tr class="worst"><td>0.00 (full cash)</td><td>54.36%</td><td>1.19</td>
+            <td class="red">48.6% ← worst</td></tr>
+        <tr><td>0.25</td><td class="red">49.40%</td><td>1.17</td><td>45.8%</td></tr>
+        <tr><td>0.35</td><td>53.32%</td><td class="green">1.21</td>
+            <td class="green">42.1% ← best</td></tr>
+        <tr class="best"><td>0.50 (current)</td><td>52.83%</td><td>1.19</td><td>43.2%</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:12px">
+      <strong class="amber">Drawdown is NOT ordered by exposure</strong> — and the direction is the
+      opposite of the hypothesis. Full cash has the <em>worst</em> median drawdown (48.6%), 0.35 the
+      best, 0.50 in between. The reason is architectural: <code>bear_exposure</code> is a position-size
+      multiplier on <em>new entries only</em> — it does not force-exit existing holdings. At 0.00 the
+      strategy stops <em>buying</em> in downtrends while its existing positions still ride the decline,
+      so it forgoes the recovery without avoiding the drawdown. <strong>It is a poor drawdown
+      control</strong>, which matters because drawdown is this strategy's real weakness.
+    </p>
+    <p class="note" style="margin:12px 0 6px"><strong>Paired deltas vs 0.50 — every alternative loses</strong></p>
+    <table>
+      <thead><tr><th>Variant</th><th>CAGR median</th><th>wins</th><th>Sharpe median</th><th>better</th></tr></thead>
+      <tbody>
+        <tr><td>0.00</td><td class="red">−2.72</td><td>2/6</td><td class="red">−0.04</td><td>2/6</td></tr>
+        <tr><td>0.25</td><td class="red">−3.19</td><td class="red">1/6</td><td class="red">−0.03</td><td>2/6</td></tr>
+        <tr><td>0.35</td><td class="red">−4.87</td><td>2/6</td><td class="red">−0.05</td><td>2/6</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:12px">
+      <strong class="green">Final verdict: keep bear_exposure = 0.50.</strong> It now survives a paired
+      test against five alternatives in both directions — 0.00, 0.25, 0.35, 0.75 and 1.00 — and none
+      beats it. 0.25 is weakest (1/6 wins, −38 to +11 spread); 0.35 has a marginal drawdown edge
+      (−0.39, improved 3/6 — a coin flip) that costs −4.87 median CAGR and Sharpe.
+    </p>
+  </div>
+
+  <h2>7 · Findings</h2>
+  <div class="card">
+    <ul>
+      <li><strong class="green">minhold_21 is a wash, not a win.</strong> Return is flat (+2.6%) and win rate
+        improves (35.9% → 39.0%), but Sharpe slips (1.35 → 1.34), max drawdown worsens
+        (44.8% → 47.5%), and turnover falls only 9.7%. Not a trade worth making on its own.</li>
+      <li><strong class="red">minhold_28 breaks the strategy.</strong> Return falls 65% (2727% → 950%),
+        Sharpe collapses to 0.99, and max drawdown <em>rises</em> to 61.0%. A longer minimum hold forces
+        the strategy to sit in deteriorating positions — it hurts return and risk simultaneously.</li>
+      <li><strong class="red">The activation threshold also fails.</strong> It suppresses trailing-stop
+        exits exactly as designed (52.7% → 24.4%), but the churn re-routes to rotation and the hard stop
+        (Stop Loss 5 → 24, roughly 5×), total turnover falls only 14%, and <em>max drawdown rises on every
+        variant</em> (44.8% → 57.4/59.9/60.4%) while Sharpe falls on every variant (1.35 → 1.01/1.12/1.06).
+        <code>arm_at_+10pct</code> looks attractive on headline (+27% return) but buys it with +15 points of
+        drawdown and a worse Sharpe.</li>
+      <li><strong class="amber">Turnover is load-bearing, not leakage.</strong> Both levers show the same
+        structural result: exits cannot be removed, only re-routed. Suppressing one exit reason inflates
+        another. The rapid rotation appears to be <em>how</em> the strategy captures 3-month momentum —
+        with no modelled costs and 49%/yr alpha against SPY's 15.1%, the exits generate the edge rather
+        than leaking it. <strong>Recommendation: stop optimizing turnover.</strong></li>
+      <li><strong class="cyan">Drawdown is the real weakness.</strong> Baseline max drawdown is 44.8% over
+        this window (the 100-run batch median was 36.6%), and it is the metric that makes the strategy hard
+        to hold. Any further work should target drawdown directly — <code>bear_exposure</code> (currently
+        0.50) is the obvious untested lever.</li>
+      <li><strong>The 20% hard stop is dead at baseline</strong> (0.5% of exits) — a 12% trail from peak
+        always fires first, so it only triggers on a ≥20% single-day gap. Note it becomes <em>live</em>
+        once the trail is armed late (5 → 24 exits), which is another reason the activation threshold is
+        not free.</li>
+    </ul>
+    <p class="note" style="margin-top:14px">
+      <strong>Recommended next step:</strong> stop optimizing turnover and attack
+      <em>drawdown</em> instead. Two sweeps now agree that exits can only be re-routed, not removed, and
+      that removing them costs 13–16 points of drawdown. The open lever is
+      <code>bear_exposure</code> (currently 0.50, i.e. half size when SPY &lt; SMA200) — untested on this
+      base. A separate correctness gap worth closing: the adapter models <em>no</em> transaction costs,
+      so every backtest here overstates returns by ~1.2–4.9%/yr depending on real costs.
+    </p>
+  </div>
+
+  <h2>8 · Methodology &amp; caveats</h2>
+  <div class="card">
+    <ul>
+      <li>Lever comparison uses <strong>one full-period backtest per config</strong>. This was discovered
+        mid-analysis to be <strong>invalid on this strategy</strong> — see the warning at the top of this
+        report. Sections 4–6's return/Sharpe/drawdown columns are within the noise floor of path chaos;
+        only the structural counts (exit reasons, trades per year) are reliable. Any lever decision needs
+        the 100-run randomized batch, compared on medians.</li>
+      <li>The sweep baseline (CAGR 64.2%, Sharpe 1.35, 61.1 exits/yr) differs from the 100-run batch
+        headline (median CAGR 75.3%, Sharpe 1.58) because the batch's runs are 2.4–6.4 years with
+        randomized starts, while this is one 6.75-year window containing 2020's crash, 2022's bear
+        market and 2026. Per-year turnover matches closely (61.1 vs 60.0).</li>
+      <li>MQR was made parameterizable for this sweep (<code>**overrides</code> with pinned defaults and
+        unknown-key rejection); defaults are guarded by test against the verified baseline.</li>
+      <li>No per-trade data was exported by the sweep, so this report contains no equity curve or trade
+        list. All figures above come from adapter <code>summary</code> output.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>
