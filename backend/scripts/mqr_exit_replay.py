@@ -26,7 +26,11 @@ from app.services.exit_replay.entry_set import (  # noqa: E402
     freeze_entry_set,
     load_entry_set,
 )
-from app.services.exit_replay.evaluate import evaluate_policy, summarise  # noqa: E402
+from app.services.exit_replay.evaluate import (  # noqa: E402
+    evaluate_policy,
+    price_exit_mask,
+    summarise,
+)
 from app.services.exit_replay.gate import run_reproduction_gate  # noqa: E402
 from app.services.exit_replay.policies import POLICY_GRID  # noqa: E402
 from app.services.exit_replay.price_panel import PricePanel  # noqa: E402
@@ -58,10 +62,17 @@ def main() -> int:
     for m in gate["hard_mismatches"][:10]:
         print(f"    mismatch: {m}", flush=True)
 
+    print("Classifying price-rule exits vs rotation exits...", flush=True)
+    mask = price_exit_mask(entries, panel)
+    n_price = int(mask.sum())
+    print(f"  price-rule exits {n_price:,}  rotation exits {len(mask) - n_price:,}",
+          flush=True)
+
     print(f"Evaluating {len(POLICY_GRID)} policies...", flush=True)
     ranking, per_policy = [], {}
     for name, policy in POLICY_GRID.items():
-        pt = evaluate_policy(entries, panel, policy)
+        # rotation held fixed; price-exited trades replay uncapped to the horizon
+        pt = evaluate_policy(entries, panel, policy, price_exit=mask)
         per_policy[name] = summarise(pt)
         fit = summarise(pt[pt["bucket"] == "fit"])
         val = summarise(pt[pt["bucket"] == "validate"])
@@ -93,6 +104,8 @@ def main() -> int:
     with open(jp, "w") as f:
         json.dump({"gate": gate, "ranking": ranking, "entry_sha256": digest,
                    "n_entries": len(entries),
+                   "n_price_exits": n_price,
+                   "n_rotation_exits": len(entries) - n_price,
                    "mae_median": float(excursions["mae"].median()) if len(excursions) else None,
                    "mfe_median": float(excursions["mfe"].median()) if len(excursions) else None},
                   f, indent=2, default=str)

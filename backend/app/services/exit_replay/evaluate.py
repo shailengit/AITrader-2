@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .engine import ExitPolicy, replay_position
+from .engine import CURRENT_MQR_POLICY, ExitPolicy, replay_position
 from .policies import FIT_END, VAL_END
 
 MAX_FORWARD_DAYS = 400  # calendar buffer well beyond the 180-trading-day cap
@@ -34,21 +34,62 @@ def _bucket(entry_date: pd.Timestamp) -> str:
     return "out"
 
 
-def evaluate_policy(entry_df: pd.DataFrame, panel, policy: ExitPolicy) -> pd.DataFrame:
+def price_exit_mask(
+    entry_df: pd.DataFrame, panel, policy: ExitPolicy = CURRENT_MQR_POLICY
+) -> pd.Series:
+    """True where the trade really exited on a PRICE rule, not by rotation.
+
+    Determined by replaying `policy` UNCAPPED: if it reproduces the recorded
+    (exit_date, exit_px), the recorded exit was that price rule firing. Otherwise
+    the exit must have been rotation (the only non-price rule).
+    """
+    flags = []
+    for row in entry_df.itertuples(index=False):
+        bars = panel.bars(row.ticker, row.entry_date,
+                          row.entry_date + pd.Timedelta(days=MAX_FORWARD_DAYS))
+        out = replay_position(row.entry_px, row.entry_date, bars, policy,
+                              cap_date=None, panel=panel, ticker=row.ticker)
+        ok = (out.exit_date is not None and out.exit_px is not None
+              and pd.Timestamp(out.exit_date) == pd.Timestamp(row.exit_date)
+              and round(abs(float(out.exit_px) - float(row.exit_px)), 2) == 0)
+        flags.append(bool(ok))
+    return pd.Series(flags, index=entry_df.index, name="price_exit")
+
+
+def evaluate_policy(
+    entry_df: pd.DataFrame,
+    panel,
+    policy: ExitPolicy,
+    price_exit: pd.Series | None = None,
+) -> pd.DataFrame:
     """Replay one policy over every frozen entry.
 
-    `cap_date` is the trade's recorded exit date: rotation is held fixed, so a
-    trade that was rotated out ends there, while a trade that exited on a price
-    rule exits when that rule fires (which may be earlier -- that IS the
-    counterfactual being measured).
+    ROTATION IS HELD FIXED, PRICE EXITS ARE NOT CAPPED.
+
+    Capping every replay at the recorded exit date would impose a ceiling: a
+    policy less aggressive than the baseline could never fire later and would be
+    truncated at the same date, appearing identical to baseline. That makes the
+    motivating question -- "would holding longer have been better?" --
+    unanswerable.
+
+    So `price_exit` (see price_exit_mask) decides per trade:
+      True  -> the trade exited on a price rule; replay uncapped to the horizon,
+               so a wider stop or no stop is genuinely evaluated.
+      False -> the trade was rotated out; cap at the recorded date, because
+               rotation is deliberately fixed in phase 1.
     """
+    if price_exit is None:
+        price_exit = pd.Series([False] * len(entry_df), index=entry_df.index)
+    flags = list(price_exit)
+
     rows = []
-    for row in entry_df.itertuples(index=False):
+    for i, row in enumerate(entry_df.itertuples(index=False)):
         bars = panel.bars(row.ticker, row.entry_date,
                           row.entry_date + pd.Timedelta(days=MAX_FORWARD_DAYS))
         out = replay_position(
             row.entry_px, row.entry_date, bars, policy,
-            cap_date=row.exit_date, panel=panel, ticker=row.ticker,
+            cap_date=None if flags[i] else row.exit_date,
+            panel=panel, ticker=row.ticker,
         )
         observed = bool(out.observed_fully) and out.exit_px is not None
         if observed:
