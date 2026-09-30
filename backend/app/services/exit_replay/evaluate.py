@@ -15,6 +15,16 @@ from .policies import FIT_END, VAL_END
 
 MAX_FORWARD_DAYS = 400  # calendar buffer well beyond the 180-trading-day cap
 
+# Every MQR row in journal_trade was recorded with qty=1 (verified: all 29,736
+# rows), so the recorded quantities carry NO size information and
+# (exit_px - entry_px) * qty is a per-share figure, not portfolio dollars.
+# Ranking policies on that number would silently favour high-priced tickers.
+# Instead each trade is treated as an equal-weighted slot, which is what the
+# strategy actually does (capital / max_holdings).
+CAPITAL = 100_000.0
+MAX_HOLDINGS = 5
+NOTIONAL_PER_POSITION = CAPITAL / MAX_HOLDINGS  # 20,000
+
 
 def _bucket(entry_date: pd.Timestamp) -> str:
     if entry_date <= FIT_END:
@@ -43,7 +53,7 @@ def evaluate_policy(entry_df: pd.DataFrame, panel, policy: ExitPolicy) -> pd.Dat
         observed = bool(out.observed_fully) and out.exit_px is not None
         if observed:
             pnl_pct = (float(out.exit_px) - float(row.entry_px)) / float(row.entry_px)
-            pnl_dollars = (float(out.exit_px) - float(row.entry_px)) * float(row.qty)
+            pnl_dollars = pnl_pct * NOTIONAL_PER_POSITION
         else:
             pnl_pct = None
             pnl_dollars = None
@@ -78,11 +88,19 @@ def summarise(per_trade: pd.DataFrame) -> dict:
         return out
 
     r = obs["pnl_pct"].astype(float)
+    d = obs["pnl_dollars"].astype(float)
     sd = float(r.std())
     out["mean_pnl_pct"] = round(float(r.mean()), 6)
-    out["total_pnl_dollars"] = round(float(obs["pnl_dollars"].astype(float).sum()), 2)
+    out["pct_of_capital_delta"] = round(float(r.sum()) * NOTIONAL_PER_POSITION / CAPITAL, 6)
+    out["total_pnl_dollars"] = round(float(d.sum()), 2)
     out["win_rate"] = round(float((r > 0).mean()), 4)
     out["info_ratio"] = round(float(r.mean() / sd), 4) if sd > 0 else None
-    eq = (1.0 + r).cumprod()
-    out["max_dd_pct"] = round(float(((eq.cummax() - eq) / eq.cummax()).max() * 100), 2)
+
+    # Drawdown on an ADDITIVE equity curve in dollars, ordered by exit date.
+    # Compounding thousands of per-trade returns overflows: (1+r).cumprod() hit
+    # numpy's overflow warning and produced inf, so max_dd was meaningless.
+    ordered = obs.sort_values("exit_date", kind="stable")
+    equity = CAPITAL + ordered["pnl_dollars"].astype(float).cumsum()
+    peak = equity.cummax()
+    out["max_dd_pct"] = round(float(((peak - equity) / peak).max() * 100), 2)
     return out
