@@ -353,11 +353,14 @@ the recorded exit dates the replay reproduces reality exactly.
 | Time stop | 40 $484,216 · 60 $636,054 · 90 $664,365 · **120 $648,076** · 180 $670,344 · off $680,615 |
 | Hard stop | 0.10 $645,957 · 0.15 $648,076 · 0.30 $648,076 · off $648,076 |
 
-**Finding: every price-based exit improves when loosened, monotonically, in BOTH
-the fit and the validate half.** The 12% trailing stop, the activation threshold
-and the +50% take profit are all cutting winners short. The hard stop is inert
-(0.15 / 0.30 / off are identical to baseline, because a 12% trail always fires
-first), confirming the earlier turnover audit.
+**Finding (PER-TRADE ONLY — see §17 for the retraction).** Every price-based exit
+*looks* better when loosened, monotonically, in both halves: the 12% trailing stop,
+the activation threshold and the +50% take profit all appear to cut winners short.
+The hard stop is inert (0.15 / 0.30 / off identical to baseline, because a 12% trail
+always fires first), confirming the earlier turnover audit.
+
+**This ranking must NOT be read as a portfolio result.** §17 shows it does not
+survive the full adapter, because the replay has no slot opportunity cost.
 
 **Bounds.** The primary figures replay price-exited trades uncapped to the
 180-trading-day horizon while rotation exits stay capped, so they are an **upper
@@ -371,3 +374,77 @@ here rather than inflating the result.
 **Phase 2 candidate:** widen the trailing stop (0.20-0.30, or disable it) and/or
 loosen take profit, re-validated on fresh data with the multi-start / batch
 methodology — never a single run.
+
+## 17. Phase 2 outcome — the frozen-entry ranking does NOT survive deployment
+
+Phase 2 was to turn the §16 evidence into a better deterministic exit rule,
+selected on fit and confirmed on the held-out validate bucket. That protocol was
+followed (`scripts/mqr_phase2_select.py`, `_combo.py`) and it produced exactly the
+result §16 predicts:
+
+| | fit-selected winner | held-out validate |
+|---|---|---|
+| single lever | `trail_off` | +77.8%, ranks #3 of 27 |
+| combination | `trail_off + act20 + tp_off` | **+135.3%, ranks #1 of 9** |
+
+Both with **0% censored**, so neither is a censoring artifact.
+
+**Then the deployment-realistic check contradicted it.** Running the same rules
+through the full `StrategyBacktestAdapter` (paired across 6 start dates, because
+entries drift there by construction):
+
+| rule | CAGR median | CAGR wins | Sharpe |
+|---|---|---|---|
+| conservative (trail 0.30 + act 0.20 + tp off) | **−7.26** | 1/6 | worse on **6/6** |
+| aggressive (trail off + act 0.20 + tp off) | −2.44 | 3/6 | worse on 2/6 |
+
+### Why — and the retraction
+
+**A frozen-entry replay has no slot opportunity cost.** Its entire "advantage" is
+holding the *same* position longer:
+
+| | mean hold | mean return/trade |
+|---|---|---|
+| baseline | 29.0 days | 4.47% |
+| trail_off + act20 + tp_off | **69.0 days** | **10.26%** |
+
+But the true alternative to holding longer is not holding cash — it is holding a
+*different stock*. The live adapter frees the slot and refills it with the next
+ranked candidate, which earns its own return. The frozen replay cannot see that.
+
+**Therefore:**
+- The frozen harness is valid for **per-trade** questions: excursions, forward-return
+  regret, exit-reason decomposition, "was this winner sold too early?".
+- It is **invalid for ranking exit policies at portfolio level.** That question
+  requires the full adapter with multi-start.
+- §16's ranking is accordingly retracted as a portfolio result; its *descriptive*
+  content (the exit mix, the inert hard stop, the 0%-vs-21% censoring contrast) stands.
+
+### Verdict on phase 2
+
+**No exit-rule change is justified.** The candidates that look best on frozen
+entries are neutral-to-worse through the adapter, the conservative one degrading
+Sharpe in 6 of 6 starts. MQR's current exit constants stay.
+
+One genuine signal survives in the noise: the conservative rule improved max
+drawdown on 4 of 6 starts (−2.24 median), consistent with §16's direction. So
+loosening the trail is a **risk/return trade** (less drawdown, worse Sharpe), not a
+free improvement — which is a coherent thing to consider later on its own merits,
+not as a return play.
+
+### What phase 2 established methodologically
+
+To make a frozen-entry replay answer a *portfolio* question you must model the slot
+refill, which requires the cross-sectional ranking — at which point the analysis is
+no longer frozen and the chaos returns. So the two questions need two harnesses:
+
+| question | harness | why |
+|---|---|---|
+| was this trade exited badly? | frozen entry set | deterministic, no chaos |
+| is this exit rule better? | full adapter, multi-start, paired | models the refill; entries drift, so average over starts |
+
+Corollary, and a real trap this work hit: the aggregate **excludes censored trades**,
+so a policy whose non-exits correlate with outcome can be scored by censoring alone.
+`trail30+act20+tp_off+time_off` scored −142.7% purely because 21% of trades never
+exited and the observed remainder was dominated by hard-stop losses (its per-trade
+*mean* was positive). Always read `n_censored` before believing a ranking.
