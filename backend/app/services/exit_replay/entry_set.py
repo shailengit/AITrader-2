@@ -16,6 +16,7 @@ import pandas as pd
 from sqlalchemy import text
 
 from app.db.database import engine as default_engine
+from app.services.exit_replay._dates import as_naive_dates
 
 MQR_STRATEGY_ID = "8e78e543-18e2-4b7d-abff-04e754e33015"
 
@@ -35,17 +36,6 @@ _SQL = """
 """
 
 
-def _as_naive_dates(s: pd.Series) -> pd.Series:
-    """Parse to datetime and drop tz.
-
-    These are calendar trading days. Postgres hands back tz-aware values while
-    policy configs and test literals are naive, and comparing the two raises,
-    so the whole package works in naive dates.
-    """
-    s = pd.to_datetime(s)
-    return s.dt.tz_localize(None) if s.dt.tz is not None else s
-
-
 def extract_entry_set(
     strategy_id: str, source: str = "backtest", engine=None
 ) -> pd.DataFrame:
@@ -56,8 +46,8 @@ def extract_entry_set(
             text(_SQL), {"sid": strategy_id, "src": source}
         ).mappings().all()
     df = pd.DataFrame(rows)
-    df["entry_date"] = _as_naive_dates(df["entry_date"])
-    df["exit_date"] = _as_naive_dates(df["exit_date"])
+    df["entry_date"] = as_naive_dates(df["entry_date"])
+    df["exit_date"] = as_naive_dates(df["exit_date"])
     for c in ("entry_px", "exit_px", "qty"):
         df[c] = df[c].astype(float)
     df["hold_days_calendar"] = (df["exit_date"] - df["entry_date"]).dt.days
