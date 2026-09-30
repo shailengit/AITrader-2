@@ -1,0 +1,654 @@
+{
+  "gate": {
+    "price_total": 1349,
+    "price_reproduced": 1342,
+    "price_rate": 0.9948,
+    "rotation_total": 664,
+    "rotation_reproduced": 0,
+    "semantic_mismatches": 0,
+    "label_inconsistencies": 0,
+    "mismatches": [
+      {
+        "class": "px_mismatch",
+        "ticker": "ALB",
+        "recorded_reason": "Trailing Stop",
+        "entry": "2022-06-02",
+        "hold_days": 11,
+        "recorded_date": "2022-06-13",
+        "recorded_px": 211.91,
+        "replay_date": "2022-06-13",
+        "replay_px": 210.14,
+        "replay_reason": "Trailing Stop"
+      },
+      {
+        "class": "px_mismatch",
+        "ticker": "ALB",
+        "recorded_reason": "Trailing Stop",
+        "entry": "2025-12-12",
+        "hold_days": 49,
+        "recorded_date": "2026-01-30",
+        "recorded_px": 170.63,
+        "replay_date": "2026-01-30",
+        "replay_px": 169.2,
+        "replay_reason": "Trailing Stop"
+      },
+      {
+        "class": "px_mismatch",
+        "ticker": "ALB",
+        "recorded_reason": "Trailing Stop",
+        "entry": "2025-12-16",
+        "hold_days": 45,
+        "recorded_date": "2026-01-30",
+        "recorded_px": 170.63,
+        "replay_date": "2026-01-30",
+        "replay_px": 169.2,
+        "replay_reason": "Trailing Stop"
+      },
+      {
+        "class": "px_mismatch",
+        "ticker": "ALB",
+        "recorded_reason": "Trailing Stop",
+        "entry": "2025-12-17",
+        "hold_days": 44,
+        "recorded_date": "2026-01-30",
+        "recorded_px": 170.63,
+        "replay_date": "2026-01-30",
+        "replay_px": 169.2,
+        "replay_reason": "Trailing Stop"
+      },
+      {
+        "class": "px_mismatch",
+        "ticker": "ALB",
+        "recorded_reason": "Trailing Stop",
+        "entry": "2025-12-22",
+        "hold_days": 39,
+        "recorded_date": "2026-01-30",
+        "recorded_px": 170.63,
+        "replay_date": "2026-01-30",
+        "replay_px": 169.2,
+        "replay_reason": "Trailing Stop"
+      },
+      {
+        "class": "px_mismatch",
+        "ticker": "ALB",
+        "recorded_reason": "Trailing Stop",
+        "entry": "2026-01-13",
+        "hold_days": 17,
+        "recorded_date": "2026-01-30",
+        "recorded_px": 170.63,
+        "replay_date": "2026-01-30",
+        "replay_px": 169.2,
+        "replay_reason": "Trailing Stop"
+      },
+      {
+        "class": "px_mismatch",
+        "ticker": "ALB",
+        "recorded_reason": "Trailing Stop",
+        "entry": "2026-01-14",
+        "hold_days": 16,
+        "recorded_date": "2026-01-30",
+        "recorded_px": 170.63,
+        "replay_date": "2026-01-30",
+        "replay_px": 169.2,
+        "replay_reason": "Trailing Stop"
+      }
+    ],
+    "class_counts": {
+      "date_mismatch": 664,
+      "exact": 1342,
+      "px_mismatch": 7
+    },
+    "capped_total": 2013,
+    "capped_reproduced": 1342,
+    "capped_rate": 0.6667,
+    "cap_to_actual": false,
+    "passed": true,
+    "verdict": "1,342/1,349 price-rule trades reproduced (0.9948); semantics exact; 7 residual data-vintage difference(s)"
+  },
+  "ranking": [
+    {
+      "policy": "trail_0.30",
+      "fit_dollars": 1955290.2,
+      "val_dollars": 1156188.85,
+      "val_sum_pct": 57.8094,
+      "mean_pnl_pct": 0.106072,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.3598,
+      "max_dd_pct": 50.03,
+      "val_win_rate": 0.3945,
+      "exit_mix": {
+        "Rotated Out": 664,
+        "Take Profit": 407,
+        "Stop Loss": 373,
+        "Time Stop": 372,
+        "Trailing Stop": 197
+      }
+    },
+    {
+      "policy": "trail_0.25",
+      "fit_dollars": 1998798.13,
+      "val_dollars": 1152328.58,
+      "val_sum_pct": 57.6164,
+      "mean_pnl_pct": 0.105718,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.3647,
+      "max_dd_pct": 74.84,
+      "val_win_rate": 0.4092,
+      "exit_mix": {
+        "Rotated Out": 664,
+        "Take Profit": 394,
+        "Time Stop": 323,
+        "Trailing Stop": 318,
+        "Stop Loss": 314
+      }
+    },
+    {
+      "policy": "trail_off",
+      "fit_dollars": 2109327.82,
+      "val_dollars": 1152180.95,
+      "val_sum_pct": 57.609,
+      "mean_pnl_pct": 0.105705,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.353,
+      "max_dd_pct": 43.61,
+      "val_win_rate": 0.4073,
+      "exit_mix": {
+        "Rotated Out": 664,
+        "Stop Loss": 470,
+        "Time Stop": 452,
+        "Take Profit": 427
+      }
+    },
+    {
+      "policy": "trail_0.20",
+      "fit_dollars": 1783394.06,
+      "val_dollars": 964330.73,
+      "val_sum_pct": 48.2165,
+      "mean_pnl_pct": 0.088471,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.3214,
+      "max_dd_pct": 60.45,
+      "val_win_rate": 0.3706,
+      "exit_mix": {
+        "Rotated Out": 664,
+        "Trailing Stop": 592,
+        "Take Profit": 354,
+        "Time Stop": 214,
+        "Stop Loss": 189
+      }
+    },
+    {
+      "policy": "act_0.20",
+      "fit_dollars": 1785778.13,
+      "val_dollars": 953305.98,
+      "val_sum_pct": 47.6653,
+      "mean_pnl_pct": 0.087459,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.3334,
+      "max_dd_pct": 44.24,
+      "val_win_rate": 0.4514,
+      "exit_mix": {
+        "Rotated Out": 664,
+        "Trailing Stop": 500,
+        "Stop Loss": 386,
+        "Take Profit": 299,
+        "Time Stop": 164
+      }
+    },
+    {
+      "policy": "act_0.15",
+      "fit_dollars": 1687402.93,
+      "val_dollars": 910779.59,
+      "val_sum_pct": 45.539,
+      "mean_pnl_pct": 0.083558,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.3249,
+      "max_dd_pct": 48.19,
+      "val_win_rate": 0.455,
+      "exit_mix": {
+        "Rotated Out": 664,
+        "Trailing Stop": 596,
+        "Stop Loss": 350,
+        "Take Profit": 284,
+        "Time Stop": 119
+      }
+    },
+    {
+      "policy": "act_0.10",
+      "fit_dollars": 1538371.73,
+      "val_dollars": 837701.44,
+      "val_sum_pct": 41.8851,
+      "mean_pnl_pct": 0.076853,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.3098,
+      "max_dd_pct": 51.53,
+      "val_win_rate": 0.4183,
+      "exit_mix": {
+        "Trailing Stop": 712,
+        "Rotated Out": 664,
+        "Stop Loss": 289,
+        "Take Profit": 263,
+        "Time Stop": 85
+      }
+    },
+    {
+      "policy": "trail_0.15",
+      "fit_dollars": 1212202.35,
+      "val_dollars": 800423.11,
+      "val_sum_pct": 40.0212,
+      "mean_pnl_pct": 0.073433,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2986,
+      "max_dd_pct": 83.75,
+      "val_win_rate": 0.3706,
+      "exit_mix": {
+        "Trailing Stop": 976,
+        "Rotated Out": 664,
+        "Take Profit": 267,
+        "Time Stop": 73,
+        "Stop Loss": 33
+      }
+    },
+    {
+      "policy": "act_0.05",
+      "fit_dollars": 1372482.78,
+      "val_dollars": 754856.85,
+      "val_sum_pct": 37.7428,
+      "mean_pnl_pct": 0.069253,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2877,
+      "max_dd_pct": 59.64,
+      "val_win_rate": 0.3853,
+      "exit_mix": {
+        "Trailing Stop": 800,
+        "Rotated Out": 664,
+        "Take Profit": 245,
+        "Stop Loss": 235,
+        "Time Stop": 69
+      }
+    },
+    {
+      "policy": "tp_off",
+      "fit_dollars": 1201375.23,
+      "val_dollars": 687752.93,
+      "val_sum_pct": 34.3876,
+      "mean_pnl_pct": 0.063097,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2412,
+      "max_dd_pct": 115.58,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1225,
+        "Rotated Out": 664,
+        "Time Stop": 108,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "time_off",
+      "fit_dollars": 1205591.0,
+      "val_dollars": 680615.4,
+      "val_sum_pct": 34.0308,
+      "mean_pnl_pct": 0.062442,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2684,
+      "max_dd_pct": 76.34,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1087,
+        "Rotated Out": 664,
+        "Take Profit": 242,
+        "Stop Loss": 16,
+        "Window End": 4
+      }
+    },
+    {
+      "policy": "time_180",
+      "fit_dollars": 1222944.18,
+      "val_dollars": 670344.48,
+      "val_sum_pct": 33.5172,
+      "mean_pnl_pct": 0.061499,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2669,
+      "max_dd_pct": 76.34,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1081,
+        "Rotated Out": 664,
+        "Take Profit": 231,
+        "Time Stop": 21,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "tp_1.00",
+      "fit_dollars": 1222962.44,
+      "val_dollars": 664950.6,
+      "val_sum_pct": 33.2475,
+      "mean_pnl_pct": 0.061005,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2453,
+      "max_dd_pct": 115.58,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1202,
+        "Rotated Out": 664,
+        "Time Stop": 101,
+        "Take Profit": 30,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "time_90",
+      "fit_dollars": 1118465.27,
+      "val_dollars": 664364.7,
+      "val_sum_pct": 33.2182,
+      "mean_pnl_pct": 0.060951,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2675,
+      "max_dd_pct": 76.21,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1035,
+        "Rotated Out": 664,
+        "Take Profit": 189,
+        "Time Stop": 109,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "tp_0.75",
+      "fit_dollars": 1244816.54,
+      "val_dollars": 661475.57,
+      "val_sum_pct": 33.0738,
+      "mean_pnl_pct": 0.060686,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2511,
+      "max_dd_pct": 115.58,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1162,
+        "Rotated Out": 664,
+        "Time Stop": 89,
+        "Take Profit": 82,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "baseline",
+      "fit_dollars": 1205548.2,
+      "val_dollars": 648075.74,
+      "val_sum_pct": 32.4038,
+      "mean_pnl_pct": 0.059456,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2611,
+      "max_dd_pct": 76.34,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1067,
+        "Rotated Out": 664,
+        "Take Profit": 227,
+        "Time Stop": 39,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "act_off",
+      "fit_dollars": 1205548.2,
+      "val_dollars": 648075.74,
+      "val_sum_pct": 32.4038,
+      "mean_pnl_pct": 0.059456,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2611,
+      "max_dd_pct": 76.34,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1067,
+        "Rotated Out": 664,
+        "Take Profit": 227,
+        "Time Stop": 39,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "hard_0.15",
+      "fit_dollars": 1205548.2,
+      "val_dollars": 648075.74,
+      "val_sum_pct": 32.4038,
+      "mean_pnl_pct": 0.059456,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2611,
+      "max_dd_pct": 76.34,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 991,
+        "Rotated Out": 664,
+        "Take Profit": 227,
+        "Stop Loss": 92,
+        "Time Stop": 39
+      }
+    },
+    {
+      "policy": "hard_0.30",
+      "fit_dollars": 1205548.2,
+      "val_dollars": 648075.74,
+      "val_sum_pct": 32.4038,
+      "mean_pnl_pct": 0.059456,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2611,
+      "max_dd_pct": 76.34,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1083,
+        "Rotated Out": 664,
+        "Take Profit": 227,
+        "Time Stop": 39
+      }
+    },
+    {
+      "policy": "hard_off",
+      "fit_dollars": 1205548.2,
+      "val_dollars": 648075.74,
+      "val_sum_pct": 32.4038,
+      "mean_pnl_pct": 0.059456,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2611,
+      "max_dd_pct": 76.34,
+      "val_win_rate": 0.3431,
+      "exit_mix": {
+        "Trailing Stop": 1083,
+        "Rotated Out": 664,
+        "Take Profit": 227,
+        "Time Stop": 39
+      }
+    },
+    {
+      "policy": "hard_0.10",
+      "fit_dollars": 1201720.73,
+      "val_dollars": 645957.46,
+      "val_sum_pct": 32.2979,
+      "mean_pnl_pct": 0.059262,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2612,
+      "max_dd_pct": 74.67,
+      "val_win_rate": 0.3376,
+      "exit_mix": {
+        "Trailing Stop": 687,
+        "Rotated Out": 611,
+        "Stop Loss": 450,
+        "Take Profit": 226,
+        "Time Stop": 39
+      }
+    },
+    {
+      "policy": "time_60",
+      "fit_dollars": 939083.42,
+      "val_dollars": 636053.97,
+      "val_sum_pct": 31.8027,
+      "mean_pnl_pct": 0.058354,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.268,
+      "max_dd_pct": 70.67,
+      "val_win_rate": 0.3633,
+      "exit_mix": {
+        "Trailing Stop": 966,
+        "Rotated Out": 656,
+        "Time Stop": 227,
+        "Take Profit": 148,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "tp_0.35",
+      "fit_dollars": 1093909.49,
+      "val_dollars": 601949.57,
+      "val_sum_pct": 30.0975,
+      "mean_pnl_pct": 0.055225,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2686,
+      "max_dd_pct": 52.32,
+      "val_win_rate": 0.345,
+      "exit_mix": {
+        "Trailing Stop": 933,
+        "Rotated Out": 664,
+        "Take Profit": 372,
+        "Time Stop": 28,
+        "Stop Loss": 16
+      }
+    },
+    {
+      "policy": "tp_0.25",
+      "fit_dollars": 871339.47,
+      "val_dollars": 537618.62,
+      "val_sum_pct": 26.8809,
+      "mean_pnl_pct": 0.049323,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2686,
+      "max_dd_pct": 49.23,
+      "val_win_rate": 0.3578,
+      "exit_mix": {
+        "Trailing Stop": 812,
+        "Rotated Out": 664,
+        "Take Profit": 505,
+        "Stop Loss": 16,
+        "Time Stop": 16
+      }
+    },
+    {
+      "policy": "trail_0.10",
+      "fit_dollars": 1036646.65,
+      "val_dollars": 512330.73,
+      "val_sum_pct": 25.6165,
+      "mean_pnl_pct": 0.047003,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2244,
+      "max_dd_pct": 58.79,
+      "val_win_rate": 0.3413,
+      "exit_mix": {
+        "Trailing Stop": 1300,
+        "Rotated Out": 491,
+        "Take Profit": 188,
+        "Time Stop": 20,
+        "Stop Loss": 14
+      }
+    },
+    {
+      "policy": "trail_0.08",
+      "fit_dollars": 1121697.08,
+      "val_dollars": 495580.91,
+      "val_sum_pct": 24.779,
+      "mean_pnl_pct": 0.045466,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2336,
+      "max_dd_pct": 44.1,
+      "val_win_rate": 0.3725,
+      "exit_mix": {
+        "Trailing Stop": 1539,
+        "Rotated Out": 294,
+        "Take Profit": 162,
+        "Stop Loss": 10,
+        "Time Stop": 8
+      }
+    },
+    {
+      "policy": "time_40",
+      "fit_dollars": 877475.34,
+      "val_dollars": 484216.44,
+      "val_sum_pct": 24.2108,
+      "mean_pnl_pct": 0.044424,
+      "n_observed": 545,
+      "n_censored": 0,
+      "info_ratio": 0.2347,
+      "max_dd_pct": 54.27,
+      "val_win_rate": 0.378,
+      "exit_mix": {
+        "Trailing Stop": 832,
+        "Rotated Out": 639,
+        "Time Stop": 430,
+        "Take Profit": 96,
+        "Stop Loss": 16
+      }
+    }
+  ],
+  "dedupe": {
+    "rows": 29736,
+    "distinct": 2013,
+    "duplicates": 27723,
+    "max_multiplicity": 110,
+    "mean_multiplicity": 14.77
+  },
+  "bounds": {
+    "trail_0.30": {
+      "capped_val_dollars": 648075.74,
+      "nextopen_val_dollars": 1178046.46
+    },
+    "trail_0.25": {
+      "capped_val_dollars": 648075.74,
+      "nextopen_val_dollars": 1157632.82
+    },
+    "trail_off": {
+      "capped_val_dollars": 648075.74,
+      "nextopen_val_dollars": 1160734.22
+    },
+    "trail_0.20": {
+      "capped_val_dollars": 648075.74,
+      "nextopen_val_dollars": 928725.73
+    },
+    "act_0.20": {
+      "capped_val_dollars": 648075.74,
+      "nextopen_val_dollars": 952240.36
+    }
+  },
+  "entry_sha256": "2cc9e45a4eaaf0917c0fb6964e32d62d16149de24ec383a6b54124202b366076",
+  "n_entries": 2013,
+  "n_price_exits": 1349,
+  "n_rotation_exits": 664,
+  "mae_median": -0.06967616460389313,
+  "mfe_median": 0.09776419841995293
+}

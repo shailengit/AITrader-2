@@ -1,4 +1,4 @@
-"""The HTML report must state the gate honestly and carry the numbers."""
+"""The HTML report must state the gate honestly and disclose the bounds."""
 import os
 import sys
 
@@ -9,16 +9,19 @@ import pandas as pd
 from app.services.exit_replay.report import build_report
 
 
-def _gate(ok, total):
-    return {"hard_total": total, "hard_reproduced": ok,
-            "soft_total": 23643, "soft_reproduced": 13000, "soft_rate": 0.5499,
-            "predicted_soft_rate": 0.56, "hard_mismatches": [],
-            "class_counts": {"exact": ok}}
+def _gate(ok, total, semantic=0, inconsistent=0):
+    return {"price_total": total, "price_reproduced": ok,
+            "price_rate": ok / total if total else 0.0,
+            "rotation_total": 664, "rotation_reproduced": 0,
+            "semantic_mismatches": semantic,
+            "label_inconsistencies": inconsistent,
+            "capped_total": 2013, "capped_reproduced": 1997, "capped_rate": 0.9921,
+            "mismatches": []}
 
 
 def _ranking():
     return [{"policy": "baseline", "fit_dollars": 100.0, "val_dollars": 90.0,
-             "n_censored": 3, "mean_pnl_pct": 0.05, "n_observed": 10}]
+             "n_censored": 3, "n_observed": 10, "mean_pnl_pct": 0.05}]
 
 
 def _exc():
@@ -26,23 +29,38 @@ def _exc():
                           "mae": -0.1, "mfe": 0.3}])
 
 
+def _meta(bounds=None):
+    return {"split": "fit <=2023 / validate 2024-25",
+            "dedupe": {"rows": 29736, "distinct": 2013, "duplicates": 27723,
+                       "max_multiplicity": 110, "mean_multiplicity": 14.77},
+            "bounds": bounds or {"baseline": {"capped_val_dollars": 50.0,
+                                              "nextopen_val_dollars": 80.0}}}
+
+
 def test_report_contains_required_sections_and_numbers():
-    html = build_report(_gate(6093, 6093), _ranking(), _exc(),
-                        {"split": "fit <=2023 / validate 2024-25"})
+    html = build_report(_gate(1342, 1349), _ranking(), _exc(), _meta())
     for needle in ["<!DOCTYPE html>", "MQR Exit Replay", "Reproduction gate",
-                   "Policy ranking", "Excursion", "6,093", "6,093 / 6,093"]:
+                   "Policy ranking", "Excursion", "1,342", "1,342 / 1,349"]:
         assert needle in html, needle
 
 
-def test_report_marks_a_passing_gate_and_a_failing_gate_differently():
-    passing = build_report(_gate(6093, 6093), _ranking(), _exc(), {"split": "x"})
-    failing = build_report(_gate(6092, 6093), _ranking(), _exc(), {"split": "x"})
+def test_report_marks_a_passing_gate_and_a_semantically_broken_one_differently():
+    """A vintage price residue must NOT read as failure; a wrong trigger date must."""
+    passing = build_report(_gate(1342, 1349, semantic=0), _ranking(), _exc(), _meta())
+    broken = build_report(_gate(1349, 1349, semantic=3), _ranking(), _exc(), _meta())
     assert "PASS" in passing and "FAIL" not in passing
-    assert "FAIL" in failing
-    assert "void" in failing          # conclusions are void until it passes
+    assert "FAIL" in broken and "void" in broken
 
 
-def test_report_survives_empty_excursions():
-    html = build_report(_gate(6093, 6093), _ranking(),
-                        pd.DataFrame(columns=["ticker", "mae", "mfe"]), {"split": "x"})
+def test_report_discloses_dedup_and_both_bounds():
+    html = build_report(_gate(1342, 1349), _ranking(), _exc(), _meta())
+    for needle in ["Deduplicated", "27,723", "upper bound", "lower bound",
+                   "next open", "qty=1"]:
+        assert needle in html, needle
+
+
+def test_report_survives_empty_excursions_and_no_bounds():
+    html = build_report(_gate(1342, 1349), _ranking(),
+                        pd.DataFrame(columns=["ticker", "mae", "mfe"]),
+                        {"split": "x", "dedupe": {}, "bounds": {}})
     assert "Excursion" in html

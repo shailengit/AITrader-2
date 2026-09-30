@@ -1,4 +1,9 @@
-"""Policy grid, per-policy evaluation, and honest aggregation."""
+"""Policy grid, per-policy evaluation, and honest aggregation.
+
+Note: `price_exit_mask` now reads the RECORDED reason from the entry set
+(journal_trade.notes), rather than inferring it by replaying the baseline.
+"""
+import math
 import os
 import sys
 
@@ -8,8 +13,10 @@ import pandas as pd
 
 from app.services.exit_replay.engine import CURRENT_MQR_POLICY, OFF, ExitPolicy
 from app.services.exit_replay.evaluate import (
+    HORIZON_TRADING_DAYS,
     NOTIONAL_PER_POSITION,
     evaluate_policy,
+    forward_bars,
     price_exit_mask,
     summarise,
 )
@@ -30,12 +37,30 @@ class FakePanel:
         return {"2020-02-05": 152.0}.get(pd.Timestamp(d).strftime("%Y-%m-%d"))
 
 
-def _one_entry():
+class WideStopPanel:
+    """Entry 100; -12% on 02-04 (baseline trail fires), back up to 130, then -31%
+    from that peak by 02-08 (a 25% trail fires; the 12% one already did)."""
+
+    def bars(self, *a, **k):
+        return pd.DataFrame([
+            {"Date": pd.Timestamp("2020-02-04"), "Open": 90,  "High": 95,  "Low": 87,  "Close": 88},
+            {"Date": pd.Timestamp("2020-02-05"), "Open": 95,  "High": 122, "Low": 94,  "Close": 120},
+            {"Date": pd.Timestamp("2020-02-06"), "Open": 120, "High": 131, "Low": 119, "Close": 130},
+            {"Date": pd.Timestamp("2020-02-07"), "Open": 128, "High": 129, "Low": 99,  "Close": 100},
+            {"Date": pd.Timestamp("2020-02-08"), "Open": 99,  "High": 100, "Low": 89,  "Close": 90},
+        ])
+
+    def next_open(self, t, d):
+        return None
+
+
+def _entry(exit_reason="Take Profit", entry="2020-02-03", exit_="2020-03-02",
+           exit_px=155.0):
     return pd.DataFrame([{
-        "ticker": "AAPL", "entry_date": pd.Timestamp("2020-02-03"),
-        "entry_px": 100.0, "qty": 10.0,
-        "exit_date": pd.Timestamp("2020-03-02"), "exit_px": 155.0,
-        "hold_days_calendar": 28,
+        "ticker": "AAPL", "entry_date": pd.Timestamp(entry), "entry_px": 100.0,
+        "qty": 1.0, "exit_date": pd.Timestamp(exit_), "exit_px": exit_px,
+        "hold_days_calendar": (pd.Timestamp(exit_) - pd.Timestamp(entry)).days,
+        "exit_reason": exit_reason,
     }])
 
 
@@ -53,19 +78,80 @@ def test_split_boundaries():
     assert VAL_END == pd.Timestamp("2025-12-31")
 
 
+def test_horizon_is_trading_days_and_actually_enforced():
+    """The 180-day horizon is in TRADING days; the original 400 was a calendar
+    buffer that nothing enforced as a horizon."""
+    assert HORIZON_TRADING_DAYS == 180
+
+    class LongPanel:
+        def bars(self, ticker, start, end):
+            dates = pd.date_range(start, periods=400, freq="B")
+            return pd.DataFrame([{"Date": d, "Open": 1.0, "High": 1.0, "Low": 1.0,
+                                  "Close": 1.0} for d in dates])
+
+        def next_open(self, t, d):
+            return None
+
+    fwd = forward_bars(LongPanel(), "X", pd.Timestamp("2020-01-01"))
+    assert len(fwd) == 180
+    assert fwd["Date"].min() > pd.Timestamp("2020-01-01")
+
+
+def test_price_exit_mask_reads_the_recorded_reason():
+    assert bool(price_exit_mask(_entry("Trailing Stop")).iloc[0]) is True
+    assert bool(price_exit_mask(_entry("Take Profit")).iloc[0]) is True
+    assert bool(price_exit_mask(_entry("Rotated Out")).iloc[0]) is False
+
+
+def test_price_exit_mask_refuses_a_frame_without_reasons():
+    df = _entry().drop(columns=["exit_reason"])
+    try:
+        price_exit_mask(df)
+    except KeyError as e:
+        assert "exit_reason" in str(e)
+    else:
+        raise AssertionError("expected KeyError for a frame with no exit_reason")
+
+
 def test_evaluate_returns_expected_columns_and_observed_row():
-    df = evaluate_policy(_one_entry(), FakePanel(), POLICY_GRID["baseline"])
+    df = evaluate_policy(_entry(), FakePanel(), POLICY_GRID["baseline"])
     for col in ("ticker", "exit_date", "exit_reason", "observed_fully",
                 "pnl_pct", "pnl_dollars", "bucket"):
         assert col in df.columns, col
     row = df.iloc[0]
     assert row["bucket"] == "fit"
-    assert row["observed_fully"] is True or row["observed_fully"] == True
+    assert bool(row["observed_fully"]) is True
     assert row["exit_reason"] == "Take Profit"
     assert round(float(row["pnl_pct"]), 4) == 0.55
     assert round(float(row["pnl_dollars"]), 2) == round(0.55 * NOTIONAL_PER_POSITION, 2)
     s = summarise(df)
     assert s["n_total"] == 1 and s["n_observed"] == 1 and s["n_censored"] == 0
+
+
+def test_price_exit_trades_replay_uncapped_so_wider_stops_can_hold_longer():
+    """The motivating question -- 'would holding longer have been better?' -- is
+    only answerable if a less aggressive policy can exit LATER than the baseline.
+    Capping at the recorded date would truncate it and make the two identical."""
+    df = _entry("Trailing Stop", exit_="2020-02-04", exit_px=88.0)
+    wide = POLICY_GRID["trail_0.25"]
+
+    uncapped = evaluate_policy(df, WideStopPanel(), wide,
+                               price_exit=pd.Series([True], index=df.index))
+    assert uncapped.iloc[0]["exit_date"] == pd.Timestamp("2020-02-08")
+    assert uncapped.iloc[0]["exit_reason"] == "Trailing Stop"
+
+    capped = evaluate_policy(df, WideStopPanel(), wide,
+                             price_exit=pd.Series([False], index=df.index))
+    assert capped.iloc[0]["exit_date"] == pd.Timestamp("2020-02-04")
+    assert capped.iloc[0]["exit_reason"] == "Rotated Out"
+
+
+def test_rotation_trades_are_still_capped():
+    df = _entry("Rotated Out", exit_="2020-02-04", exit_px=88.0)
+    out = evaluate_policy(df, WideStopPanel(), POLICY_GRID["trail_off"],
+                          price_exit=pd.Series([False], index=df.index))
+    assert out.iloc[0]["exit_date"] == pd.Timestamp("2020-02-04")
+    assert out.iloc[0]["exit_reason"] == "Rotated Out"
 
 
 def test_summarise_counts_censored_separately_and_excludes_from_pnl():
@@ -83,17 +169,11 @@ def test_summarise_counts_censored_separately_and_excludes_from_pnl():
 
 
 def test_bucket_assignment_by_entry_date():
-    df = pd.DataFrame([
-        {"ticker": "A", "entry_date": pd.Timestamp("2023-12-29"), "entry_px": 1.0,
-         "qty": 1.0, "exit_date": pd.Timestamp("2024-01-05"), "exit_px": 1.1,
-         "hold_days_calendar": 7},
-        {"ticker": "B", "entry_date": pd.Timestamp("2024-06-03"), "entry_px": 1.0,
-         "qty": 1.0, "exit_date": pd.Timestamp("2024-06-10"), "exit_px": 1.1,
-         "hold_days_calendar": 7},
-        {"ticker": "C", "entry_date": pd.Timestamp("2026-02-02"), "entry_px": 1.0,
-         "qty": 1.0, "exit_date": pd.Timestamp("2026-02-09"), "exit_px": 1.1,
-         "hold_days_calendar": 7},
-    ])
+    df = pd.concat([
+        _entry(entry="2023-12-29", exit_="2024-01-05"),
+        _entry(entry="2024-06-03", exit_="2024-06-10"),
+        _entry(entry="2026-02-02", exit_="2026-02-09"),
+    ], ignore_index=True)
     out = evaluate_policy(df, FakePanel(), POLICY_GRID["baseline"])
     assert list(out["bucket"]) == ["fit", "validate", "out"]
 
@@ -101,8 +181,6 @@ def test_bucket_assignment_by_entry_date():
 def test_max_dd_is_finite_over_many_trades():
     """Pins the overflow fix: compounding thousands of per-trade returns hit
     numpy's overflow warning and produced inf, making max_dd meaningless."""
-    import math
-
     n = 5_000
     df = pd.DataFrame({
         "pnl_pct": [0.01] * n,
@@ -112,12 +190,10 @@ def test_max_dd_is_finite_over_many_trades():
         "bucket": ["fit"] * n,
         "exit_date": pd.date_range("2020-01-01", periods=n, freq="D"),
     })
-    s = summarise(df)
-    assert math.isfinite(s["max_dd_pct"])
+    assert math.isfinite(summarise(df)["max_dd_pct"])
 
 
 def test_drawdown_is_additive_in_dollars_not_compounded_returns():
-    """A losing trade after a winning one must show a drawdown."""
     df = pd.DataFrame({
         "pnl_pct": [0.10, -0.10],
         "pnl_dollars": [2000.0, -2000.0],
@@ -126,64 +202,4 @@ def test_drawdown_is_additive_in_dollars_not_compounded_returns():
         "bucket": ["fit", "fit"],
         "exit_date": [pd.Timestamp("2020-01-02"), pd.Timestamp("2020-01-03")],
     })
-    s = summarise(df)
-    assert s["max_dd_pct"] > 0
-
-
-class WideStopPanel:
-    """Entry 100; -12% on 02-04 (baseline trail fires), then back up to 130,
-    then -31% from that peak by 02-08 (a 25% trail fires, a 12% one already did)."""
-
-    def bars(self, *a, **k):
-        return pd.DataFrame([
-            {"Date": pd.Timestamp("2020-02-04"), "Open": 90,  "High": 95,  "Low": 87,  "Close": 88},
-            {"Date": pd.Timestamp("2020-02-05"), "Open": 95,  "High": 122, "Low": 94,  "Close": 120},
-            {"Date": pd.Timestamp("2020-02-06"), "Open": 120, "High": 131, "Low": 119, "Close": 130},
-            {"Date": pd.Timestamp("2020-02-07"), "Open": 128, "High": 129, "Low": 99,  "Close": 100},
-            {"Date": pd.Timestamp("2020-02-08"), "Open": 99,  "High": 100, "Low": 89,  "Close": 90},
-        ])
-
-    def next_open(self, t, d):
-        return None
-
-
-def _price_exit_entry():
-    return pd.DataFrame([{
-        "ticker": "AAPL", "entry_date": pd.Timestamp("2020-02-03"),
-        "entry_px": 100.0, "qty": 1.0,
-        "exit_date": pd.Timestamp("2020-02-04"), "exit_px": 88.0,
-        "hold_days_calendar": 1,
-    }])
-
-
-def test_price_exit_mask_flags_a_reproduced_price_rule_exit():
-    mask = price_exit_mask(_price_exit_entry(), WideStopPanel())
-    assert bool(mask.iloc[0]) is True
-
-
-def test_price_exit_trades_are_replayed_uncapped_so_wider_stops_can_hold_longer():
-    """The motivating question -- 'would holding longer have been better?' -- is
-    only answerable if a less aggressive policy can exit LATER than the baseline.
-    Capping at the recorded date would truncate it and make the two identical."""
-    df = _price_exit_entry()
-    wide = POLICY_GRID["trail_0.25"]
-
-    uncapped = evaluate_policy(df, WideStopPanel(), wide,
-                               price_exit=pd.Series([True], index=df.index))
-    assert uncapped.iloc[0]["exit_date"] == pd.Timestamp("2020-02-08")
-    assert uncapped.iloc[0]["exit_reason"] == "Trailing Stop"
-
-    capped = evaluate_policy(df, WideStopPanel(), wide,
-                             price_exit=pd.Series([False], index=df.index))
-    assert capped.iloc[0]["exit_date"] == pd.Timestamp("2020-02-04")
-    assert capped.iloc[0]["exit_reason"] == "Rotated Out"
-
-
-def test_rotation_trades_are_still_capped():
-    """Rotation is deliberately fixed in phase 1, so a rotation-exited trade must
-    end at the recorded date even under a wider stop."""
-    df = _price_exit_entry()
-    out = evaluate_policy(df, WideStopPanel(), POLICY_GRID["trail_off"],
-                          price_exit=pd.Series([False], index=df.index))
-    assert out.iloc[0]["exit_date"] == pd.Timestamp("2020-02-04")
-    assert out.iloc[0]["exit_reason"] == "Rotated Out"
+    assert summarise(df)["max_dd_pct"] > 0

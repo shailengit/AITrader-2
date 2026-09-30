@@ -1,13 +1,17 @@
 """Self-contained HTML report for the exit replay.
 
 The gate is stated first and stated honestly: if it has not passed, the report
-says the conclusions are void rather than burying that in a footnote.
+says the conclusions are void rather than burying that in a footnote. The two
+bounds (uncapped = upper, capped = lower) and the dedup are disclosed up front,
+because they change how the numbers should be read.
 """
 from __future__ import annotations
 
 import html as _html
 
 import pandas as pd
+
+from .gate import gate_passed
 
 _CSS = """
 *{margin:0;padding:0;box-sizing:border-box}
@@ -37,74 +41,90 @@ def _f(x, nd=2):
 
 def build_report(gate: dict, ranking: list[dict], excursions: pd.DataFrame,
                  grid_meta: dict) -> str:
-    total = int(gate.get("hard_total", 0))
-    ok = int(gate.get("hard_reproduced", 0))
-    passed = total > 0 and ok == total
+    passed, verdict = gate_passed(gate)
     status_cls = "green" if passed else "red"
     status_txt = "PASS" if passed else "FAIL — conclusions are void"
+
+    total = int(gate.get("price_total", 0))
+    ok = int(gate.get("price_reproduced", 0))
+    bounds = grid_meta.get("bounds", {}) or {}
 
     rows = "".join(
         f"<tr><td>{_html.escape(str(r.get('policy', '')))}</td>"
         f"<td>{_f(r.get('fit_dollars'))}</td>"
         f"<td>{_f(r.get('val_dollars'))}</td>"
-        f"<td>{_f(r.get('mean_pnl_pct'), 4)}</td>"
+        f"<td>{_f(bounds.get(r.get('policy'), {}).get('capped_val_dollars'))}</td>"
+        f"<td>{_f(bounds.get(r.get('policy'), {}).get('nextopen_val_dollars'))}</td>"
         f"<td>{_f(r.get('n_observed'), 0)}</td>"
         f"<td>{r.get('n_censored', 0)}</td></tr>"
         for r in ranking
     )
 
     mae_med = mfe_med = "—"
-    if len(excursions) and "mae" in excursions.columns:
-        m = excursions["mae"].dropna()
-        f = excursions["mfe"].dropna()
-        if len(m):
-            mae_med = _f(m.median(), 4)
-        if len(f):
-            mfe_med = _f(f.median(), 4)
+    if len(excursions):
+        if "mae" in excursions.columns and excursions["mae"].notna().any():
+            mae_med = _f(excursions["mae"].median(), 4)
+        if "mfe" in excursions.columns and excursions["mfe"].notna().any():
+            mfe_med = _f(excursions["mfe"].median(), 4)
 
-    miss = gate.get("hard_mismatches") or []
+    miss = gate.get("mismatches") or []
     miss_rows = "".join(
         f"<tr><td>{_html.escape(str(m.get('ticker')))}</td>"
-        f"<td>{_html.escape(str(m.get('class')))}</td>"
+        f"<td>{_html.escape(str(m.get('recorded_reason')))}</td>"
         f"<td>{_html.escape(str(m.get('recorded_date')))}</td>"
         f"<td>{_f(m.get('recorded_px'))}</td>"
-        f"<td>{_f(m.get('replay_px'))}</td>"
-        f"<td>{_html.escape(str(m.get('replay_reason')))}</td></tr>"
+        f"<td>{_f(m.get('replay_px'))}</td></tr>"
         for m in miss[:20]
     )
+
+    dup = grid_meta.get("dedupe") or {}
 
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>MQR Exit Replay</title><style>{_CSS}</style></head><body><div class="wrap">
 <h1>MQR Exit Replay</h1>
-<p class="sub">Frozen entry set · price-based exit rules only · rotation held fixed ·
-fill convention matches the recorded data (close) · {_html.escape(str(grid_meta.get('split', '')))}</p>
+<p class="sub">Frozen deduplicated entries · price-based exit rules only · rotation held fixed ·
+fill matches the recorded data (close) · {_html.escape(str(grid_meta.get('split', '')))}</p>
 
 <h2>1 · Reproduction gate</h2>
 <div class="card">
-  <p><strong class="{status_cls}">{status_txt}</strong> — short-hold trades
+  <p><strong class="{status_cls}">{status_txt}</strong> — price-rule trades
   reproduced: <strong>{ok:,} / {total:,}</strong></p>
-  <p class="dim">Every trade held &lt; 14 days must be reproduced by the price rules,
-  because min_hold_days=14 gates rotation. Long-hold trades reproduced:
-  {int(gate.get('soft_reproduced', 0)):,} / {int(gate.get('soft_total', 0)):,}
-  (rate {_f(gate.get('soft_rate'), 4)}; predicted ≈ {_f(gate.get('predicted_soft_rate'), 4)}).</p>
-  {f'<p class="dim">Mismatch classes: {_html.escape(str(gate.get("class_counts")))}</p>' if gate.get('class_counts') else ''}
+  <p class="dim">{_html.escape(verdict)}</p>
+  <p class="dim">Every trade whose RECORDED reason is a price rule
+  (Trailing Stop / Take Profit / Time Stop / Stop Loss) must be reproduced by replaying the
+  current rules uncapped. Rotation-exited trades ({int(gate.get('rotation_total', 0)):,})
+  are excluded, because rotation is deliberately held fixed.
+  Semantic mismatches (wrong trigger date or censored): <strong>{int(gate.get('semantic_mismatches', 0))}</strong>.
+  Capped corroboration: {int(gate.get('capped_reproduced', 0)):,}/{int(gate.get('capped_total', 0)):,}
+  = {_f(gate.get('capped_rate'), 4)}.</p>
+  <p class="dim">Reason labels are read from <code>journal_trade.notes</code>
+  ('backtest:&lt;Reason&gt;'), not inferred. Label inconsistencies (a trade held under 14 days
+  carrying a rotation label, which the rules forbid): <strong>{int(gate.get('label_inconsistencies', 0))}</strong>.</p>
 </div>
 
-{f'''<div class="card"><strong class="red">Mismatches (first 20)</strong>
-<table><thead><tr><th>Ticker</th><th>Class</th><th>Recorded date</th>
-<th>Recorded px</th><th>Replay px</th><th>Replay reason</th></tr></thead>
+{f'''<div class="card"><strong class="red">Residual price differences (first 20)</strong>
+<p class="dim" style="margin:6px 0">All belong to one data-vintage class: the price panel was
+revised after those backtests wrote their rows, so the recorded value exists in no bar of the
+current panel. Dates and reasons agree.</p>
+<table><thead><tr><th>Ticker</th><th>Recorded reason</th><th>Date</th>
+<th>Recorded px</th><th>Replay px</th></tr></thead>
 <tbody>{miss_rows}</tbody></table></div>''' if miss_rows else ''}
 
 <h2>2 · Policy ranking</h2>
 <div class="card"><table>
-<thead><tr><th>Policy</th><th>Fit P&amp;L $</th><th>Validate P&amp;L $</th>
-<th>Mean pnl</th><th>Observed</th><th>Censored</th></tr></thead>
+<thead><tr><th>Policy</th><th>Fit $</th><th>Validate $ (upper bound)</th>
+<th>Validate $ (capped, lower)</th><th>Validate $ (next open)</th><th>Observed</th><th>Censored</th></tr></thead>
 <tbody>{rows}</tbody></table>
-<p class="dim" style="margin-top:10px">Ranked by out-of-sample (validate) dollars.
-A policy is a candidate only if it wins out-of-sample; in-sample winners are not promoted.</p>
-</div>
+<p class="dim" style="margin-top:10px">
+<strong>Upper vs lower bound.</strong> The primary column replays price-exited trades
+<em>uncapped</em> to the 180-trading-day horizon while rotation exits stay capped at their
+recorded date. That is an <strong>upper bound</strong>: rotation is held fixed and could have
+removed a name sooner. The capped column caps <em>everything</em> at the recorded exit date — a
+<strong>lower bound</strong>. A policy that only wins on the upper bound is not a candidate.
+The next-open column quantifies the look-ahead optimism of filling at an observed close.
+</p></div>
 
 <h2>3 · Excursion distributions (actual holds)</h2>
 <div class="card"><table><thead><tr><th>Metric</th><th>Median</th></tr></thead>
@@ -113,18 +133,25 @@ A policy is a candidate only if it wins out-of-sample; in-sample winners are not
 <tr><td>MFE (max favourable excursion)</td><td>{mfe_med}</td></tr>
 </tbody></table></div>
 
-<h2>4 · Method &amp; caveats</h2>
+<h2>4 · Method, corrections &amp; caveats</h2>
 <div class="card"><ul>
-<li>Entries are FROZEN; only exits are replayed ⇒ deterministic, no path chaos.</li>
-<li>Rotation is held fixed (capped at the real rotation date); its quality is
-measured by forward-path evidence, not replayed.</li>
-<li>The recorded data is <strong>close-filled</strong> (verified 600/600 sampled
-short-hold trades match the trigger-day close, 0 match the next open), so the
-replay fills at the close to reproduce the baseline. Next-open fills are a
-sensitivity check.</li>
+<li><strong>Deduplicated.</strong> journal_trade held {dup.get('rows', 0):,} MQR rows but only
+{dup.get('distinct', 0):,} distinct positions (max multiplicity {dup.get('max_multiplicity', 0)},
+mean {dup.get('mean_multiplicity', 0)}), all written in a two-minute window. Multiplicity rose by
+entry year, so leaving them in made every dollar figure multiplicity-weighted and the
+fit/validate comparison non-comparable. {dup.get('duplicates', 0):,} duplicate rows were dropped.</li>
+<li><strong>Exit reasons are recorded</strong> in <code>notes</code>; the original design wrongly
+assumed they were not and inferred them from a structural signature.</li>
+<li>Entries are frozen; only exits are replayed ⇒ deterministic, no path chaos.</li>
+<li>Rotation held fixed; its quality is measured by forward-path evidence, not replayed.</li>
+<li>The recorded data is <strong>close-filled</strong> (600/600 sampled short-hold trades match
+the trigger-day close, 0 match the next open), so the replay fills at the close to reproduce the
+baseline. Next-open fills are reported as a sensitivity check.</li>
 <li>Censoring is per (trade, policy) and reported per policy.</li>
-<li>~1% of absolute prices differ from the recorded rows because the price panel
-was revised after those backtests ran. This is common-mode across every policy,
-so it cannot bias a comparison.</li>
+<li><strong>Dollar figures are an approximation.</strong> Every row has qty=1 and MQR sizes
+score-proportionally (not equal weight), so per-trade size is unrecoverable. A constant notional
+per trade makes the ranking a monotone rescaling of summed percent return: ordering is unaffected,
+but no size information enters it.</li>
+<li>max_dd is a comparative statistic on an additive dollar curve, not a strategy drawdown.</li>
 </ul></div>
 </div></body></html>"""

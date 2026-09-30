@@ -1,15 +1,21 @@
-"""Keystone gate: the replay must reproduce exits recorded in journal_trade.
+"""Keystone gate: the replay must reproduce the exits recorded in journal_trade.
 
-journal_trade has no exit_reason column, so the gate uses a structural
-signature: min_hold_days=14 gates rotation, therefore no trade held < 14 days
-can have been exited by rotation -- every one must be reproduced by the price
-rules alone. All conclusions are void until this passes.
+CORRECTED 2026-09-30. The original design assumed `journal_trade` had no
+exit-reason column and inferred one from a structural signature (min_hold_days=14
+gates rotation). That premise was false: every backtest row carries
+`notes = 'backtest:<Reason>'`, e.g. 'backtest:Trailing Stop'. The reason is now
+read directly, which is exact rather than inferred.
 
-Mismatches are CLASSIFIED rather than counted, because the adapter's price
-caches were bounded by each run's [as_of, end] window (which journal_trade does
-not record), so a trade exiting near a run boundary was filled at that day's
-close rather than the next open. That class is explainable; anything else is a
-semantic bug.
+The gate therefore becomes a direct claim, and a stronger one:
+
+    For every trade whose RECORDED reason is a price rule, replaying the current
+    MQR policy UNCAPPED must reproduce the recorded (exit_date, exit_px).
+
+Rotation-exited trades are excluded from the hard requirement, because rotation
+is deliberately held fixed in phase 1 and cannot be reproduced by price rules
+alone. The old min_hold signature survives as a consistency check: a trade held
+< 14 days cannot have been rotated out, so any such trade with reason
+'Rotated Out' would mean the recorded labels contradict the rules.
 """
 from __future__ import annotations
 
@@ -20,11 +26,19 @@ import pandas as pd
 from .engine import CURRENT_MQR_POLICY, ExitPolicy, replay_position
 
 HARD_HOLD_THRESHOLD_DAYS = 14
-_PRICE_DP = 2  # journal_trade stores prices rounded to 2dp
+_PRICE_DP = 2
 MAX_FORWARD_DAYS = 400
 
+PRICE_RULES = ("Trailing Stop", "Take Profit", "Time Stop", "Stop Loss")
+ROTATION_RULE = "Rotated Out"
 
-def _classify(out, exit_date, exit_px) -> str:
+#: Price-only reproduction floor. Date reproduction must be perfect; prices are
+#: allowed a small residual because the panel was revised after some backtests
+#: wrote their rows (documented in spec 7.1).
+MIN_PRICE_REPRODUCTION = 0.99
+
+
+def _class(out, exit_date, exit_px) -> str:
     """'exact' | 'date_mismatch' | 'px_mismatch' | 'not_fully_observed'."""
     if out.exit_date is None or out.exit_px is None:
         return "not_fully_observed"
@@ -35,28 +49,54 @@ def _classify(out, exit_date, exit_px) -> str:
     return "exact"
 
 
+def gate_passed(gate: dict) -> tuple[bool, str]:
+    """Single source of truth for the gate verdict.
+
+    Three call sites (runner, report, tests) each encoded their own rule and
+    disagreed; they all call this now.
+    """
+    total = int(gate.get("price_total", 0))
+    ok = int(gate.get("price_reproduced", 0))
+    semantic = int(gate.get("semantic_mismatches", 0))
+    inconsistent = int(gate.get("label_inconsistencies", 0))
+    if total == 0:
+        return False, "no price-rule-exited trades in the entry set; gate vacuous"
+    if inconsistent:
+        return False, (f"{inconsistent} trade(s) held < {HARD_HOLD_THRESHOLD_DAYS} days "
+                       f"carry a rotation label, which the rules forbid — labels and "
+                       f"rules disagree; conclusions void")
+    if semantic:
+        return False, (f"{semantic} price-rule trades triggered on the wrong date or "
+                       f"were censored — rule semantics diverge; conclusions void")
+    rate = ok / total
+    if rate < MIN_PRICE_REPRODUCTION:
+        return False, (f"price reproduction {rate:.4f} below the {MIN_PRICE_REPRODUCTION} "
+                       f"floor — conclusions void")
+    return True, (f"{ok:,}/{total:,} price-rule trades reproduced ({rate:.4f}); "
+                  f"semantics exact; {total - ok} residual data-vintage difference(s)")
+
+
 def run_reproduction_gate(
     entry_df: pd.DataFrame,
     panel,
     policy: ExitPolicy = CURRENT_MQR_POLICY,
-    limit: Optional[int] = None,
     cap_to_actual: bool = False,
 ) -> dict:
     """Replay `policy` from every frozen entry and compare to the recorded exit.
 
-    cap_to_actual=False (the gate): price rules must stand alone, no rotation cap.
-    cap_to_actual=True (the corroboration check): cap at the recorded exit date,
-    so rotation trades should reproduce via the cap.
+    cap_to_actual=False (the gate): price rules must stand alone.
+    cap_to_actual=True: cap at the recorded exit date, so rotation-exited trades
+    should reproduce too (an end-to-end corroboration of the whole pipeline).
     """
-    hard_total = hard_ok = 0
-    soft_total = soft_ok = 0
     classes: dict[str, int] = {}
     mismatches: List[dict] = []
+    price_total = price_ok = 0
+    rot_total = rot_ok = 0
+    semantic = 0
+    label_inconsistencies = 0
+    capped_total = capped_ok = 0
 
-    rows = entry_df.itertuples(index=False)
-    for i, row in enumerate(rows):
-        if limit is not None and i >= limit:
-            break
+    for row in entry_df.itertuples(index=False):
         bars = panel.bars(row.ticker, row.entry_date,
                           row.entry_date + pd.Timedelta(days=MAX_FORWARD_DAYS))
         out = replay_position(
@@ -64,16 +104,22 @@ def run_reproduction_gate(
             cap_date=row.exit_date if cap_to_actual else None,
             panel=panel, ticker=row.ticker,
         )
-        cls = _classify(out, row.exit_date, row.exit_px)
+        cls = _class(out, row.exit_date, row.exit_px)
         classes[cls] = classes.get(cls, 0) + 1
-        ok = cls == "exact"
+        is_price_rule = row.exit_reason in PRICE_RULES
 
-        if row.hold_days_calendar < HARD_HOLD_THRESHOLD_DAYS:
-            hard_total += 1
-            hard_ok += int(ok)
-            if not ok and len(mismatches) < 40:
+        if row.hold_days_calendar < HARD_HOLD_THRESHOLD_DAYS and not is_price_rule:
+            label_inconsistencies += 1
+
+        if is_price_rule:
+            price_total += 1
+            price_ok += int(cls == "exact")
+            if cls in ("date_mismatch", "not_fully_observed"):
+                semantic += 1
+            if cls != "exact" and len(mismatches) < 40:
                 mismatches.append({
                     "class": cls, "ticker": row.ticker,
+                    "recorded_reason": row.exit_reason,
                     "entry": str(pd.Timestamp(row.entry_date).date()),
                     "hold_days": int(row.hold_days_calendar),
                     "recorded_date": str(pd.Timestamp(row.exit_date).date()),
@@ -83,18 +129,26 @@ def run_reproduction_gate(
                     "replay_reason": out.exit_reason,
                 })
         else:
-            soft_total += 1
-            soft_ok += int(ok)
+            rot_total += 1
+            rot_ok += int(cls == "exact")
 
-    return {
-        "hard_total": hard_total,
-        "hard_reproduced": hard_ok,
-        "hard_rate": round(hard_ok / hard_total, 4) if hard_total else 0.0,
-        "hard_mismatches": mismatches,
-        "soft_total": soft_total,
-        "soft_reproduced": soft_ok,
-        "soft_rate": round(soft_ok / soft_total, 4) if soft_total else 0.0,
-        "predicted_soft_rate": 0.56,
+        capped_total += 1
+        capped_ok += int(cls == "exact")
+
+    result = {
+        "price_total": price_total,
+        "price_reproduced": price_ok,
+        "price_rate": round(price_ok / price_total, 4) if price_total else 0.0,
+        "rotation_total": rot_total,
+        "rotation_reproduced": rot_ok,
+        "semantic_mismatches": semantic,
+        "label_inconsistencies": label_inconsistencies,
+        "mismatches": mismatches,
         "class_counts": classes,
+        "capped_total": capped_total,
+        "capped_reproduced": capped_ok,
+        "capped_rate": round(capped_ok / capped_total, 4) if capped_total else 0.0,
         "cap_to_actual": cap_to_actual,
     }
+    result["passed"], result["verdict"] = gate_passed(result)
+    return result

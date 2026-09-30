@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import pandas as pd
 
 from app.services.exit_replay.backfill import backfill
+from app.services.exit_replay.entry_set import MQR_STRATEGY_ID
 
 
 class FakePanel:
@@ -26,7 +27,7 @@ def _entry():
         "ticker": "AAPL", "entry_date": pd.Timestamp("2020-02-03"),
         "entry_px": 100.0, "qty": 1.0,
         "exit_date": pd.Timestamp("2020-03-02"), "exit_px": 110.0,
-        "hold_days_calendar": 28,
+        "hold_days_calendar": 28, "exit_reason": "Take Profit",
     }])
 
 
@@ -69,3 +70,6 @@ def test_write_mode_executes_updates_through_the_engine():
     assert len(executed) == 1
     assert round(float(executed[0]["mae"]), 4) == -0.10
     assert round(float(executed[0]["mfe"]), 4) == 0.20
+    # The WHERE clause MUST scope to the strategy: keying on (ticker, entry_date,
+    # source) alone also matches 49,310 rows belonging to other strategies.
+    assert executed[0]["strategy_id"] == MQR_STRATEGY_ID

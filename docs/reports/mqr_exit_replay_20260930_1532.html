@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MQR Exit Replay</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+background:#0a0a0f;color:#e2e8f0;padding:32px 24px;line-height:1.55}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:1.9rem;background:linear-gradient(135deg,#22d3ee,#10b981);
+-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-size:1.15rem;color:#22d3ee;margin:36px 0 12px}
+.sub{color:#64748b;font-size:.9rem;margin-bottom:24px}
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:right;padding:9px 8px;color:#64748b;font-size:.68rem;text-transform:uppercase;
+border-bottom:2px solid #1e293b}th:first-child{text-align:left}
+td{padding:8px;border-bottom:1px solid #1e293b;text-align:right;font-variant-numeric:tabular-nums}
+td:first-child{text-align:left;font-weight:600}
+.green{color:#10b981}.red{color:#ef4444}.amber{color:#f59e0b}.dim{color:#64748b}
+ul{margin-left:20px}li{margin-bottom:6px}
+</style></head><body><div class="wrap">
+<h1>MQR Exit Replay</h1>
+<p class="sub">Frozen entry set · price-based exit rules only · rotation held fixed ·
+fill convention matches the recorded data (close) · fit &lt;=2023-12-31 / validate 2024-2025</p>
+
+<h2>1 · Reproduction gate</h2>
+<div class="card">
+  <p><strong class="red">FAIL — conclusions are void</strong> — short-hold trades
+  reproduced: <strong>6,092 / 6,093</strong></p>
+  <p class="dim">Every trade held &lt; 14 days must be reproduced by the price rules,
+  because min_hold_days=14 gates rotation. Long-hold trades reproduced:
+  13,236 / 23,643
+  (rate 0.5598; predicted ≈ 0.5600).</p>
+  <p class="dim">Mismatch classes: {&#x27;date_mismatch&#x27;: 10297, &#x27;exact&#x27;: 19328, &#x27;px_mismatch&#x27;: 111}</p>
+</div>
+
+<div class="card"><strong class="red">Mismatches (first 20)</strong>
+<table><thead><tr><th>Ticker</th><th>Class</th><th>Recorded date</th>
+<th>Recorded px</th><th>Replay px</th><th>Replay reason</th></tr></thead>
+<tbody><tr><td>ALB</td><td>px_mismatch</td><td>2022-06-13</td><td>211.91</td><td>210.14</td><td>Trailing Stop</td></tr></tbody></table></div>
+
+<h2>2 · Policy ranking</h2>
+<div class="card"><table>
+<thead><tr><th>Policy</th><th>Fit P&amp;L $</th><th>Validate P&amp;L $</th>
+<th>Mean pnl</th><th>Observed</th><th>Censored</th></tr></thead>
+<tbody><tr><td>trail_off</td><td>18,005,128.19</td><td>29,407,846.64</td><td>0.1110</td><td>13,245</td><td>0</td></tr><tr><td>trail_0.25</td><td>17,419,506.47</td><td>29,294,101.69</td><td>0.1106</td><td>13,245</td><td>0</td></tr><tr><td>trail_0.30</td><td>16,926,641.25</td><td>27,698,035.01</td><td>0.1046</td><td>13,245</td><td>0</td></tr><tr><td>trail_0.20</td><td>16,755,981.04</td><td>25,576,246.11</td><td>0.0966</td><td>13,245</td><td>0</td></tr><tr><td>act_0.20</td><td>18,497,311.59</td><td>25,568,096.17</td><td>0.0965</td><td>13,245</td><td>0</td></tr><tr><td>act_0.15</td><td>19,121,753.76</td><td>23,985,474.62</td><td>0.0905</td><td>13,245</td><td>0</td></tr><tr><td>act_0.10</td><td>17,320,261.29</td><td>22,369,963.65</td><td>0.0844</td><td>13,245</td><td>0</td></tr><tr><td>trail_0.15</td><td>12,554,260.86</td><td>22,297,923.69</td><td>0.0842</td><td>13,245</td><td>0</td></tr><tr><td>tp_off</td><td>14,760,605.32</td><td>21,932,794.33</td><td>0.0828</td><td>13,245</td><td>0</td></tr><tr><td>act_0.05</td><td>15,839,624.75</td><td>21,812,026.23</td><td>0.0823</td><td>13,245</td><td>0</td></tr><tr><td>tp_0.75</td><td>15,327,464.19</td><td>20,719,808.98</td><td>0.0782</td><td>13,245</td><td>0</td></tr><tr><td>tp_1.00</td><td>15,104,147.47</td><td>20,184,296.74</td><td>0.0762</td><td>13,245</td><td>0</td></tr><tr><td>time_off</td><td>14,980,647.66</td><td>19,908,100.22</td><td>0.0752</td><td>13,245</td><td>0</td></tr><tr><td>time_90</td><td>12,901,727.35</td><td>19,843,516.90</td><td>0.0749</td><td>13,245</td><td>0</td></tr><tr><td>time_180</td><td>14,935,947.83</td><td>19,744,253.41</td><td>0.0745</td><td>13,245</td><td>0</td></tr><tr><td>hard_0.10</td><td>14,028,060.74</td><td>19,568,666.53</td><td>0.0739</td><td>13,245</td><td>0</td></tr><tr><td>baseline</td><td>14,069,503.29</td><td>19,376,615.41</td><td>0.0731</td><td>13,245</td><td>0</td></tr><tr><td>act_off</td><td>14,069,503.29</td><td>19,376,615.41</td><td>0.0731</td><td>13,245</td><td>0</td></tr><tr><td>hard_0.15</td><td>14,069,503.29</td><td>19,376,615.41</td><td>0.0731</td><td>13,245</td><td>0</td></tr><tr><td>hard_0.30</td><td>14,069,503.29</td><td>19,376,615.41</td><td>0.0731</td><td>13,245</td><td>0</td></tr><tr><td>hard_off</td><td>14,069,503.29</td><td>19,376,615.41</td><td>0.0731</td><td>13,245</td><td>0</td></tr><tr><td>time_60</td><td>10,008,681.23</td><td>19,367,650.54</td><td>0.0731</td><td>13,245</td><td>0</td></tr><tr><td>trail_0.10</td><td>11,100,940.73</td><td>16,998,791.91</td><td>0.0642</td><td>13,245</td><td>0</td></tr><tr><td>tp_0.35</td><td>14,355,703.57</td><td>16,111,750.75</td><td>0.0608</td><td>13,245</td><td>0</td></tr><tr><td>time_40</td><td>10,421,492.97</td><td>15,396,515.40</td><td>0.0581</td><td>13,245</td><td>0</td></tr><tr><td>tp_0.25</td><td>11,235,186.74</td><td>14,652,308.85</td><td>0.0553</td><td>13,245</td><td>0</td></tr><tr><td>trail_0.08</td><td>12,372,054.14</td><td>14,387,728.05</td><td>0.0543</td><td>13,245</td><td>0</td></tr></tbody></table>
+<p class="dim" style="margin-top:10px">Ranked by out-of-sample (validate) dollars.
+A policy is a candidate only if it wins out-of-sample; in-sample winners are not promoted.</p>
+</div>
+
+<h2>3 · Excursion distributions (actual holds)</h2>
+<div class="card"><table><thead><tr><th>Metric</th><th>Median</th></tr></thead>
+<tbody>
+<tr><td>MAE (max adverse excursion)</td><td>-0.0714</td></tr>
+<tr><td>MFE (max favourable excursion)</td><td>0.0976</td></tr>
+</tbody></table></div>
+
+<h2>4 · Method &amp; caveats</h2>
+<div class="card"><ul>
+<li>Entries are FROZEN; only exits are replayed ⇒ deterministic, no path chaos.</li>
+<li>Rotation is held fixed (capped at the real rotation date); its quality is
+measured by forward-path evidence, not replayed.</li>
+<li>The recorded data is <strong>close-filled</strong> (verified 600/600 sampled
+short-hold trades match the trigger-day close, 0 match the next open), so the
+replay fills at the close to reproduce the baseline. Next-open fills are a
+sensitivity check.</li>
+<li>Censoring is per (trade, policy) and reported per policy.</li>
+<li>~1% of absolute prices differ from the recorded rows because the price panel
+was revised after those backtests ran. This is common-mode across every policy,
+so it cannot bias a comparison.</li>
+</ul></div>
+</div></body></html>

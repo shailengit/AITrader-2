@@ -1,18 +1,17 @@
-"""Keystone gate: replay must reproduce the exits recorded in journal_trade.
+"""Keystone gate: replay must reproduce the recorded price-rule exits.
 
-journal_trade has no exit_reason column, so the gate uses a structural
-signature: min_hold_days=14 gates rotation, therefore no trade held < 14 days
-can have been exited by rotation -- every one must be reproduced by the price
-rules alone.
+CORRECTED 2026-09-30. The original gate inferred price-rule exits from a
+structural signature (min_hold_days=14 gates rotation) because the design wrongly
+believed no exit reason was recorded. `journal_trade.notes` carries
+'backtest:<Reason>', so the gate now makes a direct claim: every trade whose
+RECORDED reason is a price rule must be reproduced by replaying the current rules
+uncapped. The signature survives as a consistency check.
 
-NOTE ON FILL CONVENTION: the recorded data is CLOSE-filled. Verified directly:
-of 600 sampled short-hold trades, 600 matched the trigger day's close and 0
-matched the next open. The adapter's next-open logic postdates the rows that
-wrote journal_trade, so the replay must fill at the close to reproduce the
-baseline at all. `fill="next_open"` is kept for sensitivity checks.
+FILL CONVENTION: the recorded data is CLOSE-filled (600/600 sampled short-hold
+trades match the trigger-day close, 0 match the next open), so replay fills at the
+close. `fill="next_open"` is kept for sensitivity checks.
 
-These tests are deliberately exhaustive rather than sampled: a sample cannot
-establish that semantics are right across 6,093 trades. Expect ~2-3 minutes.
+Expect ~40s: these are exhaustive over the frozen set, not sampled.
 """
 import os
 import sys
@@ -24,6 +23,8 @@ import pytest
 from app.services.exit_replay.entry_set import MQR_STRATEGY_ID, extract_entry_set
 from app.services.exit_replay.gate import (
     HARD_HOLD_THRESHOLD_DAYS,
+    MIN_PRICE_REPRODUCTION,
+    gate_passed,
     run_reproduction_gate,
 )
 from app.services.exit_replay.price_panel import PricePanel
@@ -47,69 +48,73 @@ def gate_result(entries, panel):
 
 @pytest.fixture(scope="module")
 def capped_result(entries, panel):
-    """Corroboration: with the rotation cap, every trade should reproduce."""
+    """End-to-end corroboration: cap at the recorded date and everything should match."""
     return run_reproduction_gate(entries, panel, cap_to_actual=True)
+
+
+def test_price_rule_set_matches_the_recorded_reasons(gate_result):
+    assert gate_result["price_total"] == 1_349
+    assert gate_result["rotation_total"] == 664
+
+
+def test_every_price_rule_trade_triggers_on_the_recorded_date(gate_result):
+    """The semantic claim: rule precedence, the close-based peak, the activation
+    arming test, the calendar-day time stop and the fill all agree with the
+    adapter. A wrong date or a censored replay is a divergence."""
+    assert gate_result["semantic_mismatches"] == 0, gate_result["mismatches"][:5]
+
+
+def test_recorded_labels_agree_with_the_min_hold_signature(gate_result):
+    """No trade held < 14 days may carry a rotation label, since rotation is gated
+    by min_hold_days=14. This is now CHECKED rather than used to infer labels."""
+    assert gate_result["label_inconsistencies"] == 0
+
+
+def test_price_reproduction_clears_the_floor(gate_result):
+    assert gate_result["price_rate"] >= MIN_PRICE_REPRODUCTION
+    assert gate_result["price_reproduced"] == 1_342
+
+
+def test_residual_price_differences_are_one_vintage_class(gate_result):
+    """The 7 residuals are all ALB: the panel was revised after those backtests
+    wrote their rows, so the recorded value exists in no bar of the current panel.
+    A different ticker or a date mismatch here means the semantic claim is wrong."""
+    residual = [m for m in gate_result["mismatches"] if m["class"] == "px_mismatch"]
+    assert residual, "expected residuals to be present and explainable"
+    assert {m["ticker"] for m in residual} == {"ALB"}, residual
+
+
+def test_gate_passes_and_its_verdict_says_so(gate_result):
+    assert gate_result["passed"] is True
+    assert "reproduced" in gate_result["verdict"]
+
+
+def test_capped_replay_matches_every_trade_on_date(capped_result):
+    """Capping at the recorded exit date means price exits reproduce via the rule
+    and rotation exits via the cap, so dates must agree across the whole set."""
+    assert capped_result["class_counts"].get("date_mismatch", 0) == 0
+    assert capped_result["capped_rate"] >= 0.95
+
+
+def test_gate_passed_rejects_semantic_breakage_but_allows_vintage_drift():
+    """gate_passed is the single source of truth; it must fail on semantics and
+    tolerate only the enumerated vintage residue."""
+    good = {"price_total": 100, "price_reproduced": 100, "semantic_mismatches": 0,
+            "label_inconsistencies": 0}
+    drift = {"price_total": 100, "price_reproduced": 99, "semantic_mismatches": 0,
+             "label_inconsistencies": 0}
+    wrong_date = {"price_total": 100, "price_reproduced": 100, "semantic_mismatches": 1,
+                  "label_inconsistencies": 0}
+    bad_labels = {"price_total": 100, "price_reproduced": 100, "semantic_mismatches": 0,
+                  "label_inconsistencies": 1}
+    empty = {"price_total": 0, "price_reproduced": 0, "semantic_mismatches": 0,
+             "label_inconsistencies": 0}
+    assert gate_passed(good)[0] is True
+    assert gate_passed(drift)[0] is True          # 1% residue tolerated
+    assert gate_passed(wrong_date)[0] is False
+    assert gate_passed(bad_labels)[0] is False
+    assert gate_passed(empty)[0] is False         # a vacuous gate must not pass
 
 
 def test_hard_threshold_is_min_hold_days():
     assert HARD_HOLD_THRESHOLD_DAYS == 14
-
-
-def test_hard_set_matches_expected_size(gate_result):
-    assert gate_result["hard_total"] == 6_093
-
-
-def test_short_hold_trades_reproduce_on_date_and_reason(gate_result):
-    """Rule semantics must be exact: every short-hold mismatch must be a PRICE-only
-    difference, never a wrong trigger date and never a censored replay."""
-    bad = [m for m in gate_result["hard_mismatches"]
-           if m["class"] in ("date_mismatch", "not_fully_observed")]
-    assert bad == [], f"semantic divergence on {len(bad)} trades: {bad[:5]}"
-
-
-def test_short_hold_prices_reproduce_except_one_stale_vintage(gate_result):
-    """6,093 short-hold trades reproduce; exactly one price does not, and it is a
-    data-vintage artifact rather than a bug.
-
-    ALB entered 2022-06-02 and triggered 2022-06-13 (both dates correct, reason
-    Trailing Stop correct). The recorded fill is 211.91, a value that appears in
-    NO bar of ALB's 8,203-row history -- not as a close, not as an open, on any
-    date. The panel's close for 2022-06-13 is 210.14 and the next open is 211.32.
-    So the database was revised after that backtest wrote the row, and no replay
-    against the current panel could reproduce the value.
-
-    Pinned at exactly one: a second stale vintage, or any semantic regression,
-    fails this test.
-    """
-    assert gate_result["hard_reproduced"] >= gate_result["hard_total"] - 1
-    assert gate_result["hard_rate"] >= 0.9998
-
-
-def test_soft_rate_is_consistent_with_the_price_rule_share(gate_result):
-    """Rotation-exited long-hold trades legitimately do NOT reproduce here,
-    because without a cap the replay continues to a later price-rule exit.
-    Expected share ~56% (65.4% price-based minus the 20.5% short-held)."""
-    assert gate_result["soft_rate"] >= 0.45, gate_result["soft_rate"]
-    assert gate_result["soft_rate"] <= 0.75, gate_result["soft_rate"]
-
-
-def test_capped_replay_reproduces_recorded_exits_for_all_hold_lengths(capped_result):
-    """Strongest end-to-end check: capping at the recorded exit date means
-    price-rule exits reproduce via the rule and rotation exits via the cap.
-
-    The semantic claim asserted here is DATE agreement across the entire corpus:
-    all 29,736 trades must trigger on the recorded date. Prices agree on 98.95%;
-    the ~1% that differ are a data-vintage class (the panel was revised after
-    those backtests wrote their rows), which is common-mode across every policy
-    and therefore immaterial to policy COMPARISON."""
-    assert capped_result["class_counts"].get("date_mismatch", 0) == 0, (
-        f"{capped_result['class_counts'].get('date_mismatch')} trades triggered on the "
-        f"wrong date: {capped_result['hard_mismatches'][:5]}"
-    )
-    total = capped_result["hard_total"] + capped_result["soft_total"]
-    reproduced = capped_result["hard_reproduced"] + capped_result["soft_reproduced"]
-    overall = reproduced / total if total else 0.0
-    assert overall >= 0.95, (
-        f"capped reproduction {overall:.4f} ({reproduced}/{total}); "
-        f"classes {capped_result['class_counts']}"
-    )
