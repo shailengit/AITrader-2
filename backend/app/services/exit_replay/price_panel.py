@@ -24,8 +24,16 @@ class PricePanel:
     than raising: the trade is censored, not fatal.
     """
 
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, fetch_since: str | None = None):
+        """`fetch_since` bounds the SQL by date.
+
+        The default (None) loads a ticker's whole history, which is what the exit
+        replay wants. It is a liability for whole-universe work: a single ticker
+        whose table holds intraday-scale history drags the entire table and can
+        stall a 1,500-ticker sweep for hours. Universe builds pass a date.
+        """
         self._engine = engine if engine is not None else default_engine
+        self._fetch_since = fetch_since
         self._cache: Dict[str, pd.DataFrame] = {}
         self._missing: set[str] = set()
         self.query_count = 0
@@ -48,12 +56,17 @@ class PricePanel:
         self.query_count += 1
         try:
             safe = get_safe_table_name(ticker)
+            where = '"Close" > 0'
+            params = {}
+            if self._fetch_since:
+                where += ' AND "Date" >= :since'
+                params["since"] = self._fetch_since
             sql = (
                 f'SELECT "Date", "Open", "High", "Low", "Close" FROM "{safe}" '
-                f'WHERE "Close" > 0 ORDER BY "Date"'
+                f'WHERE {where} ORDER BY "Date"'
             )
             with self._engine.connect() as conn:
-                df = conn.execute(text(sql)).mappings().all()
+                df = conn.execute(text(sql), params).mappings().all()
             df = pd.DataFrame(df)
         except Exception:
             # Absent table, invalid symbol, or unreadable: censored, not fatal.
