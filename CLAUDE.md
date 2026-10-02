@@ -336,18 +336,27 @@ When dispatching subagents (via the Agent tool or Workflow tool), always use `mo
 
 ## Strategy Lab Code Generation Learnings
 
-When generating strategy code for the Strategy Lab, refer to `backend/app/services/strategy_lab_learnings.md` for the accumulated knowledge of what works and what doesn't.
+**Architecture (current — after the 2026-08-01 refactor `e2ad4f4`):** Strategy Lab runs
+**Strategy ABC subclasses** through `StrategyBacktestAdapter`. Strategies are authored as
+classes under `backend/app/services/strategies/`, driven by
+`backend/app/services/strategy_lab_orchestrator.py`, and exposed by
+`backend/app/routers/strategy_lab.py` (`/strategy-classes`, `/sessions/{id}/experiments`,
+`/batches/{id}/stats`, `/deploy`, `/library`).
 
-The code generation uses a **3-stage coding agent**:
-1. **Generate** — LLM fills in 4 functions in a known-working template (`strategies/_template.py`)
-2. **Validate** — syntax check → import check → single backtest run
-3. **Debug** — if validation fails, a separate LLM call produces a surgical fix diff, applied and re-validated (up to 3 cycles)
+The pre-refactor pipeline — an LLM "3-stage coding agent" filling in a 4-function template
+at `strategies/_template.py`, supported by `strategy_lab_llm.py`,
+`strategy_lab_prompts.py` and `strategy_lab_learnings.md` — **was removed**, together with
+its `/plan`, `/generate-code`, `/refine-code` and `/chat` endpoints. Those files and
+endpoints no longer exist; do not reference them. A legacy raw-`code_text` path remains
+inside the experiments endpoint, and `app/services/validators.py` still checks the
+4-function shape for it (`build_config`, `precompute`, `entry_score`, `holding_score`,
+`exit_check`).
 
-Key rules:
+Key rules (still valid — they apply to any strategy code):
 - Use the **shared engine** from `app.db.database` — never `create_engine()`
 - Import `get_safe_table_name` from `app.utils.security`
 - Guard `market_cap` against NULL
-- Use `max_tokens=32768` for code generation calls
+- For any remaining LLM code-generation call, use `max_tokens=32768`
 - Always validate generated code with a single backtest run before presenting to the user
 
 **Run Viewer Reports:** After every batch backtest (standalone or Strategy Lab), an interactive HTML report is auto-generated at `docs/reports/batch_<name>_<timestamp>.html`. It includes summary stats, a sortable run table, expandable per-run detail (metrics, trades, exit reasons), and strategy code/parameters. The file path is printed at the end of every experiment.
@@ -373,8 +382,13 @@ minutes per run. Follow these rules:
 - Populate `get_precomputed_price_cache()` from the same loaded data.
 - Keep per-ticker work minimal: one SQL read, vectorized indicators, one
   vectorized signal mask.
-- Reference `golden_cross_rotation_v2.py` as the canonical optimized
-  example (its `precompute_signals` is fully vectorized).
+- For a real vectorized `precompute_signals` implementation in the current
+  architecture, read
+  `backend/app/services/strategies/golden_cross_volume_rotation.py` or
+  `daily_golden_cross.py`. Do **not** use `strategies/golden_cross_rotation_v2.py`
+  as the example: it is a pre-refactor standalone script with no
+  `precompute_signals` method (it defines `precompute_stock_data()`), so it does
+  not demonstrate this hook.
 
 **Common codegen bugs to avoid (these fail every run):**
 - **Never return a bare `bool` where a dict/object is expected.** A common
