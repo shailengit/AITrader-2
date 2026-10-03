@@ -7,21 +7,24 @@ carried over from a *different* strategy (Golden Cross Volume Rotation), and one
 of those priors was itself an artifact of a truncated-warmup bug. This script
 re-derives them from this strategy's own data.
 
-Measured outcome (6 starts, 2026-10-02). Median CAGR / Sharpe / maxDD:
+Measured outcome (6 starts, scorer v3, all arms at cost=5bps / dc=0.005).
+Median CAGR / alpha-per-year / Sharpe / maxDD:
 
-    E  EMA20/EMA200, no vol       22.4 / 0.98 / 37.9   <- shipped default
-    C  EMA10/EMA200, no vol       18.8 / 0.85 / 35.1
-    B  EMA20/SMA200, no vol       17.5 / 0.86 / 25.5   <- previous behaviour
-    A  EMA10/EMA200 + vol         12.4 / 0.61 / 29.9
-    D  EMA10/SMA200, no vol        8.0 / 0.49 / 35.8
-    F  EMA20/EMA200 + vol          6.4 / 0.39 / 35.2
+    E  EMA20/EMA200, no vol       20.2 /  +2.6 / 0.89 / 34.9   <- shipped default
+    C  EMA10/EMA200, no vol       19.4 /  +5.1 / 0.92 / 32.3
+    D  EMA10/SMA200, no vol       11.6 /  -4.8 / 0.58 / 30.5
+    F  EMA20/EMA200 + vol          7.7 / -11.0 / 0.44 / 37.3
+    B  EMA20/SMA200, no vol        4.7 / -12.8 / 0.31 / 34.0
+    A  EMA10/EMA200 + vol         -6.9 / -22.7 / -0.17 / 53.1
 
-  - The EMA slow line is validated: EMA10/EMA200 beat EMA10/SMA200 on
-    CAGR/alpha/Sharpe/PF 6/6 starts (p=0.031).
-  - fast_span=20 beat 10 in both slow-line contexts (6/6 on SMA200, 4/6 on
-    EMA200), so the default is 20.
-  - The volume filter removes ~58% of crossovers and cost return in every
-    context tested, so it defaults OFF (kept as an available lever).
+  - The EMA slow line is validated: EMA200 beat SMA200 on CAGR/alpha/Sharpe/PF
+    6/6 starts in BOTH fast-span contexts (p=0.031).
+  - fast_span 10 vs 20 is a COIN FLIP — 2-4 of 6 on every metric, nothing
+    significant (C vs E). An earlier run claimed 20 won in both contexts; that
+    was scorer v2, which scored each signal with 3 days of lookahead. The claim
+    is RETRACTED. The default stays 20 by owner decision, not by evidence.
+  - The volume filter is harmful in every context tested (it removes ~58% of
+    crossovers), so it defaults OFF. Kept as an available lever.
 
 Method
 ------

@@ -303,22 +303,39 @@ These are measured results from a real sweep on the AITrader-2 stack. They are
 strong priors for future rotation strategies, not guarantees.
 
 These are **design priors**, measured on the Golden Cross Volume Rotation lineage.
-They concern what the strategy *does* (indicator choices, filters, exit levels), so they
-transfer to any rotation strategy regardless of which harness runs it — they are not
-claims about file architecture.
+They concern what the strategy *does* (indicator choices, filters, exit levels) rather
+than file architecture — but do **not** assume they transfer. A second strategy on this
+stack (DailyGoldenCrossRotation) reproduced some of them and refuted others, and this
+lineage's scorer carried 3 days of lookahead that inflates its score-based rankings.
+Each section below marks what transfers; treat the rest as hypotheses to re-measure on
+your own strategy, not as defaults to copy.
 
-### Crossover MA choice (the single biggest lever)
-- **EMA10/EMA200 is the sweet spot** (+766% ret, 38.2% CAGR, alpha +22.8%,
-  Sharpe 1.59, PF 3.06). Fast EMA catches trends early; 200-day EMA slow line
-  keeps it in genuine uptrends.
-- **EMA20/EMA200** is solid but weaker (+341%, 24.9% CAGR, Sharpe 1.13).
-- **EMA5/EMA200 is too fast** (+73%, alpha -6.8%, 146 death crosses = whipsaw).
-- **SMA slow line collapses the edge**: EMA20/SMA200 and SMA10/SMA200 both
-  drop to ~83-85% return, negative alpha, worse drawdowns. The **EMA slow line
-  is critical** — do not use SMA for the 200-day trend line.
-- Rule of thumb: fast EMA 10 > 20 > 5; slow line must be EMA200, not SMA200.
+### Crossover MA choice
+
+**Take the slow line from here. Derive the fast span on your own strategy.**
+
+- **Slow line must be EMA200, not SMA200 — this transfers.** Independently
+  reproduced on DailyGoldenCrossRotation (2026-10): EMA200 beat SMA200 on
+  CAGR/alpha/Sharpe/PF **6/6 starts (p=0.031)** in both fast-span contexts
+  (EMA20: 20.15 vs 4.67 median CAGR; EMA10: 19.43 vs 11.59). An SMA slow line
+  collapses the golden-cross edge.
+- **The fast span does NOT transfer — measure it.** A paired 6-start A/B on
+  DailyGoldenCrossRotation found fast 10 vs 20 on the EMA200 slow line a coin
+  flip: 19.43 vs 20.15 median CAGR, 2-4 of 6 starts on every metric, nothing
+  significant. Do not use a "10 > 20 > 5" rule of thumb as a prior.
+- **Do not cite a +766% figure for EMA10/EMA200.** It is the number the "Indicator
+  warmup" section declares an artifact (corrected: 441.4%), and it came from a
+  single-run-per-config sweep — the thing "Single-run comparisons are invalid" rules out.
+- The EMA5-whipsaw reading (146 death crosses, negative alpha) has a plausible
+  mechanism but shares that same scorer; treat it as unverified rather than settled.
 
 ### Volume confirmation
+- **Direction corroborated; magnitudes not.** DailyGoldenCrossRotation agrees that
+  less volume filtering is better, and goes further: even a 1.0x cross-day filter
+  (Volume > its 50-day average) cost **12-26pp of median CAGR** versus no filter at
+  all, and it now defaults OFF. The specific +168% / Sharpe 0.81 figures below come
+  from the same single-run, lookahead-bearing scorer as the MA table — take the
+  direction, re-measure the size.
 - **1.5x 50-day volume filter is too restrictive** — keeps the strategy
   chronically underinvested (baseline +28% vs SPY +160%). Loosening to **1.0x**
   (volume just above the 50-day average) was the single biggest single-lever
@@ -376,6 +393,26 @@ varying only `cost_bps` moved CAGR by **+32 points** at a 0.30%/yr drag.
   0.00/0.25/0.35/0.75/1.00 — none wins. It is also a poor drawdown control: it scales
   NEW entries only and never force-exits holdings, so it forgoes the recovery without
   avoiding the decline, and drawdown is therefore *not* ordered by exposure.
+
+### Score functions must be causal — a centred window is lookahead
+A signal dated `d` may only use bars up to and including `d`. A centred window
+(`cross_idx - lookback .. cross_idx + lookback`) silently reads `lookback` future
+days, and when the crossover angle carries 60% of the score that changes *which*
+candidates win the limited slots — candidates typically cluster within ~0.004 of
+each other, so a tiny peek reorders them completely.
+
+The GCVR lineage and the original `daily_golden_cross.py` both shipped this, so
+every score-based ranking in the sections above was produced by a scorer that saw
+3 days ahead. Treat their relative orderings as hypotheses.
+
+- **Symptom:** the live/daily path and the backtest rank the same stock differently.
+  The live path can only see "today", so its window clamps to `cross_idx - lookback ..
+  cross_idx` while the backtest's frame runs to the simulation end and gets the full
+  centred window. Measured on DailyGoldenCrossRotation, one stock scored 0.6038 live
+  vs 0.5924 backtest — first place vs last.
+- **Fix:** `start = cross_idx - lookback; end = cross_idx`.
+- **Verify:** run the per-day path (`get_signals`) and the precompute path over the
+  same dates and diff the candidate scores. Expect exactly 0.0.
 
 ### Indicator warmup is a silent backtest killer
 - **`precompute_signals` must load data from an early fixed date (e.g. 2008),
