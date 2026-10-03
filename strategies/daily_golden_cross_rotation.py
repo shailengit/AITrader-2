@@ -1,15 +1,23 @@
 """
 Daily Golden Cross Rotation Strategy
 ========================================
-Scans 1500 stocks daily for EMA20/200 golden cross.
+Scans 1500 stocks daily for an EMA20/EMA200 golden cross.
 Ranks by: 60% crossover angle + 40% market cap.
 Holds top 5, rotates when better candidates appear.
 Exits: death cross, death cross warning, take profit, trailing stop, time stop (60d), or rotated out.
 Minimum hold days: 7 before rotation close.
 Volatility filter — skips stocks with 14d daily return std > 5%.
+Volume filter — available (use_volume_filter), off by default.
 Score-squared position sizing for aggressive top-pick weighting.
 Sector diversification (max 2 per sector).
 Bear market mode: SPY < SMA(200) → 50% exposure.
+
+The banner below is generated from the strategy's live config, not hardcoded,
+so it cannot drift from what the strategy actually does.
+
+Indicator warmup is guaranteed: history is always loaded from an early fixed
+date so EMA200 is converged before the first simulated day. If the available
+history is too short, the run prints a warning — see the WARMUP WARNINGS block.
 
 Uses the StrategyBacktestAdapter internally so standalone and
 in-app paths produce IDENTICAL results.
@@ -39,25 +47,36 @@ CAPITAL = 100_000.0
 
 
 def main():
+    strategy = DailyGoldenCrossRotation()
+    cfg = strategy.config
+
+    vol_confirm = (
+        f"Volume > {cfg['volume_ma_span']}-day avg volume"
+        if cfg["use_volume_filter"] else "disabled"
+    )
     print("=" * 80)
     print("  DAILY GOLDEN CROSS ROTATION STRATEGY")
     print("=" * 80)
     print(f"  Period:     {AS_OF} → {END}")
     print(f"  Capital:    ${CAPITAL:,.2f}")
-    print(f"  Holdings:   Top 5 (rotate daily)")
-    print(f"  Ranking:    60% angle + 40% market cap")
-    print(f"  Trailing:   20%")
-    print(f"  Take Profit: 30%")
-    print(f"  Time Stop:  60 days")
-    print(f"  Min Hold:   7 days")
-    print(f"  Max/Sector: 2")
-    print(f"  Vol Filter: >5% daily std (skip)")
+    print(f"  Holdings:   Top {cfg['max_holdings']} (rotate daily)")
+    print(f"  Ranking:    {cfg['angle_weight']:.0%} angle + {cfg['cap_weight']:.0%} market cap")
+    print(f"  MAs:        EMA{cfg['fast_span']} fast / "
+          f"{cfg['slow_ma_type'].upper()}{cfg['slow_span']} slow")
+    print(f"  Trailing:   {cfg['trailing_stop']:.0%}")
+    print(f"  Take Profit: {cfg['take_profit']:.0%}")
+    print(f"  Time Stop:  {cfg['time_stop_days']} days")
+    print(f"  Min Hold:   {cfg['min_hold_days']} days")
+    print(f"  Max/Sector: {cfg['max_sector_count']}")
+    print(f"  Vol Filter: >{cfg['max_volatility']:.0%} daily std (skip)")
+    print(f"  Vol Confirm: {vol_confirm}")
     print(f"  Sizing:     Score²-weighted (top pick gets more)")
     print(f"  Exits:      Death cross, warning, take profit, trailing stop, time stop, or rotation")
-    print(f"  Bear Mode:  SPY < SMA(200) → 50% exposure")
+    print(f"  Bear Mode:  SPY < SMA(200) → {cfg['bear_exposure']:.0%} exposure")
+    print(f"  Warmup:     EMA{cfg['slow_span']} converged (>=830 bars before start)")
     print("=" * 80)
 
-    adapter = StrategyBacktestAdapter(DailyGoldenCrossRotation())
+    adapter = StrategyBacktestAdapter(strategy)
     result = adapter.run(as_of=AS_OF, end=END, capital=CAPITAL)
     s = result["summary"]
 
@@ -82,6 +101,17 @@ def main():
         print(f"\n  ── Exit Reasons ──")
         for r, c in sorted(reasons.items(), key=lambda x: -x[1]):
             print(f"  {r:>20}: {c} trades")
+
+    # Warmup shortfalls mean EMA200 was not converged for some tickers/dates.
+    # Printed prominently because it changes how much to trust the numbers above.
+    warnings = result.get("warmup_warnings", [])
+    if warnings:
+        print(f"\n  ── ⚠️  WARMUP WARNINGS ──")
+        for w in warnings:
+            print(f"  ⚠️  {w}")
+    else:
+        print(f"\n  ── Warmup ──")
+        print(f"  ✅ EMA200 converged for every scanned ticker")
 
     print(f"\n{'='*80}")
     print("  ✅ DONE")

@@ -1,0 +1,508 @@
+{
+  "end": "2026-09-30",
+  "starts": [
+    "2019-01-02",
+    "2020-01-02",
+    "2021-01-04",
+    "2022-01-03",
+    "2023-01-03",
+    "2024-01-02"
+  ],
+  "arms": {},
+  "runs": {
+    "A_new_ema10_200_vol|2019-01-02": {
+      "cagr_pct": 26.26,
+      "alpha_per_year_pct": 9.1,
+      "sharpe_ratio": 1.08,
+      "max_drawdown_pct": 29.61,
+      "win_rate": 33.3,
+      "profit_factor": 1.78,
+      "trades_per_year": 62.12,
+      "exit_reasons": {
+        "Rotated Out": 273,
+        "Time Stop": 123,
+        "Death Cross": 47,
+        "Death Cross Warning": 22,
+        "Take Profit": 16
+      }
+    },
+    "A_new_ema10_200_vol|2020-01-02": {
+      "cagr_pct": 12.14,
+      "alpha_per_year_pct": -2.92,
+      "sharpe_ratio": 0.57,
+      "max_drawdown_pct": 34.32,
+      "win_rate": 31.5,
+      "profit_factor": 1.35,
+      "trades_per_year": 63.62,
+      "exit_reasons": {
+        "Rotated Out": 253,
+        "Time Stop": 104,
+        "Death Cross Warning": 21,
+        "Death Cross": 37,
+        "Take Profit": 14
+      }
+    },
+    "A_new_ema10_200_vol|2021-01-04": {
+      "cagr_pct": 9.23,
+      "alpha_per_year_pct": -5.75,
+      "sharpe_ratio": 0.51,
+      "max_drawdown_pct": 37.56,
+      "win_rate": 31.1,
+      "profit_factor": 1.29,
+      "trades_per_year": 65.03,
+      "exit_reasons": {
+        "Rotated Out": 218,
+        "Death Cross Warning": 18,
+        "Take Profit": 9,
+        "Time Stop": 90,
+        "Death Cross": 38
+      }
+    },
+    "A_new_ema10_200_vol|2022-01-03": {
+      "cagr_pct": 12.73,
+      "alpha_per_year_pct": 0.93,
+      "sharpe_ratio": 0.65,
+      "max_drawdown_pct": 30.26,
+      "win_rate": 33.3,
+      "profit_factor": 1.33,
+      "trades_per_year": 64.57,
+      "exit_reasons": {
+        "Death Cross": 30,
+        "Rotated Out": 181,
+        "Time Stop": 72,
+        "Death Cross Warning": 15,
+        "Take Profit": 8
+      }
+    },
+    "A_new_ema10_200_vol|2023-01-03": {
+      "cagr_pct": 19.84,
+      "alpha_per_year_pct": -2.02,
+      "sharpe_ratio": 0.91,
+      "max_drawdown_pct": 25.46,
+      "win_rate": 33.6,
+      "profit_factor": 1.53,
+      "trades_per_year": 65.24,
+      "exit_reasons": {
+        "Rotated Out": 150,
+        "Take Profit": 12,
+        "Death Cross": 20,
+        "Time Stop": 56,
+        "Death Cross Warning": 6
+      }
+    },
+    "A_new_ema10_200_vol|2024-01-02": {
+      "cagr_pct": 0.14,
+      "alpha_per_year_pct": -20.21,
+      "sharpe_ratio": 0.13,
+      "max_drawdown_pct": 26.67,
+      "win_rate": 28.5,
+      "profit_factor": 0.98,
+      "trades_per_year": 75.46,
+      "exit_reasons": {
+        "Death Cross": 15,
+        "Rotated Out": 143,
+        "Time Stop": 35,
+        "Death Cross Warning": 9,
+        "Take Profit": 5
+      }
+    },
+    "B_old_ema20_sma200_novol|2019-01-02": {
+      "cagr_pct": 20.93,
+      "alpha_per_year_pct": 3.78,
+      "sharpe_ratio": 0.95,
+      "max_drawdown_pct": 36.44,
+      "win_rate": 37.6,
+      "profit_factor": 1.75,
+      "trades_per_year": 62.25,
+      "exit_reasons": {
+        "Death Cross Warning": 15,
+        "Rotated Out": 275,
+        "Death Cross": 28,
+        "Time Stop": 147,
+        "Take Profit": 17
+      }
+    },
+    "B_old_ema20_sma200_novol|2020-01-02": {
+      "cagr_pct": 20.41,
+      "alpha_per_year_pct": 5.35,
+      "sharpe_ratio": 0.94,
+      "max_drawdown_pct": 32.09,
+      "win_rate": 36.2,
+      "profit_factor": 1.75,
+      "trades_per_year": 61.84,
+      "exit_reasons": {
+        "Rotated Out": 243,
+        "Take Profit": 14,
+        "Time Stop": 121,
+        "Death Cross": 29,
+        "Death Cross Warning": 10
+      }
+    },
+    "B_old_ema20_sma200_novol|2021-01-04": {
+      "cagr_pct": 30.33,
+      "alpha_per_year_pct": 15.35,
+      "sharpe_ratio": 1.38,
+      "max_drawdown_pct": 19.23,
+      "win_rate": 32.9,
+      "profit_factor": 2.12,
+      "trades_per_year": 65.2,
+      "exit_reasons": {
+        "Take Profit": 7,
+        "Death Cross": 23,
+        "Rotated Out": 231,
+        "Time Stop": 106,
+        "Death Cross Warning": 7
+      }
+    },
+    "B_old_ema20_sma200_novol|2022-01-03": {
+      "cagr_pct": 14.58,
+      "alpha_per_year_pct": 2.78,
+      "sharpe_ratio": 0.74,
+      "max_drawdown_pct": 26.13,
+      "win_rate": 32.2,
+      "profit_factor": 1.49,
+      "trades_per_year": 62.88,
+      "exit_reasons": {
+        "Death Cross Warning": 8,
+        "Rotated Out": 173,
+        "Take Profit": 6,
+        "Time Stop": 91,
+        "Death Cross": 20
+      }
+    },
+    "B_old_ema20_sma200_novol|2023-01-03": {
+      "cagr_pct": 10.08,
+      "alpha_per_year_pct": -11.78,
+      "sharpe_ratio": 0.59,
+      "max_drawdown_pct": 22.31,
+      "win_rate": 32.4,
+      "profit_factor": 1.28,
+      "trades_per_year": 65.24,
+      "exit_reasons": {
+        "Rotated Out": 154,
+        "Time Stop": 67,
+        "Death Cross": 11,
+        "Death Cross Warning": 7,
+        "Trailing Stop": 1,
+        "Take Profit": 4
+      }
+    },
+    "B_old_ema20_sma200_novol|2024-01-02": {
+      "cagr_pct": 14.25,
+      "alpha_per_year_pct": -6.1,
+      "sharpe_ratio": 0.78,
+      "max_drawdown_pct": 24.85,
+      "win_rate": 33.3,
+      "profit_factor": 1.49,
+      "trades_per_year": 68.89,
+      "exit_reasons": {
+        "Rotated Out": 118,
+        "Time Stop": 48,
+        "Death Cross Warning": 6,
+        "Death Cross": 13,
+        "Take Profit": 4
+      }
+    },
+    "C_ema10_200_novol|2019-01-02": {
+      "cagr_pct": 21.76,
+      "alpha_per_year_pct": 4.6,
+      "sharpe_ratio": 0.97,
+      "max_drawdown_pct": 34.99,
+      "win_rate": 31.5,
+      "profit_factor": 1.48,
+      "trades_per_year": 71.42,
+      "exit_reasons": {
+        "Death Cross": 73,
+        "Take Profit": 18,
+        "Rotated Out": 324,
+        "Time Stop": 119,
+        "Death Cross Warning": 19
+      }
+    },
+    "C_ema10_200_novol|2020-01-02": {
+      "cagr_pct": 17.98,
+      "alpha_per_year_pct": 2.92,
+      "sharpe_ratio": 0.8,
+      "max_drawdown_pct": 35.22,
+      "win_rate": 31.9,
+      "profit_factor": 1.44,
+      "trades_per_year": 72.96,
+      "exit_reasons": {
+        "Rotated Out": 290,
+        "Death Cross": 67,
+        "Death Cross Warning": 18,
+        "Take Profit": 18,
+        "Time Stop": 99
+      }
+    },
+    "C_ema10_200_novol|2021-01-04": {
+      "cagr_pct": 19.98,
+      "alpha_per_year_pct": 4.99,
+      "sharpe_ratio": 0.91,
+      "max_drawdown_pct": 36.12,
+      "win_rate": 31.1,
+      "profit_factor": 1.52,
+      "trades_per_year": 75.14,
+      "exit_reasons": {
+        "Rotated Out": 250,
+        "Death Cross": 57,
+        "Death Cross Warning": 22,
+        "Take Profit": 19,
+        "Time Stop": 83
+      }
+    },
+    "C_ema10_200_novol|2022-01-03": {
+      "cagr_pct": 11.38,
+      "alpha_per_year_pct": -0.42,
+      "sharpe_ratio": 0.58,
+      "max_drawdown_pct": 35.23,
+      "win_rate": 30.7,
+      "profit_factor": 1.31,
+      "trades_per_year": 74.91,
+      "exit_reasons": {
+        "Death Cross": 47,
+        "Rotated Out": 214,
+        "Death Cross Warning": 13,
+        "Take Profit": 10,
+        "Time Stop": 71
+      }
+    },
+    "C_ema10_200_novol|2023-01-03": {
+      "cagr_pct": 19.55,
+      "alpha_per_year_pct": -2.31,
+      "sharpe_ratio": 0.95,
+      "max_drawdown_pct": 28.65,
+      "win_rate": 30.1,
+      "profit_factor": 1.44,
+      "trades_per_year": 75.4,
+      "exit_reasons": {
+        "Death Cross": 36,
+        "Rotated Out": 168,
+        "Time Stop": 62,
+        "Death Cross Warning": 9,
+        "Take Profit": 7
+      }
+    },
+    "C_ema10_200_novol|2024-01-02": {
+      "cagr_pct": 1.86,
+      "alpha_per_year_pct": -18.49,
+      "sharpe_ratio": 0.19,
+      "max_drawdown_pct": 33.66,
+      "win_rate": 27.8,
+      "profit_factor": 1.04,
+      "trades_per_year": 83.84,
+      "exit_reasons": {
+        "Death Cross": 32,
+        "Rotated Out": 146,
+        "Time Stop": 39,
+        "Death Cross Warning": 7,
+        "Take Profit": 6
+      }
+    },
+    "D_ema10_sma200_novol|2019-01-02": {
+      "cagr_pct": 15.14,
+      "alpha_per_year_pct": -2.01,
+      "sharpe_ratio": 0.74,
+      "max_drawdown_pct": 30.49,
+      "win_rate": 31.8,
+      "profit_factor": 1.33,
+      "trades_per_year": 67.81,
+      "exit_reasons": {
+        "Death Cross": 63,
+        "Rotated Out": 295,
+        "Time Stop": 126,
+        "Death Cross Warning": 23,
+        "Take Profit": 18
+      }
+    },
+    "D_ema10_sma200_novol|2020-01-02": {
+      "cagr_pct": 12.31,
+      "alpha_per_year_pct": -2.75,
+      "sharpe_ratio": 0.6,
+      "max_drawdown_pct": 35.33,
+      "win_rate": 30.4,
+      "profit_factor": 1.29,
+      "trades_per_year": 68.36,
+      "exit_reasons": {
+        "Death Cross": 58,
+        "Rotated Out": 261,
+        "Death Cross Warning": 24,
+        "Time Stop": 99,
+        "Trailing Stop": 2,
+        "Take Profit": 17
+      }
+    },
+    "D_ema10_sma200_novol|2021-01-04": {
+      "cagr_pct": 7.01,
+      "alpha_per_year_pct": -7.97,
+      "sharpe_ratio": 0.43,
+      "max_drawdown_pct": 34.34,
+      "win_rate": 30.3,
+      "profit_factor": 1.19,
+      "trades_per_year": 68.52,
+      "exit_reasons": {
+        "Rotated Out": 237,
+        "Death Cross Warning": 18,
+        "Time Stop": 89,
+        "Death Cross": 39,
+        "Take Profit": 10
+      }
+    },
+    "D_ema10_sma200_novol|2022-01-03": {
+      "cagr_pct": 3.8,
+      "alpha_per_year_pct": -8.0,
+      "sharpe_ratio": 0.29,
+      "max_drawdown_pct": 36.26,
+      "win_rate": 27.9,
+      "profit_factor": 1.11,
+      "trades_per_year": 71.95,
+      "exit_reasons": {
+        "Death Cross": 44,
+        "Death Cross Warning": 19,
+        "Rotated Out": 198,
+        "Take Profit": 11,
+        "Time Stop": 69
+      }
+    },
+    "D_ema10_sma200_novol|2023-01-03": {
+      "cagr_pct": 9.0,
+      "alpha_per_year_pct": -12.85,
+      "sharpe_ratio": 0.56,
+      "max_drawdown_pct": 42.54,
+      "win_rate": 26.0,
+      "profit_factor": 1.2,
+      "trades_per_year": 73.0,
+      "exit_reasons": {
+        "Rotated Out": 168,
+        "Take Profit": 11,
+        "Time Stop": 52,
+        "Death Cross Warning": 13,
+        "Death Cross": 29
+      }
+    },
+    "D_ema10_sma200_novol|2024-01-02": {
+      "cagr_pct": -13.56,
+      "alpha_per_year_pct": -33.91,
+      "sharpe_ratio": -0.63,
+      "max_drawdown_pct": 39.87,
+      "win_rate": 25.2,
+      "profit_factor": 0.65,
+      "trades_per_year": 78.01,
+      "exit_reasons": {
+        "Rotated Out": 136,
+        "Take Profit": 7,
+        "Time Stop": 38,
+        "Death Cross": 22,
+        "Death Cross Warning": 11
+      }
+    },
+    "E_ema20_200_novol|2019-01-02": {
+      "cagr_pct": 26.8,
+      "alpha_per_year_pct": 9.64,
+      "sharpe_ratio": 1.12,
+      "max_drawdown_pct": 38.23,
+      "win_rate": 35.7,
+      "profit_factor": 1.62,
+      "trades_per_year": 64.32
+    },
+    "E_ema20_200_novol|2020-01-02": {
+      "cagr_pct": 23.79,
+      "alpha_per_year_pct": 8.73,
+      "sharpe_ratio": 1.02,
+      "max_drawdown_pct": 29.65,
+      "win_rate": 33.5,
+      "profit_factor": 1.58,
+      "trades_per_year": 65.1
+    },
+    "E_ema20_200_novol|2021-01-04": {
+      "cagr_pct": 27.83,
+      "alpha_per_year_pct": 12.85,
+      "sharpe_ratio": 1.19,
+      "max_drawdown_pct": 34.49,
+      "win_rate": 32.7,
+      "profit_factor": 1.78,
+      "trades_per_year": 66.6
+    },
+    "E_ema20_200_novol|2022-01-03": {
+      "cagr_pct": 4.69,
+      "alpha_per_year_pct": -7.11,
+      "sharpe_ratio": 0.33,
+      "max_drawdown_pct": 41.36,
+      "win_rate": 30.4,
+      "profit_factor": 1.12,
+      "trades_per_year": 70.05
+    },
+    "E_ema20_200_novol|2023-01-03": {
+      "cagr_pct": 13.51,
+      "alpha_per_year_pct": -8.35,
+      "sharpe_ratio": 0.7,
+      "max_drawdown_pct": 37.66,
+      "win_rate": 31.0,
+      "profit_factor": 1.35,
+      "trades_per_year": 68.18
+    },
+    "E_ema20_200_novol|2024-01-02": {
+      "cagr_pct": 20.91,
+      "alpha_per_year_pct": 0.57,
+      "sharpe_ratio": 0.95,
+      "max_drawdown_pct": 39.83,
+      "win_rate": 32.7,
+      "profit_factor": 1.51,
+      "trades_per_year": 72.54
+    },
+    "F_ema20_200_vol|2019-01-02": {
+      "cagr_pct": 2.17,
+      "alpha_per_year_pct": -14.99,
+      "sharpe_ratio": 0.21,
+      "max_drawdown_pct": 44.01,
+      "win_rate": 32.8,
+      "profit_factor": 1.05,
+      "trades_per_year": 63.42
+    },
+    "F_ema20_200_vol|2020-01-02": {
+      "cagr_pct": 3.27,
+      "alpha_per_year_pct": -11.79,
+      "sharpe_ratio": 0.24,
+      "max_drawdown_pct": 47.7,
+      "win_rate": 33.4,
+      "profit_factor": 1.07,
+      "trades_per_year": 58.13
+    },
+    "F_ema20_200_vol|2021-01-04": {
+      "cagr_pct": 9.53,
+      "alpha_per_year_pct": -5.45,
+      "sharpe_ratio": 0.53,
+      "max_drawdown_pct": 29.65,
+      "win_rate": 33.5,
+      "profit_factor": 1.32,
+      "trades_per_year": 62.42
+    },
+    "F_ema20_200_vol|2022-01-03": {
+      "cagr_pct": 5.81,
+      "alpha_per_year_pct": -6.0,
+      "sharpe_ratio": 0.36,
+      "max_drawdown_pct": 40.74,
+      "win_rate": 32.9,
+      "profit_factor": 1.14,
+      "trades_per_year": 60.35
+    },
+    "F_ema20_200_vol|2023-01-03": {
+      "cagr_pct": 18.78,
+      "alpha_per_year_pct": -3.08,
+      "sharpe_ratio": 0.9,
+      "max_drawdown_pct": 29.2,
+      "win_rate": 32.5,
+      "profit_factor": 1.43,
+      "trades_per_year": 63.37
+    },
+    "F_ema20_200_vol|2024-01-02": {
+      "cagr_pct": 6.93,
+      "alpha_per_year_pct": -13.42,
+      "sharpe_ratio": 0.41,
+      "max_drawdown_pct": 29.38,
+      "win_rate": 30.9,
+      "profit_factor": 1.17,
+      "trades_per_year": 64.88
+    }
+  }
+}

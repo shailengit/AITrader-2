@@ -164,6 +164,17 @@ class Strategy(ABC):
         """
         return RotationConfig()
 
+    def get_warmup_warnings(self) -> List[str]:
+        """Warmup shortfalls detected during signal generation.
+
+        Strategies whose indicators need a long lookback (e.g. an EMA200)
+        should return human-readable messages when the available history is
+        too short for those indicators to have converged — an unconverged
+        indicator produces plausible-looking but wrong signals. The adapter
+        surfaces these alongside the run's KPIs. Empty when nothing is wrong.
+        """
+        return []
+
     def score_holding(self, ticker: str, as_of_date: str, engine: Engine,
                       entry_price: float, market_cap: float, sector: str,
                       side: str = "long") -> float:

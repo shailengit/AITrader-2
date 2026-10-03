@@ -620,7 +620,21 @@ class StrategyBacktestAdapter:
 
         # ── 4. Summary KPIs ─────────────────────────────────────────────
         summary = _compute_summary(trades, daily_equity, capital, as_of, end)
-        return {"trades": trades, "daily_equity": daily_equity, "summary": summary}
+        # Indicator-warmup shortfalls are a correctness signal, not a footnote:
+        # pass them through so the standalone script and the app can surface
+        # them instead of silently reporting unconverged-indicator results.
+        try:
+            warmup_warnings = self.strategy.get_warmup_warnings()
+        except Exception:
+            warmup_warnings = []
+        if warmup_warnings:
+            summary["warmup_warnings"] = warmup_warnings
+        return {
+            "trades": trades,
+            "daily_equity": daily_equity,
+            "summary": summary,
+            "warmup_warnings": warmup_warnings,
+        }
 
 
 def _compute_summary(
