@@ -73,10 +73,25 @@ import pandas as pd
 
 from app.db.database import engine
 from app.services.strategy_backtest_adapter import StrategyBacktestAdapter
-from app.services.strategies.daily_golden_cross import DailyGoldenCrossRotation
+from app.services.strategies.daily_golden_cross import (
+    DEFAULT_CONFIG, DailyGoldenCrossRotation,
+)
 
 END = "2026-09-30"
 CAPITAL = 100_000.0
+
+# Bump whenever the strategy's SIGNAL math changes. Cached runs carry this, and
+# a mismatch discards them, so results can never silently describe older code.
+#   1 - original (centred, lookahead-biased crossover angle; SMA-labelled EMA200)
+#   2 - causal crossover angle, EMA200 slow line, universe-wide cap bounds
+#   3 - arms made fully explicit; v2 runs were invalid (see ARMS note)
+SCORER_VERSION = 3
+
+# Fingerprint of the strategy's pinned defaults. Cached runs are reused only if
+# both this and SCORER_VERSION match, so a default moving under the arms can
+# never leave stale results behind. Defaults changed once before (fast_span
+# 10->20, volume filter on->off) and silently collapsed four arms onto one config.
+DEFAULTS_FP = json.dumps(DEFAULT_CONFIG, sort_keys=True)
 
 # Fixed start dates, spread across regimes (COVID crash, 2022 bear, 2023-26
 # bull). Identical for every arm.
@@ -85,35 +100,55 @@ ALL_STARTS = [
     "2022-01-03", "2023-01-03", "2024-01-02",
 ]
 
-NOVOL = {"use_volume_filter": False}
-
 # Arms form the 2x2 factorial (fast span) x (slow MA type), all with the volume
 # filter off, plus the volume-filter variants and the shipped default:
 #
 #               SMA200 slow          EMA200 slow
-#   fast=20     B_old                E (shipped default)
+#   fast=20     B                    E (shipped default)
 #   fast=10     D                    C
 #
+# EVERY arm states its full signal config EXPLICITLY. Do not make these
+# relative to the strategy's defaults: when the defaults changed (fast_span
+# 10->20, volume filter on->off) the previously-relative overrides collapsed
+# A, C, E and F onto one config, and the sweep reported "this lever does
+# nothing" for four arms that were never actually distinct. _assert_distinct()
+# below now fails loudly instead.
 ARMS = {
-    "A_new_ema10_200_vol": {},
-    "B_old_ema20_sma200_novol": {"fast_span": 20, "slow_ma_type": "sma", **NOVOL},
-    "C_ema10_200_novol": dict(NOVOL),
-    "D_ema10_sma200_novol": {"slow_ma_type": "sma", **NOVOL},
-    "E_ema20_200_novol": {"fast_span": 20, **NOVOL},
-    "F_ema20_200_vol": {"fast_span": 20},
+    "A_ema10_200_vol":      {"fast_span": 10, "slow_ma_type": "ema", "use_volume_filter": True},
+    "B_ema20_sma200_novol": {"fast_span": 20, "slow_ma_type": "sma", "use_volume_filter": False},
+    "C_ema10_200_novol":    {"fast_span": 10, "slow_ma_type": "ema", "use_volume_filter": False},
+    "D_ema10_sma200_novol": {"fast_span": 10, "slow_ma_type": "sma", "use_volume_filter": False},
+    "E_ema20_200_novol":    {"fast_span": 20, "slow_ma_type": "ema", "use_volume_filter": False},
+    "F_ema20_200_vol":      {"fast_span": 20, "slow_ma_type": "ema", "use_volume_filter": True},
 }
 
 # Each comparison isolates one lever, so a regression can be attributed.
 PAIRS = [
-    ("A_new_ema10_200_vol", "B_old_ema20_sma200_novol", "SHIPPED CHANGE (all 3 edits)"),
-    ("A_new_ema10_200_vol", "C_ema10_200_novol", "volume filter (on EMA10/EMA200)"),
+    ("A_ema10_200_vol", "B_ema20_sma200_novol", "SHIPPED CHANGE (all 3 edits)"),
+    ("A_ema10_200_vol", "C_ema10_200_novol", "volume filter (on EMA10/EMA200)"),
     ("F_ema20_200_vol", "E_ema20_200_novol", "volume filter (on EMA20/EMA200)"),
     ("C_ema10_200_novol", "E_ema20_200_novol", "fast span 10 vs 20 (on EMA200)"),
-    ("D_ema10_sma200_novol", "B_old_ema20_sma200_novol", "fast span 10 vs 20 (on SMA200)"),
+    ("D_ema10_sma200_novol", "B_ema20_sma200_novol", "fast span 10 vs 20 (on SMA200)"),
     ("C_ema10_200_novol", "D_ema10_sma200_novol", "slow line EMA vs SMA (at fast=10)"),
-    ("E_ema20_200_novol", "B_old_ema20_sma200_novol", "slow line EMA vs SMA (at fast=20)"),
-    ("F_ema20_200_vol", "B_old_ema20_sma200_novol", "MINIMAL CHANGE: SMA->EMA slow + vol"),
+    ("E_ema20_200_novol", "B_ema20_sma200_novol", "slow line EMA vs SMA (at fast=20)"),
+    ("F_ema20_200_vol", "B_ema20_sma200_novol", "MINIMAL CHANGE: SMA->EMA slow + vol"),
 ]
+
+
+def assert_distinct():
+    """Fail loudly if two arms resolve to the same config.
+
+    Without this, an arm whose overrides stop mattering (because a default
+    moved under it) silently duplicates another arm and the A/B reports that
+    its lever does nothing.
+    """
+    seen = {}
+    for code, overrides in ARMS.items():
+        key = json.dumps(DailyGoldenCrossRotation(**overrides).config, sort_keys=True)
+        seen.setdefault(key, []).append(code)
+    dupes = [codes for codes in seen.values() if len(codes) > 1]
+    if dupes:
+        raise SystemExit(f"arms resolve to identical configs: {dupes}")
 
 METRICS = [
     "cagr_pct", "alpha_per_year_pct", "sharpe_ratio",
@@ -153,13 +188,31 @@ def main():
     unknown = set(wanted) - set(ARMS)
     if unknown:
         raise SystemExit(f"Unknown arm(s): {sorted(unknown)}. Known: {sorted(ARMS)}")
+    assert_distinct()
 
-    results = {"end": END, "starts": starts, "arms": {}, "runs": {}}
+    results = {
+        "scorer_version": SCORER_VERSION,
+        "defaults_fingerprint": DEFAULTS_FP,
+        "end": END, "starts": starts, "arms": {}, "runs": {},
+    }
     if os.path.exists(OUT):
         try:
             with open(OUT) as f:
                 prior = json.load(f)
-            if prior.get("starts") == starts:
+            if prior.get("scorer_version") != SCORER_VERSION:
+                print(
+                    f"cached runs are scorer_version "
+                    f"{prior.get('scorer_version')!r}, this code is "
+                    f"{SCORER_VERSION} - discarding and re-running all arms",
+                    flush=True,
+                )
+            elif prior.get("defaults_fingerprint") != DEFAULTS_FP:
+                print(
+                    "strategy defaults changed since these runs - discarding "
+                    "and re-running all arms",
+                    flush=True,
+                )
+            elif prior.get("starts") == starts:
                 results["runs"] = prior.get("runs", {})
                 print(f"loaded {len(results['runs'])} existing runs from {OUT}", flush=True)
             else:

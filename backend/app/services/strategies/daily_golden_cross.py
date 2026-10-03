@@ -64,10 +64,16 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "trailing_stop": 0.30,
     "time_stop_days": 60,
     "min_hold_days": 7,
-    "dc_warning_spread": 0.001,
+    "dc_warning_spread": 0.005,
     "protect_winners": True,
     # Sizing
     "sizing_pcts": [0.30, 0.25, 0.20, 0.15, 0.10],
+    # Execution: cost per side in basis points of filled notional. Defaults to a
+    # realistic 5bps/side rather than the costless fills the strategy was
+    # originally measured with — at ~65-70 trades/yr the costless assumption
+    # overstated this stack by ~5-7pp of CAGR. Set 0.0 for comparability with
+    # older costless runs.
+    "cost_bps": 5.0,
 }
 # Keys backed by properties rather than plain attributes.
 _PROPERTY_KEYS = {"max_holdings", "sizing_pcts"}
@@ -83,12 +89,11 @@ WARMUP_BARS_REQUIRED = 830
 WARMUP_CALENDAR_DAYS = 1300
 # Never load later than this, so early simulation starts keep their warmup.
 WARMUP_FLOOR = "2008-01-01"
-# Bars to load for the live (per-day) path — enough for EMA200 to converge
-# without pulling 18 years of history for every ticker every day.
-WARMUP_LIVE_BARS = WARMUP_BARS_REQUIRED + 200
-# History rows to request per ticker in the backtest precompute. A DESC LIMIT
-# means this is the most recent N bars, so it bounds the load window too.
-WARMUP_MAX_ROWS = 5000
+# History rows to request per ticker. A DESC LIMIT takes the most recent N bars,
+# so it must exceed the bars between the load floor and the end date or the
+# earliest simulated dates silently lose warmup. ~4650 bars span 2008-2026;
+# 8000 leaves headroom to roughly 2040.
+WARMUP_MAX_ROWS = 8000
 # The per-day path re-evaluates warmup on every call, and each message carries
 # its own date, so cap the list or a day-by-day loop grows it without bound.
 MAX_WARMUP_WARNINGS = 5
@@ -112,11 +117,18 @@ def required_load_start(first_date: str) -> str:
     return min(WARMUP_FLOOR, cutoff)
 
 # ── Notes on the tuned exit levers (defaults live in DEFAULT_CONFIG) ────
-# dc_warning_spread: kept at 0.001 (original). Raising it (0.01) fired too many
-#   premature exits and HURT return/CAGR, so that hypothesis was reverted.
-#   NOTE: this was tuned against an EMA20/SMA200 pair. The shipped default keeps
-#   fast_span=20 but switches the slow line to an EMA, so the spread distribution
-#   it was tuned against has changed. It has NOT been re-tuned — an open item.
+# dc_warning_spread: RE-TUNED (2026-10-03). The old 0.001 was tuned against an
+#   EMA20/SMA200 pair, and was only ever tested by RAISING it to 0.01 on that
+#   pair, where it hurt. On the shipped EMA20/EMA200 pair the sweep inverts that
+#   result. At a uniform 5bps cost, median over 6 starts:
+#     0.001  cagr 14.13  alpha +0.71  sharpe 0.67  maxDD 40.87
+#     0.005  cagr 20.15  alpha +2.63  sharpe 0.89  maxDD 34.94   <- shipped
+#     0.01   cagr 20.41  alpha +3.18  sharpe 0.90  maxDD 33.30
+#     0.02   cagr 11.53  alpha -4.57  sharpe 0.56  maxDD 36.62   (cliff)
+#   0.005 sits mid-region and away from the 0.02 cliff; 0.01 is the higher-return
+#   but adjacent-to-cliff alternative. It exits earlier, so drawdown improves
+#   consistently (0.005 beat 0.001 on drawdown 6/6 starts, p=0.031) at the cost of
+#   a lower win rate and ~5 more trades/yr.
 # trailing_stop: widened 0.20 -> 0.30. Trailing Stop was the worst per-trade
 #   exit (-$5,921.04 avg in the aggregate); a wider trail avoids stopping out
 #   winners early. 0.30/0.32/0.34 measured identical once protect_winners is on.
@@ -174,6 +186,31 @@ class DailyGoldenCrossRotation(Strategy):
         if self.slow_ma_type == "sma":
             return close.rolling(window=self.slow_span).mean()
         return close.ewm(span=self.slow_span, adjust=False).mean()
+
+    def _universe_cap_bounds(self, engine: Engine) -> tuple:
+        """Market-cap min and range across the WHOLE universe.
+
+        Both signal paths must normalize against the same population. When
+        get_signals() normalized against that day's *candidates* instead, the
+        largest candidate always scored cap_norm=1.0 while the backtest gave the
+        same stock ~0.0 — a ~0.4 score gap that let live rank differently from
+        the backtest that validated it.
+        """
+        try:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text("SELECT market_cap FROM stock_metadata")
+                ).fetchall()
+            caps = [
+                float(r[0]) for r in rows
+                if r[0] is not None and float(r[0]) > 0
+            ]
+        except Exception:
+            caps = []
+        if not caps:
+            return 0.0, 1.0
+        lo, hi = min(caps), max(caps)
+        return lo, (hi - lo) if hi > lo else 1.0
 
     def get_name(self) -> str:
         return "Daily Golden Cross Rotation"
@@ -238,6 +275,7 @@ class DailyGoldenCrossRotation(Strategy):
             re_score_holdings=True,    # Re-score holdings using current EMA spread
             protect_winners=self.protect_winners,
             bear_exposure=self.bear_exposure,  # 50% exposure in bear market by default
+            cost_bps=self.cost_bps,
             exit_priority=[
                 "strategy_exit",     # Death cross first (via should_exit)
                 "take_profit",       # Then take profit
@@ -268,12 +306,17 @@ class DailyGoldenCrossRotation(Strategy):
             except ValueError:
                 continue
 
+            # Load from the same warmup floor precompute_signals uses. An EMA is
+            # causal, so an identical START date yields an identical EMA at
+            # as_of_date no matter how far past it the series runs — that is what
+            # makes the live and backtest scores agree exactly.
+            load_start = required_load_start(as_of_date)
             try:
                 with engine.connect() as conn:
                     df = pd.read_sql(
                         f'SELECT "Date", "Open", "High", "Low", "Close", "Volume" FROM "{safe}" '
-                        f'WHERE "Date" <= \'{as_of_date}\' ORDER BY "Date" DESC '
-                        f'LIMIT {WARMUP_LIVE_BARS}',
+                        f'WHERE "Date" >= \'{load_start}\' AND "Date" <= \'{as_of_date}\' '
+                        f'ORDER BY "Date" DESC LIMIT {WARMUP_MAX_ROWS}',
                         conn,
                     )
             except Exception:
@@ -323,7 +366,7 @@ class DailyGoldenCrossRotation(Strategy):
                 if not (pd.notna(current_vol_ma50) and volume.iloc[i] > current_vol_ma50):
                     continue
 
-            angle = self._compute_crossover_angle(close, fast_ma, slow_ma, i)
+            angle = self._compute_crossover_angle(fast_ma, slow_ma, i)
 
             # Market cap for scoring
             mc = 0.0
@@ -357,11 +400,10 @@ class DailyGoldenCrossRotation(Strategy):
         if not candidates:
             return []
 
-        # Normalize market caps
-        caps = [c["market_cap"] for c in candidates if c["market_cap"] > 0]
-        cap_max = max(caps) if caps else 1
-        cap_min = min(caps) if caps else 0
-        cap_range = cap_max - cap_min if cap_max > cap_min else 1
+        # Normalize market caps against the WHOLE universe, via the same helper
+        # precompute_signals uses, so live ranking matches the backtest.
+        cap_min, cap_range = self._universe_cap_bounds(engine)
+        self._cap_min, self._cap_range = cap_min, cap_range
 
         # Score and rank
         for c in candidates:
@@ -431,11 +473,14 @@ class DailyGoldenCrossRotation(Strategy):
             # Fallback: load from DB (per-day mode, no precompute cache).
             from app.utils.security import get_safe_table_name
             safe = get_safe_table_name(ticker)
+            # Same load floor as the signal paths, so any death cross is judged
+            # on the same EMA the entry was.
             with engine.connect() as conn:
                 df = pd.read_sql(
                     f'SELECT "Date", "Close" FROM "{safe}" '
-                    f'WHERE "Date" <= \'{as_of_date}\' ORDER BY "Date" DESC '
-                    f'LIMIT {WARMUP_LIVE_BARS}',
+                    f'WHERE "Date" >= \'{required_load_start(as_of_date)}\' '
+                    f'AND "Date" <= \'{as_of_date}\' '
+                    f'ORDER BY "Date" DESC LIMIT {WARMUP_MAX_ROWS}',
                     conn,
                 )
             if df.empty or len(df) < WARMUP_BARS_REQUIRED:
@@ -480,8 +525,9 @@ class DailyGoldenCrossRotation(Strategy):
                 with engine.connect() as conn:
                     df = pd.read_sql(
                         f'SELECT "Date", "Close" FROM "{safe}" '
-                        f'WHERE "Date" <= \'{as_of_date}\' ORDER BY "Date" DESC '
-                        f'LIMIT {WARMUP_LIVE_BARS}',
+                        f'WHERE "Date" >= \'{required_load_start(as_of_date)}\' '
+                        f'AND "Date" <= \'{as_of_date}\' '
+                        f'ORDER BY "Date" DESC LIMIT {WARMUP_MAX_ROWS}',
                         conn,
                     )
                 if df.empty or len(df) < WARMUP_BARS_REQUIRED:
@@ -631,7 +677,7 @@ class DailyGoldenCrossRotation(Strategy):
 
             for i in hit_idx:
                 ds = dates[i]
-                angle = self._compute_crossover_angle(close, fast_ma, slow_ma, int(i))
+                angle = self._compute_crossover_angle(fast_ma, slow_ma, int(i))
                 if ds not in all_candidates:
                     all_candidates[ds] = []
                 all_candidates[ds].append({
@@ -651,13 +697,10 @@ class DailyGoldenCrossRotation(Strategy):
             logger.info("No golden crosses found in date range")
             return {d: [] for d in all_dates}
 
-        # Normalize market caps across ALL stocks in the universe
-        # (not just those with crossovers) to match standalone behavior
-        all_caps = [mc for mc, _ in meta_cache.values() if mc > 0]
-        cap_max = max(all_caps) if all_caps else 1
-        cap_min = min(all_caps) if all_caps else 0
-        cap_range = cap_max - cap_min if cap_max > cap_min else 1
-        # Store for score_holding() to use
+        # Normalize market caps across ALL stocks in the universe (not just
+        # those with crossovers), through the same helper get_signals() uses so
+        # the two paths cannot drift apart. Stored for score_holding().
+        cap_min, cap_range = self._universe_cap_bounds(engine)
         self._cap_min = cap_min
         self._cap_range = cap_range
 
@@ -704,17 +747,26 @@ class DailyGoldenCrossRotation(Strategy):
     # ── Internal Helpers ──────────────────────────────────────────────
 
     @staticmethod
-    def _compute_crossover_angle(close, fast_ma, slow_ma, cross_idx):
-        """Compute the angle between EMA20 and EMA200 at crossover."""
+    def _compute_crossover_angle(fast_ma, slow_ma, cross_idx):
+        """Slope of the (fast - slow) spread over the bars ENDING at the cross.
+
+        Deliberately causal: it uses only bars up to and including cross_idx.
+
+        This used to be a centred window (cross_idx-3 .. cross_idx+3), which
+        meant a signal dated d was scored with data from d+1..d+3. That is
+        lookahead, and it broke live/backtest parity: the live runner can only
+        ever see up to "today", so its window was clamped to cross_idx-3 ..
+        cross_idx while the backtest's frame ran to the simulation end and got
+        the full centred window. Candidates cluster within ~0.004 of each other,
+        so that gap was enough to rank the same stock first in the backtest and
+        last in live.
+        """
         lookback = 3
         if cross_idx < lookback:
             return 0.0
 
-        end = min(cross_idx + lookback, len(close) - 1)
-        start = max(0, cross_idx - lookback)
-
-        if end == start:
-            return 0.0
+        start = cross_idx - lookback
+        end = cross_idx
 
         spread_before = (fast_ma.iloc[start] - slow_ma.iloc[start])
         spread_after = (fast_ma.iloc[end] - slow_ma.iloc[end])

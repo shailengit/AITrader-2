@@ -17,6 +17,7 @@ Usage:
     # result == {"trades": [...], "daily_equity": [...], "summary": {...}}
 """
 
+import bisect
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -252,14 +253,17 @@ class StrategyBacktestAdapter:
             if not odates:
                 return 0.0
             okeys = open_cache.get(tk, {})
-            # Find the first open strictly after date_str
-            next_open = None
-            cur = pd.Timestamp(date_str)
-            for od in odates:
-                if pd.Timestamp(od) > cur:
-                    next_open = okeys.get(od)
-                    if next_open is not None and float(next_open) > 0:
-                        return float(next_open)
+
+            # odates is ascending and ISO ("YYYY-MM-DD"), so lexicographic order
+            # is chronological and bisect_right lands exactly on the first bar
+            # strictly after date_str. This replaced a scan from the start that
+            # built a pd.Timestamp per element, called on every entry and every
+            # exit. Same answer, no Timestamp construction.
+            pos = bisect.bisect_right(odates, date_str)
+            for od in odates[pos:]:
+                val = okeys.get(od)
+                if val is not None and float(val) > 0:
+                    return float(val)
             return 0.0
 
         spy_sma200: Optional[pd.Series] = None

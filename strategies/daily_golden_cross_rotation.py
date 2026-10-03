@@ -73,6 +73,8 @@ def main():
     print(f"  Sizing:     Score²-weighted (top pick gets more)")
     print(f"  Exits:      Death cross, warning, take profit, trailing stop, time stop, or rotation")
     print(f"  Bear Mode:  SPY < SMA(200) → {cfg['bear_exposure']:.0%} exposure")
+    print(f"  DC Warning: spread < {cfg['dc_warning_spread']:g} (exit)")
+    print(f"  Cost:       {cfg['cost_bps']:g} bps/side")
     print(f"  Warmup:     EMA{cfg['slow_span']} converged (>=830 bars before start)")
     print("=" * 80)
 

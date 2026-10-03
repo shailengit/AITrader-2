@@ -1,9 +1,9 @@
 {
-  "cagr_pct": 9.81,
-  "sharpe_ratio": 0.61,
-  "total_return_pct": 246.09,
-  "win_rate": 36.3,
-  "max_drawdown_pct": 43.17,
-  "total_trades": 465,
-  "last_backtest": "2026-09-08"
+  "cagr_pct": 20.15,
+  "sharpe_ratio": 0.89,
+  "total_return_pct": 140.78,
+  "win_rate": 29.5,
+  "max_drawdown_pct": 34.94,
+  "total_trades": 394,
+  "last_backtest": "2026-10-03"
 }
