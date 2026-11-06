@@ -1,0 +1,91 @@
+{
+  "initial_capital": 100000.0,
+  "final_portfolio": 137057.87,
+  "total_return_pct": 37.06,
+  "cagr_pct": 8.78,
+  "num_years": 3.75,
+  "trades_per_year": 52.6,
+  "spy_cagr_pct": 21.82,
+  "alpha_per_year_pct": -13.04,
+  "sharpe_ratio": 0.44,
+  "max_drawdown_pct": 30.33,
+  "total_trades": 197,
+  "win_rate": 33.5,
+  "profit_factor": 1.26,
+  "avg_winner": 3214.32,
+  "avg_loser": -1285.85,
+  "exit_reasons": {
+    "Stop Loss": 12,
+    "Momentum Breakdown": 54,
+    "Take Profit": 19,
+    "Rotated Out": 98,
+    "Time Stop": 13,
+    "Trailing Stop": 1
+  },
+  "spy_return_pct": 109.44,
+  "alpha_pct": -72.38,
+  "top_winners": [
+    {
+      "ticker": "MU",
+      "return_pct": 44.36,
+      "pnl_dollars": 27776.92,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "VICR",
+      "return_pct": 38.89,
+      "pnl_dollars": 19412.21,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "WBD",
+      "return_pct": 40.02,
+      "pnl_dollars": 18561.2,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "DELL",
+      "return_pct": 35.33,
+      "pnl_dollars": 15603.21,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "ANET",
+      "return_pct": 33.08,
+      "pnl_dollars": 15205.71,
+      "exit_reason": "Time Stop"
+    }
+  ],
+  "top_losers": [
+    {
+      "ticker": "DINO",
+      "return_pct": -10.56,
+      "pnl_dollars": -6938.69,
+      "exit_reason": "Rotated Out"
+    },
+    {
+      "ticker": "ATI",
+      "return_pct": -15.71,
+      "pnl_dollars": -7604.68,
+      "exit_reason": "Momentum Breakdown"
+    },
+    {
+      "ticker": "MP",
+      "return_pct": -18.04,
+      "pnl_dollars": -7651.52,
+      "exit_reason": "Momentum Breakdown"
+    },
+    {
+      "ticker": "NRG",
+      "return_pct": -15.66,
+      "pnl_dollars": -8142.22,
+      "exit_reason": "Momentum Breakdown"
+    },
+    {
+      "ticker": "FSLR",
+      "return_pct": -15.14,
+      "pnl_dollars": -8779.17,
+      "exit_reason": "Stop Loss"
+    }
+  ]
+}
