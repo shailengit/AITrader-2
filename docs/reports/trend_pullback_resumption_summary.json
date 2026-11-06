@@ -1,0 +1,91 @@
+{
+  "initial_capital": 100000.0,
+  "final_portfolio": 232920.73,
+  "total_return_pct": 132.92,
+  "cagr_pct": 13.35,
+  "num_years": 6.75,
+  "trades_per_year": 33.2,
+  "spy_cagr_pct": 15.05,
+  "alpha_per_year_pct": -1.7,
+  "sharpe_ratio": 0.65,
+  "max_drawdown_pct": 32.42,
+  "total_trades": 224,
+  "win_rate": 31.7,
+  "profit_factor": 1.54,
+  "avg_winner": 5058.92,
+  "avg_loser": -1520.41,
+  "exit_reasons": {
+    "Trend Break": 76,
+    "Rotated Out": 68,
+    "Stop Loss": 16,
+    "Take Profit": 11,
+    "Time Stop": 48,
+    "Trailing Stop": 5
+  },
+  "spy_return_pct": 157.54,
+  "alpha_pct": -24.62,
+  "top_winners": [
+    {
+      "ticker": "CSCO",
+      "return_pct": 48.41,
+      "pnl_dollars": 47751.29,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "POWL",
+      "return_pct": 41.25,
+      "pnl_dollars": 19384.85,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "KTOS",
+      "return_pct": 42.91,
+      "pnl_dollars": 18654.46,
+      "exit_reason": "Take Profit"
+    },
+    {
+      "ticker": "VTR",
+      "return_pct": 21.1,
+      "pnl_dollars": 17472.38,
+      "exit_reason": "Time Stop"
+    },
+    {
+      "ticker": "MYRG",
+      "return_pct": 48.97,
+      "pnl_dollars": 16464.72,
+      "exit_reason": "Take Profit"
+    }
+  ],
+  "top_losers": [
+    {
+      "ticker": "RGEN",
+      "return_pct": -11.41,
+      "pnl_dollars": -7710.16,
+      "exit_reason": "Stop Loss"
+    },
+    {
+      "ticker": "MCK",
+      "return_pct": -10.38,
+      "pnl_dollars": -7831.08,
+      "exit_reason": "Trend Break"
+    },
+    {
+      "ticker": "ABBV",
+      "return_pct": -12.95,
+      "pnl_dollars": -8496.66,
+      "exit_reason": "Trend Break"
+    },
+    {
+      "ticker": "TDG",
+      "return_pct": -13.29,
+      "pnl_dollars": -10284.32,
+      "exit_reason": "Trend Break"
+    },
+    {
+      "ticker": "CVX",
+      "return_pct": -9.04,
+      "pnl_dollars": -11089.02,
+      "exit_reason": "Trend Break"
+    }
+  ]
+}
