@@ -36,11 +36,17 @@ from app.services.strategies.trend_pullback_resumption import TrendPullbackResum
 END = "2026-09-30"
 STARTS = ["2021-01-04", "2022-01-03", "2023-01-02", "2024-01-02"]
 CAPITAL = 100_000.0
-HOLDINGS = [5, 8, 10]
+# Holdings can be passed on the command line, e.g. `python scripts/tpr_capacity_ab.py 1,3,5`.
+HOLDINGS = ([int(x) for x in sys.argv[1].split(",")] if len(sys.argv) > 1
+            else [5, 8, 10])
 SIZINGS = ["linear", "score_squared"]
 METRICS = ["cagr_pct", "alpha_per_year_pct", "sharpe_ratio",
            "max_drawdown_pct", "profit_factor", "trades_per_year"]
-OUT = os.path.join(REPO, "docs", "reports", "tpr_capacity_ab_results.json")
+OUT = (sys.argv[2] if len(sys.argv) > 2 else
+       os.path.join(REPO, "docs", "reports", "tpr_capacity_ab_results.json"))
+if not os.path.isabs(OUT):
+    OUT = os.path.join(REPO, OUT)
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
 PROPERTY_KEYS = {"max_holdings", "sizing_pcts"}
 
 

@@ -88,6 +88,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "mom_window": 126,
     "mom_weight": 0.60,
     "cap_weight": 0.40,
+    # Optional trend-quality term in the RANKING (not a filter). Kaufman's
+    # efficiency ratio = |net move| / total path length over the window; 1 is a
+    # clean directional trend, 0 is chop. 0.0 weight reproduces the old score.
+    "quality_weight": 0.0,
+    "quality_window": 63,
     "ra_center": 0.5,
     "ra_scale": 4.0,
     "cap_log_lo": 9.0,           # log10($1B)
@@ -269,6 +274,7 @@ class TrendPullbackResumption(Strategy):
             "ema_slow": ema_slow,
             "ema_fast": ema_fast,
             "cross": cross,
+            "quality": self._efficiency_ratio(close),
             "momentum": close / close.shift(self.mom_window) - 1.0,
             "ann_vol": returns.rolling(self.mom_window).std() * np.sqrt(252.0),
         }
@@ -286,6 +292,14 @@ class TrendPullbackResumption(Strategy):
             required.append("recent_cross")
         return required
 
+    def _efficiency_ratio(self, close: pd.Series) -> pd.Series:
+        """Kaufman efficiency ratio: net move / total path length, in [0, 1]."""
+        n = self.quality_window
+        net = (close - close.shift(n)).abs()
+        path = close.diff().abs().rolling(n).sum()
+        er = net / path.replace(0.0, np.nan)
+        return er.clip(0.0, 1.0)
+
     def _indicators(self, close: pd.Series, volume: pd.Series) -> Dict[str, pd.Series]:
         """Compose the configured entry mask from the individual conditions."""
         cond = self._conditions(close, volume)
@@ -298,19 +312,25 @@ class TrendPullbackResumption(Strategy):
             "ema_slow": cond["ema_slow"],
             "momentum": cond["momentum"],
             "ann_vol": cond["ann_vol"],
+            "quality": cond["quality"],
             "conditions": cond,
         }
 
     # ── Scoring ───────────────────────────────────────────────────────
 
-    def _score(self, momentum: float, ann_vol: float, market_cap: float) -> float:
+    def _score(self, momentum: float, ann_vol: float, market_cap: float,
+               quality: Optional[float] = None) -> float:
         """Fixed-scale score: a pure function of the stock, never of its peers."""
         if momentum is None or not np.isfinite(momentum):
             momentum = 0.0
         if ann_vol is None or not np.isfinite(ann_vol):
             ann_vol = 0.0
         risk_adj = momentum / (ann_vol + 1e-6)
-        ra_norm = 1.0 / (1.0 + np.exp(-(risk_adj - self.ra_center) * self.ra_scale))
+        # Clip the exponent: an extreme risk-adjusted value used to overflow
+        # exp() (RuntimeWarning) and still saturate to 0/1, which is what the
+        # clip produces without the warning.
+        z = np.clip(-(risk_adj - self.ra_center) * self.ra_scale, -60.0, 60.0)
+        ra_norm = 1.0 / (1.0 + np.exp(z))
 
         if market_cap is None or not np.isfinite(market_cap) or market_cap <= 0:
             cap_norm = 0.0
@@ -320,6 +340,12 @@ class TrendPullbackResumption(Strategy):
             )
             cap_norm = float(min(1.0, max(0.0, cap_norm)))
 
+        if (self.quality_weight > 0 and quality is not None
+                and np.isfinite(quality)):
+            w_m, w_q, w_c = self.mom_weight, self.quality_weight, self.cap_weight
+            total = w_m + w_q + w_c
+            return float((w_m * ra_norm + w_q * float(quality)
+                          + w_c * cap_norm) / total)
         return float(self.mom_weight * ra_norm + self.cap_weight * cap_norm)
 
     @staticmethod
@@ -383,6 +409,8 @@ class TrendPullbackResumption(Strategy):
                 if pd.notna(ind["momentum"].iloc[i]) else 0.0,
                 "ann_vol": float(ind["ann_vol"].iloc[i])
                 if pd.notna(ind["ann_vol"].iloc[i]) else 0.0,
+                "quality": float(ind["quality"].iloc[i])
+                if pd.notna(ind["quality"].iloc[i]) else 0.0,
                 "market_cap": mc,
                 "sector": sector,
                 "price": float(close.iloc[i]),
@@ -393,7 +421,8 @@ class TrendPullbackResumption(Strategy):
             return []
 
         for c in candidates:
-            c["score"] = self._score(c["momentum"], c["ann_vol"], c["market_cap"])
+            c["score"] = self._score(c["momentum"], c["ann_vol"], c["market_cap"],
+                                     c.get("quality"))
         candidates.sort(key=lambda x: x["score"], reverse=True)
 
         selected: List[Dict[str, Any]] = []
@@ -452,7 +481,10 @@ class TrendPullbackResumption(Strategy):
                 return 0.0
             momentum = float(close.iloc[-1]) / float(close.iloc[-1 - self.mom_window]) - 1.0
             ann_vol = float(returns.rolling(self.mom_window).std().iloc[-1])
-            return self._score(momentum, ann_vol, market_cap)
+            quality = float(self._efficiency_ratio(close).iloc[-1])
+            if not np.isfinite(quality):
+                quality = 0.0
+            return self._score(momentum, ann_vol, market_cap, quality)
         except Exception:
             return 0.0
 
@@ -532,6 +564,7 @@ class TrendPullbackResumption(Strategy):
             entry = ind["entry"].to_numpy()
             momentum = ind["momentum"].to_numpy()
             ann_vol = ind["ann_vol"].to_numpy()
+            quality = ind["quality"].to_numpy()
 
             idx = np.arange(len(dates))
             warm_ok = (idx + 1) >= WARMUP_BARS_REQUIRED
@@ -549,6 +582,7 @@ class TrendPullbackResumption(Strategy):
                     "ticker": ticker.upper(),
                     "momentum": float(momentum[i]) if np.isfinite(momentum[i]) else 0.0,
                     "ann_vol": float(ann_vol[i]) if np.isfinite(ann_vol[i]) else 0.0,
+                    "quality": float(quality[i]) if np.isfinite(quality[i]) else 0.0,
                     "market_cap": mc,
                     "sector": sector,
                     "price": float(closev[i]),
@@ -562,7 +596,8 @@ class TrendPullbackResumption(Strategy):
                 result[ds] = []
                 continue
             for c in cands:
-                c["score"] = self._score(c["momentum"], c["ann_vol"], c["market_cap"])
+                c["score"] = self._score(c["momentum"], c["ann_vol"], c["market_cap"],
+                                     c.get("quality"))
             cands.sort(key=lambda x: x["score"], reverse=True)
             result[ds] = [
                 Signal(

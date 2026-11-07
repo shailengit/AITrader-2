@@ -336,6 +336,40 @@ Medians over 4 starts:
 
 **Kept:** `max_holdings = 5`, `sizing_method = "linear"`.
 
+### Low-holdings sweep (1 / 3 / 5)
+
+| holdings | CAGR | alpha/yr | Sharpe | maxDD | PF |
+|---|---|---|---|---|---|
+| 1 | -15.94 | -34.35 | -0.40 | 73.74 | 0.50 |
+| 3 | 10.10 | -4.08 | 0.54 | 27.17 | 1.42 |
+| **5** | **24.41** | **+6.10** | **1.10** | 26.15 | **1.95** |
+
+Single-name concentration is catastrophic (-16% CAGR, 74% drawdown) and three
+is barely better than cash. Together with the 8/10 results, five is a genuine
+interior optimum: 1 < 3 < **5** > 8 > 10. `h1_linear` and `h1_score_squared` are
+byte-identical, as they must be when only one name is held.
+
+### Trend-quality ranking (Kaufman efficiency ratio)
+
+The fundamental overlay was rejected on data grounds: `stock_financials_quarterly`
+has only a period-END date (not a filing date) and ~9 quarters of history, so
+using it as-of would be lookahead and could not cover the backtest windows.
+The efficiency ratio tests the same hypothesis -- improve *which* 5 names are
+picked -- with price data available for the whole window.
+
+`quality` = |net move| / total path length over 63 sessions, added to the score
+with `quality_weight` and renormalised; 0.0 reproduces the shipped score exactly.
+
+| quality weight | CAGR | alpha/yr | Sharpe | maxDD | PF |
+|---|---|---|---|---|---|
+| **0.0 (shipped)** | **24.41** | **+6.10** | **1.10** | 26.15 | **1.95** |
+| 0.2 | 13.17 | -5.24 | 0.68 | 28.96 | 1.48 |
+| 0.3 | 11.83 | -1.73 | 0.59 | 28.78 | 1.47 |
+
+The quality term is rejected. Adding "clean trend" to the ranking makes the
+portfolio worse on every median metric; the raw risk-adjusted momentum + market
+cap score is already the better ranker. Kept `quality_weight = 0`.
+
 ## Status: parameter tuning is exhausted
 
 Every lever tested against the same paired multi-start protocol, and the
@@ -350,8 +384,10 @@ shipped config beat all of them:
 | hard stop wider / off | -7pp CAGR |
 | take profit higher / off | -10 to -15pp CAGR |
 | trigger window 3/5/10 | -14 to -25pp CAGR |
-| max_holdings 8/10 | -10pp CAGR |
+| max_holdings 1 / 3 | -40pp / -14pp CAGR |
+| max_holdings 8 / 10 | -10pp CAGR |
 | score-squared sizing | -12pp CAGR |
+| trend-quality ranking (efficiency ratio) | -11 to -13pp CAGR |
 
 Twenty-plus configurations, one winner: the current default. That is a local
 optimum, and further parameter search is unlikely to pay. A materially higher
