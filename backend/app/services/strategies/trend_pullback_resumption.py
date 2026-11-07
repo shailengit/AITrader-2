@@ -6,10 +6,11 @@ Each indicator has exactly one job:
 
   EMA200   primary regime  — close above it, and it is rising over 20 sessions
   EMA50    structure       — above EMA200 (the golden-cross *state*)
-  EMA20    setup + trigger — price dipped below it recently, and crosses back
-                             above it today
+  EMA20    setup + trigger — crosses back above it today (the cross implies the
+                             prior dip, so the separate pullback test is off)
   MACD     momentum        — MACD line above its signal line
-  RSI      guard           — 45..75: momentum without buying a blow-off
+  RSI      guard           — available (45..75) but OFF: measured to bind on 0
+                             of 3,587 core stock-days, so it never changed a trade
 
 Universe filters: 20-day dollar volume >= $10M, 20-day return std <= 4%.
 
@@ -56,9 +57,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "pullback_window": 10,
     # Individual filters are switchable so the A/B can test whether each earns
     # its place instead of assuming a five-condition entry is better.
-    "use_pullback": True,
+    # Measured inert (2026-11): across 3,587 core stock-days the pullback
+    # condition bound 0 times (the EMA20 trigger already implies it) and the RSI
+    # band bound 0 times (RSI inside the setup ranges 45.7-72.9). Keeping them ON
+    # changes nothing, so they default OFF; the code stays because a broadened
+    # trigger or a different setup could make them bind again.
+    "use_pullback": False,
     "use_macd_filter": True,
-    "use_rsi_filter": True,
+    "use_rsi_filter": False,
     # MACD
     "macd_fast": 12,
     "macd_slow": 26,
@@ -198,8 +204,14 @@ class TrendPullbackResumption(Strategy):
         rsi = rsi.mask((avg_loss == 0) & (avg_gain == 0), 50.0)
         return rsi
 
-    def _indicators(self, close: pd.Series, volume: pd.Series) -> Dict[str, pd.Series]:
-        """Every condition as a boolean Series — one definition, used by both paths."""
+    def _conditions(self, close: pd.Series,
+                    volume: pd.Series) -> Dict[str, pd.Series]:
+        """Every entry condition as a boolean Series — one definition point.
+
+        Returned separately rather than only as the composed `entry`, so
+        diagnostics can attribute a missed winner to the exact condition that
+        blocked it instead of guessing.
+        """
         ema_fast = close.ewm(span=self.ema_fast, adjust=False).mean()
         ema_mid = close.ewm(span=self.ema_mid, adjust=False).mean()
         ema_slow = close.ewm(span=self.ema_slow, adjust=False).mean()
@@ -222,32 +234,51 @@ class TrendPullbackResumption(Strategy):
         trend = ((close > ema_slow)
                  & (ema_slow > ema_slow.shift(self.slow_rising_lookback)))
         aligned = ema_mid > ema_slow
-        macd_up = macd > macd_line
-        rsi_ok = (rsi >= self.rsi_floor) & (rsi <= self.rsi_ceiling)
-        liquid = dollar_vol >= self.min_dollar_volume
-        vol_ok = std_20 <= self.max_volatility
-
-        # Core: regime + structure + trigger. Each optional filter must earn its
-        # place in the A/B rather than being assumed to help.
-        entry = trend & aligned & trigger & liquid & vol_ok
-        if self.use_pullback:
-            entry = entry & pullback
-        if self.use_macd_filter:
-            entry = entry & macd_up
-        if self.use_rsi_filter:
-            entry = entry & rsi_ok
-
-        if self.require_fresh_cross:
-            fresh_cross = ((ema_mid > ema_slow)
-                           & (ema_mid.shift(1) <= ema_slow.shift(1)))
-            recent_cross = fresh_cross.rolling(self.cross_window).max() > 0
-            entry = entry & recent_cross
+        fresh_cross = ((ema_mid > ema_slow)
+                       & (ema_mid.shift(1) <= ema_slow.shift(1)))
+        recent_cross = fresh_cross.rolling(self.cross_window).max() > 0
 
         return {
-            "entry": entry,
+            "trend": trend,
+            "aligned": aligned,
+            "pullback": pullback,
+            "trigger": trigger,
+            "macd_up": macd > macd_line,
+            "rsi_ok": (rsi >= self.rsi_floor) & (rsi <= self.rsi_ceiling),
+            "liquid": dollar_vol >= self.min_dollar_volume,
+            "vol_ok": std_20 <= self.max_volatility,
+            "recent_cross": recent_cross,
             "ema_slow": ema_slow,
             "momentum": close / close.shift(self.mom_window) - 1.0,
             "ann_vol": returns.rolling(self.mom_window).std() * np.sqrt(252.0),
+        }
+
+    def _required_conditions(self) -> List[str]:
+        """Conditions that must all hold, given the current config."""
+        required = ["trend", "aligned", "trigger", "liquid", "vol_ok"]
+        if self.use_pullback:
+            required.append("pullback")
+        if self.use_macd_filter:
+            required.append("macd_up")
+        if self.use_rsi_filter:
+            required.append("rsi_ok")
+        if self.require_fresh_cross:
+            required.append("recent_cross")
+        return required
+
+    def _indicators(self, close: pd.Series, volume: pd.Series) -> Dict[str, pd.Series]:
+        """Compose the configured entry mask from the individual conditions."""
+        cond = self._conditions(close, volume)
+        required = self._required_conditions()
+        entry = cond[required[0]].copy()
+        for name in required[1:]:
+            entry = entry & cond[name]
+        return {
+            "entry": entry,
+            "ema_slow": cond["ema_slow"],
+            "momentum": cond["momentum"],
+            "ann_vol": cond["ann_vol"],
+            "conditions": cond,
         }
 
     # ── Scoring ───────────────────────────────────────────────────────

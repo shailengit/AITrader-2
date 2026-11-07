@@ -223,3 +223,42 @@ Per-start CAGR, TPR EMA20/200 vs golden cross: 2/6 wins (2023, 2024) — versus
 about 10pp of median CAGR, inverts the value of every other filter, and turns
 the strategy into an underperformer against the golden cross. The shipped
 default is unchanged.
+
+## Exit-lever A/B (2026-11-07) — the diagnostics' recommendations were rejected
+
+The exit diagnostic showed the 10% hard stop leaving +9.0% mean excess vs SPY
+over the next 60 sessions, and the 40% take profit leaving +4.05%. The obvious
+inference was "widen both". The portfolio A/B says no. Medians over 4 starts:
+
+| arm | CAGR | alpha/yr | Sharpe | maxDD | PF |
+|---|---|---|---|---|---|
+| **base_10_40 (shipped)** | **24.41** | **+6.10** | **1.10** | 26.15 | **1.95** |
+| stop15 | 18.19 | +1.37 | 0.88 | 26.16 | 1.58 |
+| stop20 | 17.42 | -0.25 | 0.86 | 29.75 | 1.67 |
+| no_stop | 17.42 | -0.25 | 0.86 | 29.75 | 1.67 |
+| tp80 | 14.26 | +0.59 | 0.71 | 24.53 | 1.57 |
+| no_tp | 9.87 | -3.52 | 0.55 | 30.78 | 1.46 |
+| dead_off | 24.41 | +6.10 | 1.10 | 26.15 | 1.95 |
+
+- **Widening or removing the stop loses ~7pp of CAGR.** A tight stop is not just
+  damage control: it frees a scarce top-5 slot for the ranking to redeploy.
+  Post-exit drift ignores that opportunity cost entirely.
+- **Raising or removing the take profit loses 10-15pp.** The 40% target is
+  load-bearing, even though it truncates the occasional big winner.
+- `stop20` is byte-identical to `no_stop`: at 20% no trade ever reaches the stop
+  (the trend break fires first), so 20%+ is effectively "no hard stop".
+- `dead_off` is byte-identical to base, confirming the diagnostic that pullback
+  and RSI bind on 0 of 3,587 core stock-days.
+
+**Lesson (the same one recorded for MQR): a post-exit drift study cannot rank
+exit policies.** It measures what the stock did after the sale, not what the
+portfolio would have earned by refusing to recycle the capital. Diagnostic
+analysis locates binding constraints; only a paired portfolio A/B ranks levers.
+
+**Applied:** `use_pullback = False`, `use_rsi_filter = False` (behaviour-identical,
+less work per bar). Stop and take-profit unchanged.
+
+**Remaining upside is on the screening side, not exits:** the one-day EMA20
+cross-back trigger excludes 93.7% of the top-decile movers the strategy never
+sees. Broadening that trigger (an N-day entry window, or a second entry path)
+is the only untested lever with room to raise CAGR, and it needs its own A/B.

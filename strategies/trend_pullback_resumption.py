@@ -57,12 +57,20 @@ def main():
     print(f"  Regime:       Close > EMA{cfg['ema_slow']}, EMA{cfg['ema_slow']} rising "
           f"{cfg['slow_rising_lookback']}d")
     print(f"  Structure:    EMA{cfg['ema_mid']} > EMA{cfg['ema_slow']}")
-    print(f"  Trigger:      Pullback below EMA{cfg['ema_fast']} within "
-          f"{cfg['pullback_window']}d, then close back above it")
+    trigger = (
+        f"Pullback below EMA{cfg['ema_fast']} within {cfg['pullback_window']}d, "
+        f"then close back above it"
+        if cfg["use_pullback"]
+        else f"Close crosses back above EMA{cfg['ema_fast']} (no pullback test)"
+    )
+    guard = (
+        f"RSI({cfg['rsi_period']}) in [{cfg['rsi_floor']:g}, {cfg['rsi_ceiling']:g}]"
+        if cfg["use_rsi_filter"] else "off (measured inert)"
+    )
+    print(f"  Trigger:      {trigger}")
     print(f"  Momentum:     MACD {cfg['macd_fast']}/{cfg['macd_slow']}/{cfg['macd_signal']} "
           f"> signal line")
-    print(f"  Guard:        RSI({cfg['rsi_period']}) in "
-          f"[{cfg['rsi_floor']:g}, {cfg['rsi_ceiling']:g}]")
+    print(f"  Guard:        {guard}")
     print(f"  Liquidity:    >= ${cfg['min_dollar_volume']/1e6:,.0f}M 20d dollar volume")
     print(f"  Vol Filter:   >{cfg['max_volatility']:.0%} 20d std (skip)")
     print(f"  Fresh Cross:  {'required within %dd' % cfg['cross_window'] if cfg['require_fresh_cross'] else 'not required (state only)'}")
