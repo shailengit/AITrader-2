@@ -1,0 +1,283 @@
+{
+  "end": "2026-09-30",
+  "starts": [
+    "2021-01-04",
+    "2022-01-03",
+    "2023-01-02",
+    "2024-01-02"
+  ],
+  "runs": {
+    "h5_linear|2021-01-04": {
+      "cagr_pct": 23.96,
+      "alpha_per_year_pct": 8.98,
+      "sharpe_ratio": 1.08,
+      "max_drawdown_pct": 21.22,
+      "profit_factor": 2.08,
+      "trades_per_year": 31.56,
+      "avg_holdings": 4.927877947295423
+    },
+    "h5_linear|2022-01-03": {
+      "cagr_pct": 18.5,
+      "alpha_per_year_pct": 6.69,
+      "sharpe_ratio": 0.88,
+      "max_drawdown_pct": 29.19,
+      "profit_factor": 1.91,
+      "trades_per_year": 31.86,
+      "avg_holdings": 4.911764705882353
+    },
+    "h5_linear|2023-01-02": {
+      "cagr_pct": 24.87,
+      "alpha_per_year_pct": 3.03,
+      "sharpe_ratio": 1.13,
+      "max_drawdown_pct": 31.38,
+      "profit_factor": 1.99,
+      "trades_per_year": 28.59,
+      "avg_holdings": 4.972310969116081
+    },
+    "h5_linear|2024-01-02": {
+      "cagr_pct": 25.85,
+      "alpha_per_year_pct": 5.5,
+      "sharpe_ratio": 1.16,
+      "max_drawdown_pct": 23.1,
+      "profit_factor": 1.91,
+      "trades_per_year": 30.98,
+      "avg_holdings": 4.821480406386066
+    },
+    "h5_score_squared|2021-01-04": {
+      "cagr_pct": 14.74,
+      "alpha_per_year_pct": -0.24,
+      "sharpe_ratio": 0.72,
+      "max_drawdown_pct": 35.33,
+      "profit_factor": 1.86,
+      "trades_per_year": 29.81,
+      "avg_holdings": 4.743411927877947
+    },
+    "h5_score_squared|2022-01-03": {
+      "cagr_pct": 10.75,
+      "alpha_per_year_pct": -1.05,
+      "sharpe_ratio": 0.58,
+      "max_drawdown_pct": 29.89,
+      "profit_factor": 1.53,
+      "trades_per_year": 29.96,
+      "avg_holdings": 4.859663865546218
+    },
+    "h5_score_squared|2023-01-02": {
+      "cagr_pct": 24.52,
+      "alpha_per_year_pct": 2.68,
+      "sharpe_ratio": 1.02,
+      "max_drawdown_pct": 30.0,
+      "profit_factor": 1.92,
+      "trades_per_year": 32.06,
+      "avg_holdings": 4.821086261980831
+    },
+    "h5_score_squared|2024-01-02": {
+      "cagr_pct": 0.67,
+      "alpha_per_year_pct": -19.68,
+      "sharpe_ratio": 0.17,
+      "max_drawdown_pct": 37.58,
+      "profit_factor": 1.01,
+      "trades_per_year": 31.71,
+      "avg_holdings": 4.753265602322206
+    },
+    "h8_linear|2021-01-04": {
+      "cagr_pct": 7.67,
+      "alpha_per_year_pct": -7.32,
+      "sharpe_ratio": 0.46,
+      "max_drawdown_pct": 36.08,
+      "profit_factor": 1.34,
+      "trades_per_year": 47.25,
+      "avg_holdings": 7.7343966712898755
+    },
+    "h8_linear|2022-01-03": {
+      "cagr_pct": 4.22,
+      "alpha_per_year_pct": -7.58,
+      "sharpe_ratio": 0.33,
+      "max_drawdown_pct": 24.59,
+      "profit_factor": 1.14,
+      "trades_per_year": 48.11,
+      "avg_holdings": 7.609243697478991
+    },
+    "h8_linear|2023-01-02": {
+      "cagr_pct": 18.54,
+      "alpha_per_year_pct": -3.3,
+      "sharpe_ratio": 0.96,
+      "max_drawdown_pct": 26.14,
+      "profit_factor": 1.66,
+      "trades_per_year": 47.03,
+      "avg_holdings": 7.499467518636847
+    },
+    "h8_linear|2024-01-02": {
+      "cagr_pct": 22.37,
+      "alpha_per_year_pct": 2.02,
+      "sharpe_ratio": 1.1,
+      "max_drawdown_pct": 26.99,
+      "profit_factor": 1.56,
+      "trades_per_year": 50.67,
+      "avg_holdings": 7.586357039187228
+    },
+    "h8_score_squared|2021-01-04": {
+      "cagr_pct": 11.0,
+      "alpha_per_year_pct": -3.98,
+      "sharpe_ratio": 0.6,
+      "max_drawdown_pct": 30.88,
+      "profit_factor": 1.44,
+      "trades_per_year": 47.07,
+      "avg_holdings": 7.61373092926491
+    },
+    "h8_score_squared|2022-01-03": {
+      "cagr_pct": 12.83,
+      "alpha_per_year_pct": 1.03,
+      "sharpe_ratio": 0.68,
+      "max_drawdown_pct": 21.08,
+      "profit_factor": 1.52,
+      "trades_per_year": 51.49,
+      "avg_holdings": 7.618487394957983
+    },
+    "h8_score_squared|2023-01-02": {
+      "cagr_pct": 24.54,
+      "alpha_per_year_pct": 2.7,
+      "sharpe_ratio": 1.14,
+      "max_drawdown_pct": 16.63,
+      "profit_factor": 2.09,
+      "trades_per_year": 45.16,
+      "avg_holdings": 7.542066027689031
+    },
+    "h8_score_squared|2024-01-02": {
+      "cagr_pct": 23.25,
+      "alpha_per_year_pct": 2.9,
+      "sharpe_ratio": 1.06,
+      "max_drawdown_pct": 28.59,
+      "profit_factor": 1.66,
+      "trades_per_year": 52.13,
+      "avg_holdings": 7.612481857764877
+    },
+    "h10_linear|2021-01-04": {
+      "cagr_pct": 17.75,
+      "alpha_per_year_pct": 2.77,
+      "sharpe_ratio": 0.85,
+      "max_drawdown_pct": 30.24,
+      "profit_factor": 1.82,
+      "trades_per_year": 60.15,
+      "avg_holdings": 9.262829403606103
+    },
+    "h10_linear|2022-01-03": {
+      "cagr_pct": 11.19,
+      "alpha_per_year_pct": -0.61,
+      "sharpe_ratio": 0.69,
+      "max_drawdown_pct": 17.99,
+      "profit_factor": 1.44,
+      "trades_per_year": 58.87,
+      "avg_holdings": 9.176470588235293
+    },
+    "h10_linear|2023-01-02": {
+      "cagr_pct": 28.43,
+      "alpha_per_year_pct": 6.59,
+      "sharpe_ratio": 1.35,
+      "max_drawdown_pct": 27.0,
+      "profit_factor": 1.89,
+      "trades_per_year": 60.65,
+      "avg_holdings": 9.34185303514377
+    },
+    "h10_linear|2024-01-02": {
+      "cagr_pct": 11.77,
+      "alpha_per_year_pct": -8.58,
+      "sharpe_ratio": 0.7,
+      "max_drawdown_pct": 25.56,
+      "profit_factor": 1.44,
+      "trades_per_year": 54.31,
+      "avg_holdings": 9.059506531204644
+    },
+    "h10_score_squared|2021-01-04": {
+      "cagr_pct": 16.73,
+      "alpha_per_year_pct": 1.75,
+      "sharpe_ratio": 0.83,
+      "max_drawdown_pct": 36.79,
+      "profit_factor": 1.72,
+      "trades_per_year": 57.53,
+      "avg_holdings": 9.471567267683772
+    },
+    "h10_score_squared|2022-01-03": {
+      "cagr_pct": 3.84,
+      "alpha_per_year_pct": -7.96,
+      "sharpe_ratio": 0.3,
+      "max_drawdown_pct": 22.97,
+      "profit_factor": 1.13,
+      "trades_per_year": 59.5,
+      "avg_holdings": 9.05126050420168
+    },
+    "h10_score_squared|2023-01-02": {
+      "cagr_pct": 39.92,
+      "alpha_per_year_pct": 18.08,
+      "sharpe_ratio": 1.47,
+      "max_drawdown_pct": 17.47,
+      "profit_factor": 2.65,
+      "trades_per_year": 58.51,
+      "avg_holdings": 9.45367412140575
+    },
+    "h10_score_squared|2024-01-02": {
+      "cagr_pct": 13.57,
+      "alpha_per_year_pct": -6.78,
+      "sharpe_ratio": 0.7,
+      "max_drawdown_pct": 28.54,
+      "profit_factor": 1.44,
+      "trades_per_year": 58.69,
+      "avg_holdings": 9.20754716981132
+    }
+  },
+  "arms": {
+    "h5_linear": {
+      "cagr_pct": 24.415,
+      "alpha_per_year_pct": 6.095000000000001,
+      "sharpe_ratio": 1.105,
+      "max_drawdown_pct": 26.145000000000003,
+      "profit_factor": 1.95,
+      "trades_per_year": 31.27,
+      "avg_holdings": 4.919821326588888
+    },
+    "h5_score_squared": {
+      "cagr_pct": 12.745000000000001,
+      "alpha_per_year_pct": -0.645,
+      "sharpe_ratio": 0.6499999999999999,
+      "max_drawdown_pct": 32.665,
+      "profit_factor": 1.695,
+      "trades_per_year": 30.835,
+      "avg_holdings": 4.787175932151518
+    },
+    "h8_linear": {
+      "cagr_pct": 13.105,
+      "alpha_per_year_pct": -5.3100000000000005,
+      "sharpe_ratio": 0.71,
+      "max_drawdown_pct": 26.564999999999998,
+      "profit_factor": 1.4500000000000002,
+      "trades_per_year": 47.68,
+      "avg_holdings": 7.597800368333109
+    },
+    "h8_score_squared": {
+      "cagr_pct": 18.04,
+      "alpha_per_year_pct": 1.8650000000000002,
+      "sharpe_ratio": 0.8700000000000001,
+      "max_drawdown_pct": 24.835,
+      "profit_factor": 1.5899999999999999,
+      "trades_per_year": 49.28,
+      "avg_holdings": 7.613106393514894
+    },
+    "h10_linear": {
+      "cagr_pct": 14.76,
+      "alpha_per_year_pct": 1.08,
+      "sharpe_ratio": 0.7749999999999999,
+      "max_drawdown_pct": 26.28,
+      "profit_factor": 1.63,
+      "trades_per_year": 59.51,
+      "avg_holdings": 9.219649995920697
+    },
+    "h10_score_squared": {
+      "cagr_pct": 15.15,
+      "alpha_per_year_pct": -2.515,
+      "sharpe_ratio": 0.7649999999999999,
+      "max_drawdown_pct": 25.755,
+      "profit_factor": 1.58,
+      "trades_per_year": 58.599999999999994,
+      "avg_holdings": 9.330610645608536
+    }
+  }
+}

@@ -311,3 +311,58 @@ is the best day. Both the regime and the trigger are now validated twice, and
 4. **Change the KPI.** Universe capture is not a target: a 5-slot portfolio
    cannot and should not hold 9,892 movers. Judge changes by portfolio
    CAGR/Sharpe/drawdown and turnover.
+
+## Capacity x sizing A/B (2026-11-07) — the shipped config wins again
+
+Neither lever changes entry signals, so all six arms shared one precompute.
+Medians over 4 starts:
+
+| arm | CAGR | alpha/yr | Sharpe | maxDD | PF | trades/yr | avg held |
+|---|---|---|---|---|---|---|---|
+| **h5_linear (shipped)** | **24.41** | **+6.10** | **1.10** | 26.15 | **1.95** | 31.3 | 4.9 |
+| h5_score_squared | 12.75 | -0.65 | 0.65 | 32.66 | 1.70 | 30.8 | 4.8 |
+| h8_linear | 13.11 | -5.31 | 0.71 | 26.56 | 1.45 | 47.7 | 7.6 |
+| h8_score_squared | 18.04 | +1.87 | 0.87 | 24.84 | 1.59 | 49.3 | 7.6 |
+| h10_linear | 14.76 | +1.08 | 0.77 | 26.28 | 1.63 | 59.5 | 9.2 |
+| h10_score_squared | 15.15 | -2.52 | 0.76 | 25.75 | 1.58 | 58.6 | 9.3 |
+
+- **More capacity hurts.** The extra slots are genuinely used (avg held
+  4.9 / 7.6 / 9.2) and dilute returns: 24.41 -> 13.11 at 8 and 14.76 at 10,
+  with turnover rising 31 -> 48 -> 60 trades/yr. The edge is concentrated in
+  the top-ranked names and decays quickly down the list.
+- **Score-squared hurts at 5 holdings** (12.75 vs 24.41). It does help *at 8*
+  relative to linear (18.04 vs 13.11) — an interaction — but no cell beats the
+  shipped h5_linear.
+
+**Kept:** `max_holdings = 5`, `sizing_method = "linear"`.
+
+## Status: parameter tuning is exhausted
+
+Every lever tested against the same paired multi-start protocol, and the
+shipped config beat all of them:
+
+| lever tested | result |
+|---|---|
+| EMA fast span (10 vs 20) | coin flip; kept 20 |
+| alignment MA (EMA20 vs EMA50) | EMA20 much worse |
+| volume filter | harmful; off |
+| pullback / RSI filters | inert (0/3,587 bind); removed |
+| hard stop wider / off | -7pp CAGR |
+| take profit higher / off | -10 to -15pp CAGR |
+| trigger window 3/5/10 | -14 to -25pp CAGR |
+| max_holdings 8/10 | -10pp CAGR |
+| score-squared sizing | -12pp CAGR |
+
+Twenty-plus configurations, one winner: the current default. That is a local
+optimum, and further parameter search is unlikely to pay. A materially higher
+CAGR needs a **different information source**, not another knob:
+
+1. **Ranking upgrade (highest priority).** Only 5 names are held, so the score
+   decides everything. The current score is risk-adjusted 126d momentum + log
+   market cap. Add trend quality (ADX needs High/Low, which the strategy does
+   not currently load) or a clean-trend measure such as Kaufman's efficiency
+   ratio (close-only).
+2. **Fundamental overlay.** The DB already has `stock_financials_quarterly`
+   (EPS). A quality/earnings-acceleration term is orthogonal to every technical
+   lever tested here, and the multi-agent screener already uses it.
+3. **A second orthogonal fresh-event setup**, not a widened one.

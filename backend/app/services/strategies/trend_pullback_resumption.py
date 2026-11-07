@@ -104,6 +104,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "min_hold_days": 10,
     "protect_winners": True,
     # Sizing / execution
+    "sizing_method": "linear",      # "linear" | "score_squared"
     "sizing_pcts": [0.30, 0.25, 0.20, 0.15, 0.10],
     "cost_bps": 5.0,
 }
@@ -148,6 +149,11 @@ class TrendPullbackResumption(Strategy):
             raise ValueError("ema_fast <= ema_mid < ema_slow is required")
         if cfg["mom_window"] < 2:
             raise ValueError("mom_window must be >= 2")
+        if cfg["sizing_method"] not in ("linear", "score_squared"):
+            raise ValueError(
+                f"sizing_method must be 'linear' or 'score_squared', "
+                f"got {cfg['sizing_method']!r}"
+            )
         self.config = cfg
         for key, value in cfg.items():
             if key not in _PROPERTY_KEYS:
@@ -169,7 +175,7 @@ class TrendPullbackResumption(Strategy):
 
     def get_rotation_config(self) -> RotationConfig:
         return RotationConfig(
-            sizing_method="linear",
+            sizing_method=self.sizing_method,
             hard_stop_loss=self.hard_stop_loss,
             trailing_stop=self.trailing_stop,
             take_profit=self.take_profit,
