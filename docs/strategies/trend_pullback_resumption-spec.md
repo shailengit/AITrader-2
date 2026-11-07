@@ -262,3 +262,52 @@ less work per bar). Stop and take-profit unchanged.
 cross-back trigger excludes 93.7% of the top-decile movers the strategy never
 sees. Broadening that trigger (an N-day entry window, or a second entry path)
 is the only untested lever with room to raise CAGR, and it needs its own A/B.
+
+## Trigger-broadening A/B + coverage diagnostic (2026-11-07) — recommendation refuted
+
+`trigger_window` allows entry within N sessions of the EMA20 cross (price must
+still be above EMA20); N=1 reproduces the original rule exactly. Medians over
+4 starts:
+
+| trigger window | CAGR | alpha/yr | Sharpe | maxDD | PF |
+|---|---|---|---|---|---|
+| **1 (shipped)** | **24.41** | **+6.10** | **1.10** | 26.15 | **1.95** |
+| 3 | 10.67 | -4.42 | 0.58 | 32.66 | 1.28 |
+| 5 | -0.82 | -15.11 | 0.09 | 39.78 | 0.95 |
+| 10 | 14.99 | -3.42 | 0.76 | 24.99 | 1.60 |
+
+Window 1 wins **every one of the four starts**. Broadening the trigger is a
+large regression.
+
+The coverage diagnostic explains why, and reframes the "bottleneck":
+
+| | share of top-decile movers |
+|---|---|
+| excluded by the **regime** (not trigger) | **61.6%** |
+| regime-eligible | 38.4% |
+| ...reachable at window 1 | 8.1% |
+| ...reachable at window 3 / 5 / 10 | 17.3% / 24.3% / 34.3% |
+
+Forward 60d return among regime-eligible stock-days **falls as the window
+broadens** — reachable at w1: 2.94% mean / 2.09% median; w3: 2.74/1.95;
+w5: 2.63/1.88; w10: 2.38/1.56. The unreachable days average *higher* (2.67%) than
+the broadened-window sets, so widening admits worse entries.
+
+**Conclusion: the funnel is correctly narrow.** The "93.7% of movers missed" was
+a mirage. Most of those movers are either (a) outside the uptrend regime — i.e.
+bounce trades, a different strategy with a different edge — or (b) not at a
+fresh, high-quality entry. The one-day cross is not an arbitrary restriction; it
+is the best day. Both the regime and the trigger are now validated twice, and
+**neither should be relaxed.**
+
+**Where to look next** (none of these widen the entry funnel):
+1. **Capacity** — test `max_holdings` 5 vs 8 vs 10. More slots lets the
+   portfolio act on more of the candidates it already sees, with no quality loss.
+2. **Ranking** — the score is risk-adjusted 126d momentum + log market cap. Test
+   adding a trend-strength term (ADX) or changing sizing (linear vs squared).
+3. **Orthogonal fresh events** — a *second* entry setup that also fires fresh
+   (e.g. MACD histogram crosses up while above EMA20 and regime holds), rather
+   than widening the existing one.
+4. **Change the KPI.** Universe capture is not a target: a 5-slot portfolio
+   cannot and should not hold 9,892 movers. Judge changes by portfolio
+   CAGR/Sharpe/drawdown and turnover.

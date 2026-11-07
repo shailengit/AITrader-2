@@ -55,6 +55,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "slow_rising_lookback": 20,
     # Pullback / trigger
     "pullback_window": 10,
+    # Entry is allowed within this many sessions of the EMA20 cross-back
+    # (1 = only on the cross day, the original behaviour). The screening
+    # diagnostic found the one-day trigger blocked 93.7% of missed top-decile
+    # movers, so this is the lever that broadens coverage.
+    "trigger_window": 1,
     # Individual filters are switchable so the A/B can test whether each earns
     # its place instead of assuming a five-condition entry is better.
     # Measured inert (2026-11): across 3,587 core stock-days the pullback
@@ -228,8 +233,15 @@ class TrendPullbackResumption(Strategy):
         # Setup: price was below EMA20 at some point in the prior N sessions.
         below_fast = (close < ema_fast).astype(float)
         pullback = below_fast.shift(1).rolling(self.pullback_window).max() > 0
-        # Trigger: price crosses back above EMA20 today.
-        trigger = (close > ema_fast) & (close.shift(1) <= ema_fast.shift(1))
+        # Trigger: price crosses back above EMA20. `trigger_window` > 1 allows
+        # entry on any of the following N sessions, provided price is still
+        # above EMA20 there; 1 reproduces the original cross-day-only rule.
+        cross = (close > ema_fast) & (close.shift(1) <= ema_fast.shift(1))
+        if self.trigger_window <= 1:
+            trigger = cross
+        else:
+            trigger = ((close > ema_fast)
+                       & (cross.rolling(self.trigger_window).max() > 0))
 
         trend = ((close > ema_slow)
                  & (ema_slow > ema_slow.shift(self.slow_rising_lookback)))
@@ -249,6 +261,8 @@ class TrendPullbackResumption(Strategy):
             "vol_ok": std_20 <= self.max_volatility,
             "recent_cross": recent_cross,
             "ema_slow": ema_slow,
+            "ema_fast": ema_fast,
+            "cross": cross,
             "momentum": close / close.shift(self.mom_window) - 1.0,
             "ann_vol": returns.rolling(self.mom_window).std() * np.sqrt(252.0),
         }
