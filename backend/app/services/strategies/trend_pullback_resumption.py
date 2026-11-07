@@ -131,8 +131,10 @@ class TrendPullbackResumption(Strategy):
             )
         cfg = dict(DEFAULT_CONFIG)
         cfg.update(overrides)
-        if not (cfg["ema_fast"] < cfg["ema_mid"] < cfg["ema_slow"]):
-            raise ValueError("ema_fast < ema_mid < ema_slow is required")
+        # ema_fast may EQUAL ema_mid: the same EMA20 can serve as both the
+        # pullback/trigger line and the alignment line against the EMA200.
+        if not (cfg["ema_fast"] <= cfg["ema_mid"] < cfg["ema_slow"]):
+            raise ValueError("ema_fast <= ema_mid < ema_slow is required")
         if cfg["mom_window"] < 2:
             raise ValueError("mom_window must be >= 2")
         self.config = cfg

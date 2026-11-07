@@ -1,0 +1,197 @@
+{
+  "end": "2026-09-30",
+  "starts_four": [
+    "2021-01-04",
+    "2022-01-03",
+    "2023-01-02",
+    "2024-01-02"
+  ],
+  "starts_six": [
+    "2019-01-02",
+    "2020-01-02",
+    "2021-01-04",
+    "2022-01-03",
+    "2023-01-03",
+    "2024-01-02"
+  ],
+  "runs_four": {
+    "full_ema20|2021-01-04": {
+      "cagr_pct": 5.71,
+      "alpha_per_year_pct": -9.27,
+      "sharpe_ratio": 0.37,
+      "max_drawdown_pct": 35.25,
+      "profit_factor": 1.16,
+      "trades_per_year": 30.68
+    },
+    "full_ema20|2022-01-03": {
+      "cagr_pct": 5.68,
+      "alpha_per_year_pct": -6.12,
+      "sharpe_ratio": 0.38,
+      "max_drawdown_pct": 33.94,
+      "profit_factor": 1.23,
+      "trades_per_year": 30.17
+    },
+    "full_ema20|2023-01-02": {
+      "cagr_pct": 24.87,
+      "alpha_per_year_pct": 3.03,
+      "sharpe_ratio": 1.13,
+      "max_drawdown_pct": 31.38,
+      "profit_factor": 1.99,
+      "trades_per_year": 28.59
+    },
+    "full_ema20|2024-01-02": {
+      "cagr_pct": 25.85,
+      "alpha_per_year_pct": 5.5,
+      "sharpe_ratio": 1.16,
+      "max_drawdown_pct": 23.1,
+      "profit_factor": 1.91,
+      "trades_per_year": 30.98
+    },
+    "minimal_ema20|2021-01-04": {
+      "cagr_pct": 4.13,
+      "alpha_per_year_pct": -10.85,
+      "sharpe_ratio": 0.3,
+      "max_drawdown_pct": 31.38,
+      "profit_factor": 1.16,
+      "trades_per_year": 28.42
+    },
+    "minimal_ema20|2022-01-03": {
+      "cagr_pct": 24.17,
+      "alpha_per_year_pct": 12.37,
+      "sharpe_ratio": 1.02,
+      "max_drawdown_pct": 20.45,
+      "profit_factor": 1.85,
+      "trades_per_year": 29.96
+    },
+    "minimal_ema20|2023-01-02": {
+      "cagr_pct": 16.3,
+      "alpha_per_year_pct": -5.54,
+      "sharpe_ratio": 0.79,
+      "max_drawdown_pct": 24.24,
+      "profit_factor": 1.74,
+      "trades_per_year": 27.25
+    },
+    "minimal_ema20|2024-01-02": {
+      "cagr_pct": 30.04,
+      "alpha_per_year_pct": 9.69,
+      "sharpe_ratio": 1.27,
+      "max_drawdown_pct": 21.36,
+      "profit_factor": 2.19,
+      "trades_per_year": 27.34
+    },
+    "no_macd_ema20|2021-01-04": {
+      "cagr_pct": 4.13,
+      "alpha_per_year_pct": -10.85,
+      "sharpe_ratio": 0.3,
+      "max_drawdown_pct": 31.38,
+      "profit_factor": 1.16,
+      "trades_per_year": 28.42
+    },
+    "no_macd_ema20|2022-01-03": {
+      "cagr_pct": 24.17,
+      "alpha_per_year_pct": 12.37,
+      "sharpe_ratio": 1.02,
+      "max_drawdown_pct": 20.45,
+      "profit_factor": 1.85,
+      "trades_per_year": 29.96
+    },
+    "no_macd_ema20|2023-01-02": {
+      "cagr_pct": 17.41,
+      "alpha_per_year_pct": -4.42,
+      "sharpe_ratio": 0.84,
+      "max_drawdown_pct": 24.24,
+      "profit_factor": 1.92,
+      "trades_per_year": 26.99
+    },
+    "no_macd_ema20|2024-01-02": {
+      "cagr_pct": 29.94,
+      "alpha_per_year_pct": 9.59,
+      "sharpe_ratio": 1.27,
+      "max_drawdown_pct": 21.36,
+      "profit_factor": 2.19,
+      "trades_per_year": 27.7
+    },
+    "fresh_cross_ema20|2021-01-04": {
+      "cagr_pct": -12.47,
+      "alpha_per_year_pct": -27.45,
+      "sharpe_ratio": -0.35,
+      "max_drawdown_pct": 58.88,
+      "profit_factor": 0.63,
+      "trades_per_year": 32.08
+    },
+    "fresh_cross_ema20|2022-01-03": {
+      "cagr_pct": -16.06,
+      "alpha_per_year_pct": -27.86,
+      "sharpe_ratio": -0.44,
+      "max_drawdown_pct": 62.99,
+      "profit_factor": 0.57,
+      "trades_per_year": 30.6
+    },
+    "fresh_cross_ema20|2023-01-02": {
+      "cagr_pct": -13.7,
+      "alpha_per_year_pct": -35.54,
+      "sharpe_ratio": -0.38,
+      "max_drawdown_pct": 49.42,
+      "profit_factor": 0.62,
+      "trades_per_year": 30.46
+    },
+    "fresh_cross_ema20|2024-01-02": {
+      "cagr_pct": -18.26,
+      "alpha_per_year_pct": -38.61,
+      "sharpe_ratio": -0.61,
+      "max_drawdown_pct": 49.19,
+      "profit_factor": 0.54,
+      "trades_per_year": 30.98
+    }
+  },
+  "runs_six": {
+    "full_ema20|2019-01-02": {
+      "cagr_pct": 10.1,
+      "alpha_per_year_pct": -7.06,
+      "sharpe_ratio": 0.56,
+      "max_drawdown_pct": 34.74,
+      "profit_factor": 1.44,
+      "trades_per_year": 30.09
+    },
+    "full_ema20|2020-01-02": {
+      "cagr_pct": 12.34,
+      "alpha_per_year_pct": -2.72,
+      "sharpe_ratio": 0.62,
+      "max_drawdown_pct": 30.99,
+      "profit_factor": 1.51,
+      "trades_per_year": 32.62
+    },
+    "full_ema20|2021-01-04": {
+      "cagr_pct": 5.71,
+      "alpha_per_year_pct": -9.27,
+      "sharpe_ratio": 0.37,
+      "max_drawdown_pct": 35.25,
+      "profit_factor": 1.16,
+      "trades_per_year": 30.68
+    },
+    "full_ema20|2022-01-03": {
+      "cagr_pct": 5.68,
+      "alpha_per_year_pct": -6.12,
+      "sharpe_ratio": 0.38,
+      "max_drawdown_pct": 33.94,
+      "profit_factor": 1.23,
+      "trades_per_year": 30.17
+    },
+    "full_ema20|2023-01-03": {
+      "cagr_pct": 24.89,
+      "alpha_per_year_pct": 3.04,
+      "sharpe_ratio": 1.13,
+      "max_drawdown_pct": 31.38,
+      "profit_factor": 1.99,
+      "trades_per_year": 28.61
+    },
+    "full_ema20|2024-01-02": {
+      "cagr_pct": 25.85,
+      "alpha_per_year_pct": 5.5,
+      "sharpe_ratio": 1.16,
+      "max_drawdown_pct": 23.1,
+      "profit_factor": 1.91,
+      "trades_per_year": 30.98
+    }
+  }
+}

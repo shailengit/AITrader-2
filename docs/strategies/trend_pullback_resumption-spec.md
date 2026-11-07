@@ -176,3 +176,50 @@ noise at six starts.
 The shipped defaults (`full`, `require_fresh_cross=False`) are the best of the
 arms tested. It is a genuine alternative to the golden-cross strategy, not a
 replacement for it.
+
+## Experiment: EMA20/EMA200 alignment instead of EMA50/EMA200 (2026-11-07)
+
+Same experiment repeated with `ema_mid = 20`, so the alignment/crossover condition
+is `EMA20 > EMA200`. `ema_fast` stays 20, so the EMA20 serves as both the
+pullback/trigger line and the alignment line. Everything else identical.
+Reproduce with `backend/scripts/tpr_ema_alignment_ab.py`.
+
+**4-arm A/B, medians over the same 4 starts:**
+
+| arm | EMA50 CAGR | **EMA20 CAGR** | EMA50 Sharpe | **EMA20 Sharpe** |
+|---|---|---|---|---|
+| full | 24.41 | **15.29** | 1.10 | **0.75** |
+| minimal | 13.74 | 20.23 | 0.70 | 0.91 |
+| no_macd | 14.29 | 20.79 | 0.72 | 0.93 |
+| fresh_cross | 7.90 | **-14.88** | 0.45 | **-0.41** |
+
+**Finding 1 — EMA20 alignment is clearly worse.** The full arm drops from
+24.41% to 15.29% median CAGR, alpha/yr from +6.10% to -1.55%, Sharpe 1.10 to
+0.75, drawdown worsens 26.2% -> 32.7%.
+
+**Finding 2 — the filter complementarity INVERTS.** With EMA50 alignment the
+extra filters helped enormously (full 24.41 vs minimal 13.74). With EMA20
+alignment they *hurt* (full 15.29 vs minimal 20.23). The filters are not
+independently good; they only pay off on top of a slower, higher-quality
+alignment condition. This is the opposite of a transferable prior — it is an
+interaction, and it had to be measured.
+
+**Finding 3 — a fresh EMA20/EMA200 cross is catastrophic.** Median CAGR
+-14.88%, alpha/yr -31.70%, Sharpe -0.41, maxDD 54.2%, on only 690 signals. EMA20
+crosses EMA200 far more often than EMA50 does, and many are whipsaws.
+
+**Same six starts vs golden cross:**
+
+| strategy | CAGR | alpha/yr | Sharpe | maxDD |
+|---|---|---|---|---|
+| TPR **EMA50**/EMA200 | **21.23** | **+4.27** | **0.98** | 30.29 |
+| TPR **EMA20**/EMA200 | 11.22 | -4.42 | 0.59 | 32.66 |
+| GoldenCross arm E | 20.15 | +2.63 | 0.89 | 34.94 |
+
+Per-start CAGR, TPR EMA20/200 vs golden cross: 2/6 wins (2023, 2024) — versus
+3/6 for EMA50/200, which also beat it on every median.
+
+**Conclusion: keep `ema_mid = 50`.** Moving the alignment line to EMA20 costs
+about 10pp of median CAGR, inverts the value of every other filter, and turns
+the strategy into an underperformer against the golden cross. The shipped
+default is unchanged.
