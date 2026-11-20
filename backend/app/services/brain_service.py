@@ -21,8 +21,15 @@ logger = logging.getLogger(__name__)
 BRAIN_MODEL = "minimax-m3:cloud"
 
 # Cap the per-trade payload sent to the LLM so it never overflows the request
-# body, regardless of how many runs/trades have accumulated.
-MAX_TOTAL_TRADES = 3000
+# body, regardless of how many runs/trades have accumulated. 3000 trades was
+# ~900 KB (~227k tokens) for a 100-run batch -- enough to swamp the context and
+# bury the answer. The full history is still available per run (see
+# `get_run_trades` and the Obsidian export).
+MAX_TOTAL_TRADES = 300
+#: Full trade rows attached to ONE run in the bundle when a few runs are selected.
+MAX_RUN_TRADES = 800
+#: Winners/losers listed per run in `per_run`.
+MAX_PER_RUN_TOP = 2
 
 
 def strategy_name_from_path(path: Optional[str]) -> Optional[str]:
@@ -248,6 +255,107 @@ def _sample_trades(trades: List[Dict[str, Any]], max_trades: int = MAX_TOTAL_TRA
     return top_losers + sampled_mid + top_winners
 
 
+#: Cap for a single run's full trade list in the bundle (a run is ~1-3k rows).
+MAX_RUN_TRADES = 2000
+
+
+def _iso(value) -> Optional[str]:
+    if value is None:
+        return None
+    try:
+        return value.isoformat()
+    except AttributeError:
+        return str(value)[:10]
+
+
+def _holding_stats(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
+    hs = sorted(int(t.get("holding_days") or 0) for t in trades)
+    if not hs:
+        return {}
+    n = len(hs)
+    return {
+        "n": n,
+        "mean": round(sum(hs) / n, 1),
+        "median": hs[n // 2],
+        "p10": hs[max(0, int(n * 0.1) - 1)],
+        "p90": hs[min(n - 1, int(n * 0.9))],
+        "max": hs[-1],
+    }
+
+
+def _exit_breakdown(trades: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for t in trades:
+        reason = t.get("exit_reason") or "unknown"
+        d = out.setdefault(reason, {"n": 0, "pnl": 0.0, "wins": 0, "_hold": 0})
+        pnl = float(t.get("pnl_dollars") or 0.0)
+        d["n"] += 1
+        d["pnl"] += pnl
+        d["wins"] += 1 if pnl > 0 else 0
+        d["_hold"] += int(t.get("holding_days") or 0)
+    for d in out.values():
+        d["pnl"] = round(d["pnl"], 2)
+        d["win_rate"] = round(100.0 * d["wins"] / d["n"], 1)
+        d["avg_holding_days"] = round(d.pop("_hold") / d["n"], 1)
+    return out
+
+
+def _trade_stub(t: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "ticker": t.get("ticker"),
+        "entry_date": str(t.get("entry_date"))[:10],
+        "exit_date": str(t.get("exit_date"))[:10],
+        "return_pct": t.get("return_pct"),
+        "pnl_dollars": t.get("pnl_dollars"),
+        "exit_reason": t.get("exit_reason"),
+        "holding_days": t.get("holding_days"),
+    }
+
+
+def _run_trade_detail(exp, include_trades: bool = False,
+                      max_trades: int = MAX_RUN_TRADES,
+                      top_n: int = MAX_PER_RUN_TOP) -> Dict[str, Any]:
+    """Explain ONE run from its own trades: exits, holding periods, contributors.
+
+    `trades_summary` is stored per experiment, so run-level attribution is exact
+    -- unlike the strategy-wide aggregate, which mixes every run together.
+    """
+    ts = exp.trades_summary if isinstance(getattr(exp, "trades_summary", None), list) else []
+    sells = [t for t in ts if isinstance(t, dict) and t.get("side") == "SELL"]
+    buys = [t for t in ts if isinstance(t, dict) and t.get("side") == "BUY"]
+    kpis = getattr(exp, "kpis", None) or {}
+    by_pnl = sorted(sells, key=lambda t: float(t.get("pnl_dollars") or 0.0), reverse=True)
+
+    detail: Dict[str, Any] = {
+        "run_index": exp.run_index,
+        "start_date": _iso(getattr(exp, "start_date", None)),
+        "end_date": _iso(getattr(exp, "end_date", None)),
+        "cagr_pct": kpis.get("cagr_pct"),
+        "n_buys": len(buys),
+        "n_sells": len(sells),
+        "exit_reasons": _exit_breakdown(sells),
+        "holding_days": _holding_stats(sells),
+        "top_winners": [_trade_stub(t) for t in by_pnl
+                        if float(t.get("pnl_dollars") or 0.0) > 0][:top_n],
+        "top_losers": [_trade_stub(t) for t in by_pnl[::-1]
+                       if float(t.get("pnl_dollars") or 0.0) <= 0][:top_n],
+    }
+    if include_trades:
+        detail["trades"] = [t for t in ts if isinstance(t, dict)][:max_trades]
+    return detail
+
+
+def get_run_trades(db, strategy_class_path: str, run_index: int) -> Optional[Dict[str, Any]]:
+    """Full trade-level detail for one run, for the API and external tools."""
+    exps = _query_experiments(db, strategy_class_path, [str(run_index)])
+    if not exps:
+        return None
+    exp = next((e for e in exps if e.run_index == run_index), exps[0])
+    detail = _run_trade_detail(exp, include_trades=True)
+    detail["strategy_class_path"] = strategy_class_path
+    return detail
+
+
 def build_strategy_bundle(db, strategy_class_path: str,
                           run_ids: Optional[List[str]] = None) -> Dict[str, Any]:
     """Build a data bundle for one strategy (optionally specific runs).
@@ -262,14 +370,21 @@ def build_strategy_bundle(db, strategy_class_path: str,
     runs = [_run_kpi(e) for e in exps]
     all_trades = _all_trades(db, exps, strategy_class_path)
     agg = _aggregate_trades(all_trades)
+    # Per-run attribution: the aggregate mixes every run, which is why "why did
+    # run #31 win?" was unanswerable. Full trade lists are attached only when a
+    # handful of runs is selected, so a 100-run bundle stays a sane size.
+    include_full = bool(run_ids) and len(exps) <= 3
     return {
         "strategy_name": name,
         "strategy_class_path": strategy_class_path,
         "n_runs": len(runs),
         "n_trades": agg["n_trades"],
         "runs": runs,
+        "per_run": [_run_trade_detail(e, include_trades=include_full) for e in exps],
         "aggregate": agg,
-        "sample_trades": _sample_trades(all_trades),
+        # When the selected runs' full trades are already in `per_run`, the
+        # sampled history would just duplicate them and double the payload.
+        "sample_trades": [] if include_full else _sample_trades(all_trades),
     }
 
 
@@ -309,6 +424,13 @@ Hard rules:
 - If the data does not contain enough to answer, say so clearly.
 - Be concise and structured. Use short paragraphs and bullet lists.
 - When comparing runs or strategies, cite the specific run indices and numbers.
+- `runs[]` holds each run's KPIs (keyed by `run_index`). `per_run[]` holds that
+  SAME run's own trades: exit-reason breakdown, holding-period stats, and its
+  top winners/losers. Use `per_run` to explain WHY a specific run did well or
+  badly; do not attribute the strategy-wide `aggregate` to a single run.
+- When only a few runs are selected, `per_run[].trades` carries that run's full
+  buy/sell history (dates, prices, reason, holding days, P&L) — cite specific
+  trades from it.
 - Answer the user's question directly first, then add supporting detail.
 - Output valid markdown, no preamble, no postscript."""
 

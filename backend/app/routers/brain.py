@@ -60,6 +60,23 @@ def list_strategies(db: Session = Depends(get_db)):
     return B.list_strategies_with_stats(db)
 
 
+@router.get("/run-trades")
+def run_trades(
+    strategy_class_path: str = Query(..., description="Strategy class path or stem"),
+    run_index: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+):
+    """Full trade-level detail for one run (buys, sells, reasons, holding days).
+
+    The chat bundle carries per-run summaries; this endpoint returns the complete
+    history for tools that want to dig into a single run.
+    """
+    out = B.get_run_trades(db, strategy_class_path, run_index)
+    if out is None:
+        raise HTTPException(404, detail=f"run {run_index} not found for {strategy_class_path}")
+    return out
+
+
 @router.get("/strategy/{strategy_class_path:path}")
 def get_strategy_brain(strategy_class_path: str, db: Session = Depends(get_db)):
     """Get a strategy's brain (insights, stats, best/worst run)."""
