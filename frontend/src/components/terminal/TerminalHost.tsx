@@ -5,6 +5,12 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { FloatingPanel, type PanelState } from "./FloatingPanel";
+import {
+  createSizeSync,
+  resizeMessage,
+  scheduleSettledSync,
+  sizeQuery,
+} from "../../lib/terminalResize";
 import { TerminalHypothesisBanner } from "../shared/TerminalHypothesisBanner";
 import { useTheme } from "../../context/ThemeContext";
 import {
@@ -171,6 +177,23 @@ export function TerminalHost() {
       }
     };
 
+    // Single owner of "what size is the PTY". Reads the terminal's own cols/rows
+    // after fitting (those are exactly what xterm renders), sends only on change,
+    // and remembers the size when the socket is not open yet so onopen can deliver
+    // it. See lib/terminalResize.ts for why each of those matters.
+    const sizeSync = createSizeSync({
+      fit: safeFit,
+      getSize: () => (opened ? { cols: term.cols, rows: term.rows } : null),
+      send: (size) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(resizeMessage(size));
+          setDims(size);
+          setEditCols(String(size.cols));
+          setEditRows(String(size.rows));
+        }
+      },
+    });
+
     let opened = false;
     const openTerminal = () => {
       if (opened) return true;
@@ -190,19 +213,22 @@ export function TerminalHost() {
     };
 
     const openSocket = () => {
-      const ws = new WebSocket(`${WS_BASE}?session=${sessionId}&token=${encodeURIComponent(API_TOKEN)}`);
+      // Carry the size we already know in the connect URL so the backend spawns
+      // the PTY at the client's dimensions instead of ptyprocess' 24x80 default.
+      const initial = opened ? { cols: term.cols, rows: term.rows } : sizeSync.last();
+      const ws = new WebSocket(
+        `${WS_BASE}?session=${sessionId}&token=${encodeURIComponent(API_TOKEN)}${sizeQuery(initial)}`,
+      );
       wsRef.current = ws;
 
       ws.onopen = () => {
         reconnectAttemptsRef.current = 0;
         term.focus();
-        const proposed = fitAddon.proposeDimensions();
-        if (proposed) {
-          ws.send(JSON.stringify({ type: "resize", cols: proposed.cols, rows: proposed.rows }));
-          setDims({ cols: proposed.cols, rows: proposed.rows });
-          setEditCols(String(proposed.cols));
-          setEditRows(String(proposed.rows));
-        }
+        // The size measured before connecting was dropped if the socket was still
+        // CONNECTING, and a reclaimed session carries its previous client's
+        // geometry. Measure again, then re-send whatever we know, unconditionally.
+        sizeSync.sync();
+        sizeSync.flush();
       };
 
       ws.onmessage = (event) => {
@@ -267,18 +293,25 @@ export function TerminalHost() {
 
     const observer = new ResizeObserver(() => {
       // Open the terminal once the container has real dimensions (e.g. the
-      // panel is restored from minimized). Subsequent resizes just fit.
-      if (openTerminal()) {
-        safeFit();
-        const dims = fitAddon.proposeDimensions();
-        if (dims && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(
-            JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows })
-          );
-        }
-      }
+      // panel is restored from minimized). Every resize then re-syncs the PTY.
+      // No WebSocket-state guard here: sizeSync remembers the size and onopen
+      // flushes it, which is what makes the very first expansion work (the socket
+      // is opened in this same tick and is still CONNECTING).
+      if (openTerminal()) sizeSync.sync();
     });
     if (containerRef.current) observer.observe(containerRef.current);
+
+    // A window resize can change the panel's available space without changing the
+    // observed container (it is position:fixed), so cover it explicitly too.
+    const onWindowResize = () => sizeSync.sync();
+    window.addEventListener("resize", onWindowResize);
+
+    // Covers what no observer reports: xterm measures its cell size a frame after
+    // open(), and a web font swapping in changes the column count for a container
+    // of unchanged size.
+    const cancelSettledSync = scheduleSettledSync(() => {
+      if (openTerminal()) sizeSync.sync();
+    });
 
     // Try to open immediately; if the container isn't laid out yet, the
     // ResizeObserver will open it once it has dimensions.
@@ -287,6 +320,8 @@ export function TerminalHost() {
     return () => {
       intentionallyClosedRef.current = true;
       observer.disconnect();
+      window.removeEventListener("resize", onWindowResize);
+      cancelSettledSync();
       if (reconnectTimerRef.current !== null) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;

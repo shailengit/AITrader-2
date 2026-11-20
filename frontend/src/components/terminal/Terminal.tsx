@@ -4,6 +4,14 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { API_TOKEN } from '../../lib/api';
 
+// NOTE: nothing imports this component — the app's terminal is TerminalHost.tsx.
+// Its resize handling is the older one-shot pattern (fit once, send on open), which
+// leaves the PTY at its 24x80 default whenever xterm has not measured itself yet or
+// the container was hidden at mount (the panel starts minimized). If this component
+// is ever wired back in, use lib/terminalResize.ts (createSizeSync +
+// scheduleSettledSync) the way TerminalHost does, or the wrapping bug returns with
+// it.
+
 interface TerminalComponentProps {
   sessionId: string;
   onReady?: () => void;

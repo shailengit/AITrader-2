@@ -19,6 +19,44 @@ PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")
 )
 
+# Terminal geometry. ptyprocess would otherwise spawn at its own 24x80 default,
+# which is the size every interactive program in the shell trusts: if it does not
+# match what xterm renders, `claude`, `vim` and friends wrap for the wrong width
+# and overwrite themselves at the right edge. The client sends its real size in
+# the connect URL and again on every resize.
+DEFAULT_COLS = 80
+DEFAULT_ROWS = 24
+MIN_COLS = 20
+MAX_COLS = 400
+MIN_ROWS = 10
+MAX_ROWS = 200
+
+# TERM must be set explicitly. It is normally inherited, but the backend also
+# runs under launchd, where there is no terminal and TERM is unset; zsh would then
+# report "dumb" to everything it launches.
+TERMINAL_TERM = os.getenv("TERMINAL_TERM", "xterm-256color")
+
+
+def clamp_size(cols=None, rows=None) -> tuple[int, int]:
+    """Coerce a client-supplied size to a usable ``(cols, rows)``.
+
+    Anything missing, non-numeric or too small to be a real terminal falls back to
+    24x80 rather than spawning a one-column shell; absurd values are capped.
+    """
+    def _int(value):
+        if isinstance(value, bool):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: JSON allows 1e999, which parses to inf.
+            return None
+
+    c, r = _int(cols), _int(rows)
+    if c is None or r is None or c < MIN_COLS or r < MIN_ROWS:
+        return DEFAULT_COLS, DEFAULT_ROWS
+    return min(c, MAX_COLS), min(r, MAX_ROWS)
+
 
 class TerminalSession:
     """A single zsh shell process running inside a PTY.
@@ -40,9 +78,17 @@ class TerminalSession:
 
     SCROLLBACK_MAX_BYTES = 256 * 1024  # 256 KB cap
 
-    def __init__(self, session_id: str, resume: bool = False):
+    def __init__(
+        self,
+        session_id: str,
+        resume: bool = False,
+        cols=None,
+        rows=None,
+    ):
         self.session_id = session_id
         self.resume = resume
+        # The size the client asked for, used for the spawn; kept in step by resize().
+        self.cols, self.rows = clamp_size(cols, rows)
         self.process: Optional[ptyprocess.PtyProcess] = None
         self.last_activity = time.time()
         self.created_at = time.time()
@@ -65,7 +111,20 @@ class TerminalSession:
         """Spawn zsh inside a pseudo-terminal (runs in background thread)."""
         try:
             cmd = ["zsh", "--login"]
-            proc = ptyprocess.PtyProcess.spawn(cmd, cwd=PROJECT_ROOT)
+            # Pass env explicitly so TERM is defined even when the backend was
+            # started by launchd with no terminal, and spawn at the client's size
+            # rather than ptyprocess' 24x80 default.
+            env = {
+                **os.environ,
+                "TERM": TERMINAL_TERM,
+                "COLORTERM": os.environ.get("COLORTERM", "truecolor"),
+            }
+            proc = ptyprocess.PtyProcess.spawn(
+                cmd,
+                cwd=PROJECT_ROOT,
+                env=env,
+                dimensions=(self.rows, self.cols),
+            )
             # Put the master fd in non-blocking mode so callers can poll
             # it from asyncio's event loop without freezing the loop.
             try:
@@ -78,8 +137,9 @@ class TerminalSession:
                 self._ready = True
             self.ready_event.set()
             logger.info(
-                "Terminal session %s started (PID %d, fd=%d, resume=%s)",
+                "Terminal session %s started (PID %d, fd=%d, resume=%s, %dx%d, TERM=%s)",
                 self.session_id, proc.pid, proc.fd, self.resume,
+                self.cols, self.rows, TERMINAL_TERM,
             )
         except FileNotFoundError:
             self._error = "zsh not found. Please ensure zsh is installed."
@@ -149,14 +209,37 @@ class TerminalSession:
                     # PTY closed or bad input — treat as no-op.
                     pass
 
-    def resize(self, cols: int, rows: int) -> None:
-        """Resize the PTY terminal dimensions."""
+    def resize(self, cols, rows) -> None:
+        """Resize the PTY so the kernel sends SIGWINCH to the shell.
+
+        Invalid input is ignored rather than applied: this is called straight from
+        the WebSocket read loop, and a junk frame must not be able to shrink the
+        terminal or raise. A repeat of the current size is also skipped — the shell
+        redraws on every SIGWINCH, and the client re-reports on each layout tick.
+        """
+        if isinstance(cols, bool) or isinstance(rows, bool):
+            return
+        try:
+            c, r = int(cols), int(rows)
+        except (TypeError, ValueError, OverflowError):
+            logger.debug("session %s ignoring non-numeric resize", self.session_id)
+            return
+        # Clamp rather than ignore: a genuinely narrow panel must still be reported,
+        # or the PTY keeps a stale, wider size and the wrapping bug comes straight
+        # back. Only a value that is not a number at all is dropped.
+        c = max(MIN_COLS, min(c, MAX_COLS))
+        r = max(MIN_ROWS, min(r, MAX_ROWS))
         with self._lock:
-            if self.process and self._alive_unlocked():
-                try:
-                    self.process.setwinsize(rows, cols)
-                except Exception:
-                    pass
+            if not (self.process and self._alive_unlocked()):
+                return
+            if (c, r) == (self.cols, self.rows):
+                return
+            try:
+                # ptyprocess (and the TIOCSWINSZ ioctl) take rows first.
+                self.process.setwinsize(r, c)
+            except Exception:
+                return
+            self.cols, self.rows = c, r
 
     def kill(self) -> None:
         """Terminate the shell process.
@@ -250,7 +333,14 @@ class TerminalManager:
         self._pending_destroys: dict[str, threading.Timer] = {}
         self._lock = threading.Lock()
 
-    def create_session(self, session_id: str, *, resume: bool = False) -> TerminalSession:
+    def create_session(
+        self,
+        session_id: str,
+        *,
+        resume: bool = False,
+        cols=None,
+        rows=None,
+    ) -> TerminalSession:
         """Reuse a live session if one exists (cancelling any pending
         destroy), otherwise create a new one.
 
@@ -268,8 +358,8 @@ class TerminalManager:
             logger.info("Terminal session %s reclaimed during grace period", session_id)
             return existing
 
-        # No existing session — create a new one.
-        session = TerminalSession(session_id, resume=resume)
+        # No existing session — create a new one at the client's size.
+        session = TerminalSession(session_id, resume=resume, cols=cols, rows=rows)
         with self._lock:
             self._sessions[session_id] = session
         return session

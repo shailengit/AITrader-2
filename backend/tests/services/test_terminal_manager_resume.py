@@ -11,9 +11,13 @@ def _patch_fake_pty(monkeypatch, captured):
 
     class FakePty:
         @staticmethod
-        def spawn(argv, cwd=None):
+        def spawn(argv, cwd=None, env=None, dimensions=None, **kwargs):
+            # Mirror ptyprocess' real signature: TerminalSession also passes the
+            # client's geometry and an explicit TERM env.
             captured["argv"] = list(argv)
             captured["cwd"] = cwd
+            captured["env"] = env
+            captured["dimensions"] = dimensions
 
             class P:
                 fd = 7
@@ -67,9 +71,12 @@ def test_create_session_passes_resume_true_to_new_session(monkeypatch):
     captured_kwargs = {}
 
     class FakeTerminalSession:
-        def __init__(self, session_id, resume=False):
+        def __init__(self, session_id, resume=False, cols=None, rows=None):
             captured_kwargs["session_id"] = session_id
             captured_kwargs["resume"] = resume
+            # create_session also forwards the client's initial geometry.
+            captured_kwargs["cols"] = cols
+            captured_kwargs["rows"] = rows
             self.session_id = session_id
             self.is_alive = lambda: True
 
@@ -78,7 +85,7 @@ def test_create_session_passes_resume_true_to_new_session(monkeypatch):
     mgr = TerminalManager()
     mgr.create_session("sess-C", resume=True)
 
-    assert captured_kwargs == {"session_id": "sess-C", "resume": True}
+    assert captured_kwargs == {"session_id": "sess-C", "resume": True, "cols": None, "rows": None}
 
 
 def test_create_session_reclaim_branch_ignores_resume(monkeypatch):

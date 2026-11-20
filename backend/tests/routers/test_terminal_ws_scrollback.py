@@ -8,6 +8,8 @@ verify the message order: {ready} -> scrollback bytes -> live stream.
 import asyncio
 import json
 
+import pytest
+
 from app.services import terminal_manager
 from app.services.terminal_manager import TerminalManager
 
@@ -15,10 +17,13 @@ from app.services.terminal_manager import TerminalManager
 class FakeWebSocket:
     """Minimal WebSocket stand-in for driving terminal_ws in tests."""
 
-    def __init__(self):
+    def __init__(self, query_params=None):
         self.sent_text = []
         self.sent_bytes = []
         self.disconnected = False
+        # The handler reads the client's initial geometry from here, as it does on a
+        # real Starlette WebSocket.
+        self.query_params = query_params or {}
 
     async def accept(self):
         pass
@@ -29,7 +34,7 @@ class FakeWebSocket:
     async def send_bytes(self, payload):
         self.sent_bytes.append(payload)
 
-    async def close(self):
+    async def close(self, code=None):
         self.disconnected = True
 
     async def receive(self):
@@ -39,6 +44,14 @@ class FakeWebSocket:
             raise RuntimeError("WS already disconnected")
         self.disconnected = True
         return {"type": "websocket.disconnect"}
+
+
+@pytest.fixture(autouse=True)
+def _accept_ws_handshake(monkeypatch):
+    """These tests drive terminal_ws directly and are about message order, not the
+    handshake (covered in the auth tests). Without this the fake socket presents no
+    token and the handler closes the connection before replaying anything."""
+    monkeypatch.setattr("app.routers.terminal.require_ws_token", lambda _token: True)
 
 
 def _install_loop_stubs(monkeypatch):
@@ -55,7 +68,9 @@ def _patch_fake_pty(monkeypatch):
     """Replace ptyprocess.PtyProcess.spawn with a fake that won't try to start a process."""
     class FakePty:
         @staticmethod
-        def spawn(argv, cwd=None):
+        def spawn(argv, cwd=None, env=None, dimensions=None, **kwargs):
+            # Mirror ptyprocess' real signature: TerminalSession also passes the
+            # client's geometry and an explicit TERM env.
             class P:
                 fd = 7
                 pid = 1234
@@ -92,8 +107,8 @@ def test_ws_replays_scrollback_after_ready_on_initial_spawn(monkeypatch):
         from app.services.terminal_manager import TerminalSession as RealTS
         original_init = RealTS.__init__
 
-        def init_with_seed(self, session_id, resume=False):
-            original_init(self, session_id, resume=resume)
+        def init_with_seed(self, session_id, resume=False, cols=None, rows=None, **kwargs):
+            original_init(self, session_id, resume=resume, cols=cols, rows=rows)
             self.append_scrollback(b"PRE-HISTORY\n")
 
         monkeypatch.setattr(RealTS, "__init__", init_with_seed)

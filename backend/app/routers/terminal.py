@@ -3,6 +3,8 @@
 import asyncio
 import json
 import logging
+from typing import Optional, Tuple
+
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from app.dependencies import require_api_auth, require_ws_token
 from app.services.terminal_manager import manager
@@ -10,6 +12,66 @@ from app.services.terminal_manager import manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def classify_inbound(raw) -> Tuple[str, Optional[Tuple[int, int]]]:
+    """Classify one inbound WebSocket message.
+
+    Returns one of:
+
+    * ``("resize", (cols, rows))`` — apply this geometry to the PTY;
+    * ``("ignore", None)`` — a control frame we cannot use; drop it;
+    * ``("input", None)`` — not a control frame; forward it to the PTY.
+
+    This runs for every message in the read loop and must never raise: an exception
+    there is caught neither by the ``WebSocketDisconnect`` handler nor by anything
+    else, so it tears the terminal down mid-session. (It used to index
+    ``control["cols"]`` directly, so a resize frame without dimensions raised
+    KeyError and killed the session.)
+
+    A frame that announces itself as a control frame is never forwarded as input.
+    A resize frame missing its dimensions must not end up typed at the user's
+    prompt as the literal text ``{"type":"resize"}``.
+    """
+    if not isinstance(raw, str) or not raw.startswith("{"):
+        return "input", None
+    try:
+        control = json.loads(raw)
+    except ValueError:
+        # Not JSON after all — the user is typing or pasting text starting with "{".
+        return "input", None
+    if not isinstance(control, dict) or control.get("type") != "resize":
+        return "input", None
+
+    def _int(value):
+        if isinstance(value, bool):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: JSON allows 1e999, which parses to inf.
+            return None
+
+    cols, rows = _int(control.get("cols")), _int(control.get("rows"))
+    if cols is None or rows is None:
+        return "ignore", None
+    return "resize", (cols, rows)
+
+
+def _query_size(websocket: WebSocket) -> Optional[Tuple[int, int]]:
+    """``(cols, rows)`` from the connect URL, or None when absent/unusable.
+
+    The client sends its real terminal size here so the PTY can be spawned at the
+    right dimensions instead of the 24x80 default.
+    """
+    cols = websocket.query_params.get("cols")
+    rows = websocket.query_params.get("rows")
+    if cols is None or rows is None:
+        return None
+    try:
+        return int(cols), int(rows)
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 @router.websocket("/terminal/ws")
@@ -49,10 +111,16 @@ async def terminal_ws(websocket: WebSocket, session: str = ""):
             await websocket.send_bytes(scrollback)
 
     # Get or create session (spawns Claude Code in a background thread)
+    initial_size = _query_size(websocket)
+
     term_session = manager.get_session(session)
     if term_session is None:
         await websocket.send_json({"type": "info", "message": "Starting shell session..."})
-        term_session = manager.create_session(session)
+        term_session = manager.create_session(
+            session,
+            cols=initial_size[0] if initial_size else None,
+            rows=initial_size[1] if initial_size else None,
+        )
 
         # Wait for the process to start (up to 30s)
         started = term_session.wait_ready(timeout=30.0)
@@ -100,7 +168,15 @@ async def terminal_ws(websocket: WebSocket, session: str = ""):
             await websocket.send_json({"type": "ready"})
             await send_scrollback()
 
-    logger.info("WebSocket connected: session=%s", session)
+    # A reclaimed session still has the geometry its previous client left behind;
+    # make it match this client before the shell draws anything.
+    if initial_size is not None:
+        term_session.resize(initial_size[0], initial_size[1])
+
+    logger.info(
+        "WebSocket connected: session=%s size=%s",
+        session, initial_size or "unset",
+    )
 
     loop = asyncio.get_running_loop()
     reader_attached = False
@@ -167,15 +243,13 @@ async def terminal_ws(websocket: WebSocket, session: str = ""):
                 if raw is None:
                     continue
 
-                # Handle JSON control messages
-                if isinstance(raw, str) and raw.startswith("{"):
-                    try:
-                        control = json.loads(raw)
-                        if control.get("type") == "resize":
-                            term_session.resize(control["cols"], control["rows"])
-                            continue
-                    except json.JSONDecodeError:
-                        pass
+                # Control frames are handled here and never reach the shell.
+                kind, size = classify_inbound(raw)
+                if kind == "resize" and size is not None:
+                    term_session.resize(size[0], size[1])
+                    continue
+                if kind == "ignore":
+                    continue
 
                 # Forward keystrokes to the PTY
                 if isinstance(raw, str):
