@@ -16,6 +16,8 @@ async def health_check():
     Health check endpoint with database status.
     Returns detailed health information for monitoring.
     """
+    connected = database.test_connection()
+    database.set_db_connected(connected)
     return {
         "status": "healthy",
         "version": "1.0.0",
@@ -23,7 +25,7 @@ async def health_check():
         "services": {
             "api": "running",
             "database": {
-                "connected": database.db_connected,
+                "connected": connected,
                 "host": database.DB_HOST,
                 "port": database.DB_PORT,
                 "name": database.DB_NAME
@@ -37,7 +39,9 @@ async def database_status():
     """
     Database connection status endpoint for frontend polling.
     """
+    connected = database.test_connection()
+    database.set_db_connected(connected)
     return {
-        "connected": database.db_connected,
-        "status": "connected" if database.db_connected else "disconnected"
+        "connected": connected,
+        "status": "connected" if connected else "disconnected"
     }
