@@ -1,91 +1,94 @@
 {
   "initial_capital": 100000.0,
-  "final_portfolio": 127810.8,
-  "total_return_pct": 27.81,
-  "cagr_pct": 3.74,
-  "num_years": 6.67,
-  "trades_per_year": 36.7,
-  "spy_cagr_pct": 15.39,
-  "alpha_per_year_pct": -11.64,
-  "sharpe_ratio": 0.29,
-  "max_drawdown_pct": 32.93,
-  "total_trades": 245,
-  "win_rate": 43.3,
-  "profit_factor": 1.12,
-  "avg_winner": 2086.93,
-  "avg_loser": -1415.93,
+  "final_portfolio": 440156.1,
+  "total_return_pct": 340.16,
+  "cagr_pct": 25.54,
+  "num_years": 6.52,
+  "trades_per_year": 72.28,
+  "spy_cagr_pct": 15.22,
+  "alpha_per_year_pct": 10.32,
+  "sharpe_ratio": 1.02,
+  "max_drawdown_pct": 33.23,
+  "total_trades": 471,
+  "win_rate": 29.7,
+  "profit_factor": 1.62,
+  "avg_winner": 6367.62,
+  "avg_loser": -1664.94,
   "exit_reasons": {
-    "Rotated Out": 113,
-    "Stop Loss": 33,
-    "Death Cross": 61,
-    "Trailing Stop": 2,
-    "Take Profit": 15,
-    "Time Stop": 21
+    "Death Cross Warning": 91,
+    "Death Cross": 21,
+    "Rotated Out": 236,
+    "Time Stop": 99,
+    "Take Profit": 23,
+    "Trailing Stop": 1
   },
-  "spy_return_pct": 159.99,
-  "alpha_pct": -132.18,
+  "spy_return_pct": 151.72,
+  "alpha_pct": 188.44,
   "top_winners": [
     {
-      "ticker": "WLY",
-      "return_pct": 22.95,
-      "pnl_dollars": 15152.6,
-      "exit_reason": "Rotated Out"
-    },
-    {
-      "ticker": "UBER",
-      "return_pct": 28.16,
-      "pnl_dollars": 8849.25,
+      "ticker": "MUSA",
+      "return_pct": 32.97,
+      "pnl_dollars": 59195.57,
       "exit_reason": "Take Profit"
     },
     {
-      "ticker": "MRCY",
-      "return_pct": 24.48,
-      "pnl_dollars": 8765.86,
+      "ticker": "DAL",
+      "return_pct": 31.27,
+      "pnl_dollars": 44761.67,
       "exit_reason": "Take Profit"
     },
     {
-      "ticker": "GNRC",
-      "return_pct": 24.68,
-      "pnl_dollars": 8721.0,
+      "ticker": "BIIB",
+      "return_pct": 40.26,
+      "pnl_dollars": 40398.06,
       "exit_reason": "Take Profit"
     },
     {
-      "ticker": "FANG",
-      "return_pct": 26.15,
-      "pnl_dollars": 8593.84,
+      "ticker": "TDY",
+      "return_pct": 22.5,
+      "pnl_dollars": 33967.43,
+      "exit_reason": "Time Stop"
+    },
+    {
+      "ticker": "LMT",
+      "return_pct": 31.73,
+      "pnl_dollars": 32282.06,
       "exit_reason": "Take Profit"
     }
   ],
   "top_losers": [
     {
-      "ticker": "STE",
-      "return_pct": -7.47,
-      "pnl_dollars": -4987.36,
+      "ticker": "TSLA",
+      "return_pct": -15.08,
+      "pnl_dollars": -13931.24,
       "exit_reason": "Time Stop"
     },
     {
-      "ticker": "ETN",
-      "return_pct": -15.08,
-      "pnl_dollars": -5427.85,
-      "exit_reason": "Stop Loss"
+      "ticker": "ADBE",
+      "return_pct": -13.5,
+      "pnl_dollars": -14332.84,
+      "exit_reason": "Death Cross Warning"
     },
     {
-      "ticker": "RBC",
-      "return_pct": -15.72,
-      "pnl_dollars": -6052.67,
-      "exit_reason": "Stop Loss"
+      "ticker": "NBIX",
+      "return_pct": -14.5,
+      "pnl_dollars": -15960.48,
+      "exit_reason": "Rotated Out"
     },
     {
-      "ticker": "ANIP",
-      "return_pct": -8.5,
-      "pnl_dollars": -6133.16,
-      "exit_reason": "Death Cross"
+      "ticker": "TEL",
+      "return_pct": -8.87,
+      "pnl_dollars": -16031.55,
+      "exit_reason": "Death Cross Warning"
     },
     {
-      "ticker": "COF",
-      "return_pct": -11.37,
-      "pnl_dollars": -6510.99,
+      "ticker": "HOOD",
+      "return_pct": -13.78,
+      "pnl_dollars": -17386.39,
       "exit_reason": "Rotated Out"
     }
+  ],
+  "warmup_warnings": [
+    "EMA200 warmup shortfall at 2020-01-02: 207 of 1502 tickers (13.8%) have fewer than 830 bars, shortest 0 bars and are skipped \u2014 their EMA200 is not converged. Move the start date later, or extend the database history, to trade them."
   ]
 }

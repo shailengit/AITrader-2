@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aitrader_os — Operating Manual</title>
+<style>
+  :root{
+    --bg:#0e1216; --panel:#151b21; --panel-2:#1b232b; --ink:#e8eef4; --muted:#9aa9b6;
+    --line:#26313b; --accent:#4ade80; --accent-dim:#22c55e; --warn:#fbbf24; --bad:#f87171;
+    --info:#60a5fa; --code:#0b0f13; --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg:#f7f9fb; --panel:#ffffff; --panel-2:#f1f5f9; --ink:#11181f; --muted:#5a6b7a;
+    --line:#dde5ec; --accent:#0f9d58; --accent-dim:#0b7c45; --code:#f3f6f9;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{display:grid; grid-template-columns:270px minmax(0,1fr); max-width:1280px; margin:0 auto; gap:0}
+  /* ---------- nav ---------- */
+  nav{
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    padding:28px 18px 40px; border-right:1px solid var(--line); background:var(--panel);
+  }
+  nav .brand{display:flex; align-items:center; gap:10px; margin-bottom:6px}
+  nav .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  nav .brand b{font-size:15px; letter-spacing:.02em}
+  nav .sub{color:var(--muted); font-size:12px; margin:0 0 20px 20px}
+  nav a{display:block; color:var(--muted); text-decoration:none; font-size:13.5px; padding:6px 10px;
+        border-radius:8px; border-left:2px solid transparent}
+  nav a:hover{color:var(--ink); background:var(--panel-2)}
+  nav a.active{color:var(--accent); border-left-color:var(--accent); background:var(--panel-2)}
+  nav .group{font-size:10.5px; text-transform:uppercase; letter-spacing:.13em; color:var(--muted);
+             margin:18px 0 6px 10px; opacity:.75}
+  nav button{
+    margin-top:22px; width:100%; background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
+    border-radius:10px; padding:8px; font-size:12.5px; cursor:pointer; font-family:inherit;
+  }
+  /* ---------- content ---------- */
+  main{padding:44px 52px 120px; min-width:0}
+  h1{font-size:34px; line-height:1.2; margin:0 0 8px; letter-spacing:-.02em}
+  h2{font-size:23px; margin:56px 0 14px; letter-spacing:-.01em; padding-top:8px}
+  h3{font-size:17px; margin:28px 0 8px}
+  h4{font-size:14px; margin:20px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em}
+  p{margin:10px 0}
+  .lede{color:var(--muted); font-size:17px; max-width:70ch}
+  a{color:var(--accent)}
+  code{font-family:var(--mono); font-size:.875em; background:var(--code); padding:.15em .4em;
+       border-radius:5px; border:1px solid var(--line)}
+  pre{
+    background:var(--code); border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    overflow-x:auto; font-family:var(--mono); font-size:13px; line-height:1.55; position:relative;
+  }
+  pre code{background:none; border:0; padding:0; font-size:13px}
+  .copy{
+    position:absolute; top:8px; right:8px; background:var(--panel-2); color:var(--muted);
+    border:1px solid var(--line); border-radius:7px; font-size:11px; padding:3px 8px; cursor:pointer;
+    opacity:0; transition:.15s; font-family:var(--sans);
+  }
+  pre:hover .copy{opacity:1}
+  .copy.done{color:var(--accent); border-color:var(--accent)}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:14px}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.07em}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:var(--panel)}
+  ul,ol{margin:10px 0; padding-left:22px}
+  li{margin:6px 0}
+  .callout{border:1px solid var(--line); border-left:3px solid var(--info); background:var(--panel);
+           padding:12px 16px; border-radius:10px; margin:16px 0; font-size:14.5px}
+  .callout.warn{border-left-color:var(--warn)}
+  .callout.bad{border-left-color:var(--bad)}
+  .callout.ok{border-left-color:var(--accent)}
+  .callout b{color:var(--ink)}
+  .grid{display:grid; gap:14px; margin:16px 0}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media (max-width:900px){ .g2,.g3{grid-template-columns:1fr} .wrap{grid-template-columns:1fr} nav{display:none} main{padding:28px 20px 80px} }
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px}
+  .card h3{margin-top:0}
+  .card p{margin:6px 0; font-size:14.5px; color:var(--muted)}
+  .pill{display:inline-block; font-size:11px; padding:2px 9px; border-radius:999px; border:1px solid var(--line);
+        color:var(--muted); margin-right:6px; letter-spacing:.03em}
+  .pill.ok{color:var(--accent); border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+  .pill.warn{color:var(--warn); border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+  .prompt{
+    background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--accent);
+    border-radius:10px; padding:11px 14px; margin:9px 0; font-size:14.5px; position:relative;
+  }
+  .prompt q{quotes:"“" "”"; font-style:italic}
+  .prompt .why{display:block; color:var(--muted); font-size:12.5px; margin-top:5px; font-style:normal}
+  .prompt .copy2{
+    position:absolute; top:8px; right:8px; background:var(--panel); color:var(--muted);
+    border:1px solid var(--line); border-radius:6px; font-size:10.5px; padding:2px 7px; cursor:pointer;
+    opacity:0; transition:.15s; font-family:var(--sans);
+  }
+  .prompt:hover .copy2{opacity:1}
+  .flow{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:14px 0; font-size:13px}
+  .flow .node{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:9px 13px}
+  .flow .arrow{color:var(--muted)}
+  .nowrap{white-space:nowrap}
+  .kbd{font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-bottom-width:2px;
+       border-radius:5px; padding:1px 6px; background:var(--panel-2)}
+  hr{border:0; border-top:1px solid var(--line); margin:44px 0}
+  .toc-num{color:var(--muted); font-variant-numeric:tabular-nums; margin-right:6px; font-size:11px}
+  @media print{
+    body{background:#fff;color:#000;font-size:11pt}
+    nav{display:none} .wrap{display:block;max-width:none} main{padding:0}
+    pre,.prompt,.card{border:1px solid #ccc; background:#fafafa}
+    h2{page-break-after:avoid} .copy,.copy2{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav id="nav">
+  <div class="brand"><span class="dot"></span><b>aitrader_os</b></div>
+  <p class="sub">Operating manual · v1.0.0</p>
+
+  <div class="group">Getting started</div>
+  <a href="#what"><span class="toc-num">01</span>What this is</a>
+  <a href="#map"><span class="toc-num">02</span>Map of the system</a>
+  <a href="#checklist"><span class="toc-num">03</span>Setup checklist</a>
+
+  <div class="group">Daily use</div>
+  <a href="#voice"><span class="toc-num">04</span>Using your voice</a>
+  <a href="#bots"><span class="toc-num">05</span>The three bots</a>
+  <a href="#tools"><span class="toc-num">06</span>The four tools</a>
+  <a href="#guardrails"><span class="toc-num">07</span>Confirmation guardrails</a>
+
+  <div class="group">Playbook</div>
+  <a href="#recipes"><span class="toc-num">08</span>Workflow recipes</a>
+  <a href="#prompts"><span class="toc-num">09</span>Prompt cookbook</a>
+  <a href="#ideas"><span class="toc-num">10</span>Creative uses</a>
+  <a href="#sql"><span class="toc-num">11</span>SQL cookbook</a>
+
+  <div class="group">Reference</div>
+  <a href="#vault"><span class="toc-num">12</span>The vault</a>
+  <a href="#trouble"><span class="toc-num">13</span>Troubleshooting</a>
+  <a href="#commands"><span class="toc-num">14</span>Command card</a>
+
+  <button id="theme">Switch theme</button>
+</nav>
+
+<main>
+
+  <h1>aitrader_os</h1>
+  <p class="lede">
+    A voice-first control plane for the AITrader-2 quantitative trading repo: Alpaca paper
+    telemetry into Postgres, Strategy Lab batches on demand, evolution notes in your Obsidian
+    vault, and a hard confirmation gate in front of anything that changes state.
+  </p>
+  <p>
+    <span class="pill ok">4 tools</span>
+    <span class="pill ok">3 bot profiles</span>
+    <span class="pill">Postgres + Obsidian</span>
+    <span class="pill">wake word: “hey hermes”</span>
+  </p>
+
+  <h2 id="what">01 · What this is</h2>
+  <p>
+    Hermes is the agent; <code>aitrader_os</code> is the bridge to your trading stack. It has
+    exactly four jobs, and every one of them is a tool the model can call from a normal
+    sentence — typed or spoken:
+  </p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Pull the numbers</h3>
+      <p>Account equity, open positions, every order fill with limit-order slippage, and
+      90-day Sharpe / drawdown / return land in dedicated <code>os_*</code> Postgres tables.</p>
+    </div>
+    <div class="card">
+      <h3>Run the experiments</h3>
+      <p>Backtest batches go through your own Strategy Lab API, so results appear in the same
+      experiment table, Coach library and report viewer as a UI batch.</p>
+    </div>
+    <div class="card">
+      <h3>Remember what you learned</h3>
+      <p>Reflections and parameter mutations become Markdown notes with a before/after diff
+      table, indexed in Postgres and searchable in Obsidian forever.</p>
+    </div>
+    <div class="card">
+      <h3>Operate the repo</h3>
+      <p>Tests, lint, git status, data updates, migrations — an allowlist of named commands,
+      never free-form shell.</p>
+    </div>
+  </div>
+
+  <div class="callout ok">
+    <b>Design rule.</b> The plugin writes only to its own <code>os_*</code> tables. Your
+    <code>journal_*</code>, <code>strategy_*</code> and 1,500 per-ticker tables are read-only
+    to it — a bug here can never corrupt market data.
+  </div>
+
+  <h2 id="map">02 · Map of the system</h2>
+  <div class="flow">
+    <div class="node">Your voice / keyboard</div><span class="arrow">→</span>
+    <div class="node">Hermes agent</div><span class="arrow">→</span>
+    <div class="node">aitrader_os tools</div>
+  </div>
+  <div class="flow">
+    <div class="node">Alpaca paper API</div><span class="arrow">↔</span>
+    <div class="node">Postgres <code>sp1500_1d</code> · <code>os_*</code></div>
+    <span class="arrow">↔</span>
+    <div class="node">Strategy Lab backend :8000</div>
+  </div>
+  <div class="flow">
+    <div class="node">Repo commands</div><span class="arrow">→</span>
+    <div class="node">AITrader-2</div><span class="arrow">→</span>
+    <div class="node">Obsidian vault</div>
+  </div>
+
+  <table>
+    <thead><tr><th>Component</th><th>Where</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>Plugin</td><td><code>~/.hermes/plugins/aitrader_os/</code></td><td>Tools, DB schema, vault writer, guardrails</td></tr>
+      <tr><td>Telemetry tables</td><td><code>sp1500_1d</code> → <code>os_account_snapshot</code>, <code>os_position_snapshot</code>, <code>os_order_fill</code>, <code>os_strategy_metric</code>, <code>os_sync_run</code>, <code>os_evolution_log</code>, <code>os_agent_action</code></td><td>Quantitative memory</td></tr>
+      <tr><td>Vault</td><td><code>~/Documents/Obsidian Vault/02 - AITrader-2/Agent OS/</code></td><td>Qualitative memory: reflections, mutations, daily reviews</td></tr>
+      <tr><td>Daily loop</td><td><code>~/.hermes/scripts/aitrader_daily_loop.sh</code></td><td>16:20 weekdays: sync → findings → note</td></tr>
+      <tr><td>Bots</td><td><code>~/.hermes/profiles/{quant-dev,backtest-runner,system-ops}</code></td><td>Three roles, three voices</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="checklist">03 · Setup checklist</h2>
+  <p>The build is done and verified. These are the parts only you can complete:</p>
+  <table>
+    <thead><tr><th>✓</th><th>Item</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td class="pill ok">done</td><td>Postgres repaired (data dir ownership)</td><td>chown of the <code>tradecraft-db</code> volume; all queries work</td></tr>
+      <tr><td class="pill ok">done</td><td>Plugin installed, enabled, loaded by the gateway</td><td><code>registered 4 tools under toolset 'aitrader_os'</code></td></tr>
+      <tr><td class="pill ok">done</td><td>Voice in / out verified</td><td>local Whisper transcribes; macOS <code>say</code> → Opus playback</td></tr>
+      <tr><td class="pill warn">you</td><td><b>Microphone permission</b> for the desktop app</td><td>Say “Hey Hermes” once; macOS prompts → Allow. If nothing happens: System Settings → Privacy → Microphone → enable Hermes.</td></tr>
+      <tr><td class="pill ok">fixed</td><td>Wake tuned for the bundled model</td><td><code>capture: local</code> (not client), <code>confirmation_frames: 1</code>, <code>sensitivity: 0.5</code>, enabled on all four profiles</td></tr>
+      <tr><td class="pill warn">you</td><td><b>Open each bot once</b></td><td>Desktop → Bot Mode → click <code>@quant-dev</code>, <code>@backtest-runner</code>, <code>@system-ops</code>. Each gets its persistent Bot Chat.</td></tr>
+      <tr><td class="pill warn">you</td><td><b>Cron delivery target</b></td><td>Job is save-only today. Say “send the daily review to my WhatsApp” and it gets re-pointed.</td></tr>
+      <tr><td class="pill">optional</td><td>Spoken replies on every turn</td><td><code>voice.auto_tts: true</code> is on. Turn off with <code>hermes config set voice.auto_tts false</code>.</td></tr>
+      <tr><td class="pill">optional</td><td>Wake word on the bot profiles</td><td>Left off on purpose — one mic listener per surface. Only <code>default</code> owns “hey hermes”.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="voice">04 · Using your voice</h2>
+  <p>
+    Everything below works spoken or typed. Saying <b>“Hey Hermes”</b> opens a fresh voice
+    session; the reply is spoken back in the current profile's voice.
+  </p>
+  <div class="grid g3">
+    <div class="card"><h3>Wake</h3><p>“Hey Hermes” — on-device, no audio leaves the Mac. Works in the main chat and in every Bot Chat; the bot whose window is focused owns the mic.</p></div>
+    <div class="card"><h3>Barge in</h3><p>Start talking mid-reply and playback stops; your new sentence wins.</p></div>
+    <div class="card"><h3>Stop</h3><p>Say “stop” on its own to end the voice session without asking the agent.</p></div>
+  </div>
+  <p><b>Say the phrase with a few words of intent</b> — “Hey Hermes, what's my equity” — rather than the two words alone. The bundled model needs a couple of frames of speech to be certain, and a bare phrase is marginal on a cold detector.</p>
+
+  <h4>Speak like this, not like a form</h4>
+  <p>Voice turns are short. Every tool result carries a <code>spoken</code> field — one or two
+  clean sentences — so the agent has something safe to read out instead of a table.</p>
+  <div class="prompt"><q>Give me the twenty-second version.</q><span class="why">Cuts a long analysis to the headline plus one caveat.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Skip the table, just tell me the number that matters.</q><span class="why">Any result with a <code>spoken</code> field answers this directly.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Read me the account summary.</q><span class="why">Uses <code>sync_alpaca_telemetry</code> action <code>metrics</code>: equity, day P&amp;L, Sharpe, drawdown.</span><button class="copy2">copy</button></div>
+
+  <div class="callout warn">
+    <b>Voice safety.</b> Anything that changes state asks out loud first: “This dispatches 40
+    backtest runs… should I start it?” Only a clear yes executes it. A mumble, a maybe or a
+    changed request re-arms the question.
+  </div>
+
+  <h2 id="bots">05 · The three bots</h2>
+  <p>
+    A bot in Hermes is a profile — its own config, its own voice, its own persistent chat.
+    Switch by clicking the bot row in Desktop Bot Mode, or from a terminal with the profile
+    alias (<code>quant-dev</code>, <code>backtest-runner</code>, <code>system-ops</code>).
+  </p>
+  <table>
+    <thead><tr><th>Bot</th><th>Voice</th><th>Ask it for</th><th>It will refuse</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>@quant-dev</b></td><td><span class="nowrap">Daniel (en-GB)</span></td>
+        <td>Strategy logic, vectorised pandas, lookahead-bias hunting, parameter proposals, pytest/ruff runs</td>
+        <td>Placing orders, silent tuning, editing live paper config</td>
+      </tr>
+      <tr>
+        <td><b>@backtest-runner</b></td><td><span class="nowrap">Tessa (en-ZA)</span></td>
+        <td>Batch dispatch, sweeps, apples-to-apples comparisons, KPI readback</td>
+        <td>Starting a 100-run batch without a yes</td>
+      </tr>
+      <tr>
+        <td><b>@system-ops</b></td><td><span class="nowrap">Fred (en-US)</span></td>
+        <td>Postgres/Alpaca health, sync staleness, data updates, logs, repo state</td>
+        <td>Running a mutating script without a yes</td>
+      </tr>
+      <tr>
+        <td><b>default</b></td><td><span class="nowrap">Samantha (en-US)</span></td>
+        <td>Everything; owns the wake word; the coordinator</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <b>Why three profiles and not three prompts?</b> Isolation. <code>@quant-dev</code> cannot
+    silently inherit a half-finished backtest plan from <code>@system-ops</code>, and each one
+    keeps a separate SOUL.md — its role, its rules, its voice.
+  </div>
+
+  <h2 id="tools">06 · The four tools</h2>
+
+  <h3>sync_alpaca_telemetry</h3>
+  <p>Pulls Alpaca paper performance into Postgres, and reads it back.</p>
+  <table>
+    <thead><tr><th>action</th><th>What it returns</th><th>Writes?</th></tr></thead>
+    <tbody>
+      <tr><td><code>sync</code></td><td>Per-account equity, cash, day P&amp;L, positions, fills with slippage, 90-day metrics</td><td>yes — telemetry only</td></tr>
+      <tr><td><code>status</code></td><td>Postgres health, last snapshot per account, recent sync runs, 30-day fill counts</td><td>no</td></tr>
+      <tr><td><code>metrics</code></td><td>Equity, day P&amp;L, Sharpe, max drawdown, return over N days (from synced snapshots)</td><td>no</td></tr>
+      <tr><td><code>fills</code></td><td>Recent fills with <code>slippage_bps</code> versus the limit price</td><td>no</td></tr>
+      <tr><td><code>strategies</code></td><td>Per-strategy win rate / expectancy / profit factor from your <code>journal_trade</code></td><td>no</td></tr>
+      <tr><td><code>sql</code></td><td>Any single SELECT/WITH you pass in (200 rows max)</td><td>no — writes are rejected</td></tr>
+    </tbody>
+  </table>
+
+  <h3>run_strategy_backtest</h3>
+  <p>Dispatches batches through your own backend (<code>POST /api/strategy-lab/sessions/_/experiments</code>
+  with a <code>strategy_class_path</code>) — no LLM session needed, results in the same tables as the UI.</p>
+  <table>
+    <thead><tr><th>action</th><th>Use it for</th></tr></thead>
+    <tbody>
+      <tr><td><code>list</code></td><td>Which strategy files exist, newest first, plus backend reachability</td></tr>
+      <tr><td><code>start</code></td><td>Dispatch a batch: <code>strategy</code>, <code>n_runs</code>, <code>end_date</code>, start-date window</td></tr>
+      <tr><td><code>poll</code></td><td>Progress + mean/best Sharpe for a running batch (bounded wait, never hangs a turn)</td></tr>
+      <tr><td><code>results</code></td><td>Final KPIs for a finished batch, read from the DB</td></tr>
+      <tr><td><code>history</code></td><td>Last 15 batches with run counts and mean Sharpe</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <b>The 20-run rule.</b> At <code>confirm_above_runs: 20</code> and above, the tool refuses to
+    dispatch until you confirm out loud. A 100-run batch is roughly 40 minutes of CPU — the
+    guard exists so it never starts by accident.
+  </div>
+
+  <h3>log_strategy_evolution</h3>
+  <p>Writes the note you will actually re-read in six months.</p>
+  <table>
+    <thead><tr><th>kind</th><th>Lands in</th><th>Use for</th></tr></thead>
+    <tbody>
+      <tr><td><code>reflection</code></td><td><code>Evolution/Reflections/</code></td><td>“Why did this behave this way?”</td></tr>
+      <tr><td><code>mutation</code></td><td><code>Evolution/Mutations/</code></td><td>Any parameter change — writes a before/after diff table automatically</td></tr>
+      <tr><td><code>experiment</code></td><td><code>Evolution/Experiments/</code></td><td>A batch's verdict and the decision it drove</td></tr>
+      <tr><td><code>daily_review</code></td><td><code>Daily/</code></td><td>The end-of-day portfolio note</td></tr>
+      <tr><td><code>market_note</code></td><td><code>Market/</code></td><td>Regime observations worth remembering</td></tr>
+    </tbody>
+  </table>
+
+  <h3>execute_repo_script</h3>
+  <table>
+    <thead><tr><th>command</th><th>Does</th><th>Mutating</th></tr></thead>
+    <tbody>
+      <tr><td><code>pytest</code></td><td>Backend test suite</td><td>no</td></tr>
+      <tr><td><code>ruff</code></td><td>Lint the backend</td><td>no</td></tr>
+      <tr><td><code>git_status</code> / <code>git_log</code></td><td>Working tree, recent commits</td><td>no</td></tr>
+      <tr><td><code>strategy_list</code></td><td>Strategy files by mtime</td><td>no</td></tr>
+      <tr><td><code>report</code></td><td>Generate the latest backtest HTML report</td><td>no</td></tr>
+      <tr><td><code>db_updates</code></td><td>Daily 1d price update</td><td><b>yes</b></td></tr>
+      <tr><td><code>intraday_update</code></td><td>1m intraday update</td><td><b>yes</b></td></tr>
+      <tr><td><code>run_strategies</code></td><td>Run deployed strategies — places paper orders</td><td><b>yes</b></td></tr>
+      <tr><td><code>migrate</code></td><td>Alembic upgrade head</td><td><b>yes</b></td></tr>
+    </tbody>
+  </table>
+  <p>No free-form shell: arguments containing <code>;</code> <code>|</code> <code>&amp;</code>
+  <code>&gt;</code> <code>&lt;</code> <code>`</code> <code>$</code> are rejected, and output is
+  secret-redacted before it reaches the model.</p>
+
+  <h2 id="guardrails">07 · Confirmation guardrails</h2>
+  <p>Two-phase, and it works the same typed or spoken:</p>
+  <div class="flow">
+    <div class="node">You: “run a 40-window sweep”</div><span class="arrow">→</span>
+    <div class="node">Tool returns <code>confirmation_required</code> + token + spoken prompt</div>
+    <span class="arrow">→</span>
+    <div class="node">Agent asks out loud</div><span class="arrow">→</span>
+    <div class="node">You: “yes”</div><span class="arrow">→</span>
+    <div class="node">Executes once</div>
+  </div>
+  <table>
+    <thead><tr><th>Property</th><th>Value</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Lifetime</td><td>single use</td><td>A yes covers one action, not the rest of the day</td></tr>
+      <tr><td>Expiry</td><td>10 minutes</td><td>A stale confirmation cannot fire later</td></tr>
+      <tr><td>Scope</td><td>action + parameter hash</td><td>A confirmed 10-run batch cannot be replayed as 100 runs</td></tr>
+      <tr><td>Audit</td><td><code>os_agent_action</code></td><td>Every dispatch recorded with params and outcome</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="recipes">08 · Workflow recipes</h2>
+
+  <h3>Recipe A — the 16:20 close ritual</h3>
+  <p>The cron job already does this on weekdays at 16:20. Run it by hand any time:</p>
+  <pre><code>bash ~/.hermes/scripts/aitrader_daily_loop.sh</code><button class="copy">copy</button></pre>
+  <p>It syncs the three accounts, computes Sharpe/drawdown/expectancy, writes
+  <code>Daily/&lt;date&gt; - Daily review.md</code>, and flags anything with negative expectancy.
+  A cron turn then has <code>@quant-dev</code> analyse each flagged strategy and append a
+  reflection — proposals only, never a mutation.</p>
+
+  <h3>Recipe B — a controlled mutation, start to finish</h3>
+  <ol>
+    <li><b>Establish the baseline.</b> “Run 10 windows on <code>daily_golden_cross</code> ending last Friday.”</li>
+    <li><b>Change one parameter,</b> on a branch, and log it:
+      <div class="prompt"><q>Log a mutation on DailyGoldenCrossRotation: ema_fast from 10 to 20, because win rate fell to 44% over the last 76 trades.</q><span class="why">Creates the vault note with the diff before you run anything — the intent is recorded even if the result is bad.</span><button class="copy2">copy</button></div>
+    </li>
+    <li><b>Re-run with the same windows.</b> Ask it to reuse the batch's fixed start dates, so the comparison is apples to apples.</li>
+    <li><b>Record the verdict:</b> “Log an experiment note: EMA20 improved mean Sharpe from 0.8 to 1.15 over the same ten windows.”</li>
+    <li><b>Only then</b> touch the deployed config — and that is a confirmation-gated action.</li>
+  </ol>
+
+  <h3>Recipe C — weekly slippage forensics</h3>
+  <div class="prompt"><q>Show me every fill from the last thirty days where slippage was worse than ten basis points, grouped by symbol.</q><span class="why">Limit-order slippage is computed at insert time from <code>filled_avg_price</code> vs <code>limit_price</code>, so this is a straight query, not a guess.</span><button class="copy2">copy</button></div>
+  <p>Pattern to look for: one symbol consistently adverse → your limit is too aggressive for its
+  spread. Fix the order type, not the strategy.</p>
+
+  <h3>Recipe D — incident response, spoken</h3>
+  <div class="prompt"><q>System ops — is everything green?</q><span class="why">Runs <code>status</code>: Postgres health, last snapshot per account, sync failures.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>If anything is stale, tell me which account and when it last synced, and what you would check first.</q><span class="why">Forces a diagnosis instead of a status dump.</span><button class="copy2">copy</button></div>
+
+  <h3>Recipe E — the quarterly autopsy</h3>
+  <div class="prompt"><q>Which strategies in the journal have a negative expectancy over the last two hundred days, and what did I write about each of them at the time?</q><span class="why">Combines <code>strategies</code> with the vault — the ledger says what happened, the notes say what you thought.</span><button class="copy2">copy</button></div>
+
+  <h2 id="prompts">09 · Prompt cookbook</h2>
+  <p>Copy these verbatim, then adjust names and dates. Each one maps to a real tool action.</p>
+
+  <h4>Telemetry</h4>
+  <div class="prompt"><q>Sync all three paper accounts and tell me what changed since the last sync.</q><span class="why"><code>sync</code> then diff against the previous snapshot.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>What is my total paper equity across all accounts right now?</q><span class="why"><code>metrics</code>, summed.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Which account has the worst ninety-day drawdown, and is it getting worse?</q><span class="why"><code>metrics</code> plus the equity series in <code>os_account_snapshot</code>.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Has any account gone more than a day without a sync?</q><span class="why"><code>status</code> — the staleness check that catches a silent scheduler failure.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Show me every fill this month and flag anything that filled worse than my limit.</q><span class="why"><code>fills</code>; the slippage sign is already adverse-positive.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Which strategy has the best expectancy per trade over the last ninety days, and on how many trades?</q><span class="why"><code>strategies</code> — sample size included, so a 3-trade fluke is visible.</span><button class="copy2">copy</button></div>
+
+  <h4>Backtests</h4>
+  <div class="prompt"><q>List the strategies I have changed this week.</q><span class="why"><code>list</code>, sorted by mtime.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Run ten windows on daily_golden_cross, ending last Friday, starting anywhere from 2015 to 2022.</q><span class="why"><code>start</code> with <code>n_runs=10</code> — under the confirmation threshold, so it just runs.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Sweep daily_golden_cross with forty runs across 2018 to 2024.</q><span class="why">Crosses the 20-run threshold → the agent asks out loud before dispatching.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Poll that batch and tell me when the mean Sharpe crosses 1.2, or if it is going to miss.</q><span class="why"><code>poll</code> is a bounded wait — safe to ask repeatedly.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Which of my last fifteen batches had the best mean Sharpe, and what strategy was it?</q><span class="why"><code>history</code>.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Compare today's batch to the previous one using the same start dates, and tell me whether the change is real or noise.</q><span class="why">Reuses <code>fixed_start_dates</code>; the only comparison that means anything.</span><button class="copy2">copy</button></div>
+
+  <h4>Learning log</h4>
+  <div class="prompt"><q>Write a reflection on why golden_cross_rotation_v2 bled six point nine percent per trade across seventy-six trades.</q><span class="why"><code>log_strategy_evolution</code> kind <code>reflection</code>.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>What did I change on this strategy last month, and what did I expect it to do?</q><span class="why"><code>recent</code> — returns the mutation notes with their diffs.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Turn today's findings into a note I can act on tomorrow: one experiment, one parameter, one date window.</q><span class="why">Forces specificity instead of a vague to-do list.</span><button class="copy2">copy</button></div>
+
+  <h4>Operations</h4>
+  <div class="prompt"><q>Run the backend tests and tell me only what failed and why.</q><span class="why"><code>pytest</code>; output tail is already trimmed.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Check git status — is anything uncommitted before I deploy?</q><span class="why"><code>git_status</code>.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Update the daily price data.</q><span class="why">Mutating → confirmation, then <code>db_updates</code>.</span><button class="copy2">copy</button></div>
+  <div class="prompt"><q>Is the backend up? If not, give me the one command to start it.</q><span class="why">Health probe, then an actionable answer instead of a stack trace.</span><button class="copy2">copy</button></div>
+
+  <h2 id="ideas">10 · Creative uses</h2>
+  <div class="grid g2">
+    <div class="card"><h3>1 · Pre-open brief at 08:45</h3><p>Second cron, weekdays 08:45: positions, overnight gaps on holdings, anything reporting today (the DB already has <code>earnings_calendar</code>). Spoken, to your phone.</p></div>
+    <div class="card"><h3>2 · Regime-aware expectancy</h3><p><code>journal_trade</code> carries <code>regime_at_entry</code>. Ask: “which regime does this strategy actually make money in?” — then stop trading it outside that regime.</p></div>
+    <div class="card"><h3>3 · Mutation survival rate</h3><p>Every mutation is logged with before/after. Quarterly: how many changes survived their first batch? A low survival rate means you are curve-fitting.</p></div>
+    <div class="card"><h3>4 · Strategy graveyard</h3><p>Retired strategies in <code>journal_strategy</code> plus their notes become a “what we learned” page. Cheaper than re-deriving the same dead end twice.</p></div>
+    <div class="card"><h3>5 · Explain this trade</h3><p>Pick a bad <code>journal_trade</code> row and ask <code>@quant-dev</code> to reconstruct the signal from the bars. The fastest lookahead-bias detector there is.</p></div>
+    <div class="card"><h3>6 · Slippage budget</h3><p>Track mean |slippage_bps| weekly. When it doubles, the strategy's edge is being eaten by execution, not ideas.</p></div>
+    <div class="card"><h3>7 · Paper-to-live gate</h3><p>Write the rule into the vault: “no deploy until three consecutive batches log Sharpe &gt; 1.2 with the same windows.” Now the gate is auditable.</p></div>
+    <div class="card"><h3>8 · Voice triage from anywhere</h3><p>WhatsApp voice note → STT → “system ops, is everything green?” → spoken reply. The desk follows you.</p></div>
+    <div class="card"><h3>9 · Two-strategy correlation check</h3><p>Compare daily equity curves per account. If two strategies are the same bet in different clothes, the diversification is imaginary.</p></div>
+    <div class="card"><h3>10 · Kill-criteria written in advance</h3><p>Log, before deploying: “retire if drawdown exceeds 12% or expectancy goes negative over 40 trades.” Then let the daily loop watch it.</p></div>
+    <div class="card"><h3>11 · Ask the vault, not the internet</h3><p>“What did I conclude about the EMA10/200 prior last time?” — your own notes, via <code>jarvis-tools</code> <code>search_vault</code>, are the highest-signal context you own.</p></div>
+    <div class="card"><h3>12 · One-number morning check</h3><p>A single spoken sentence a day: total equity, day P&amp;L, worst account. If it ever reads long, the system is failing, not the summary.</p></div>
+  </div>
+
+  <h2 id="sql">11 · SQL cookbook</h2>
+  <p>Through <code>sync_alpaca_telemetry</code> action <code>sql</code>. Single SELECT or WITH only;
+  anything containing <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>DROP</code>,
+  <code>CREATE</code>, <code>ALTER</code>, <code>TRUNCATE</code>, <code>GRANT</code>,
+  <code>COPY</code> is rejected before it reaches Postgres.</p>
+
+  <h4>Equity, snapshot over snapshot</h4>
+  <pre><code>SELECT account_label, captured_at::date AS day, equity, day_pl
+FROM os_account_snapshot
+ORDER BY captured_at DESC
+LIMIT 30;</code><button class="copy">copy</button></pre>
+
+  <h4>Worst slippage by symbol</h4>
+  <pre><code>SELECT symbol, count(*) AS fills,
+       round(avg(slippage_bps)::numeric, 2) AS avg_bps,
+       round(max(abs(slippage_bps))::numeric, 2) AS worst_bps
+FROM os_order_fill
+WHERE slippage_bps IS NOT NULL AND filled_at &gt; now() - interval '90 days'
+GROUP BY symbol
+ORDER BY avg_bps DESC NULLS LAST
+LIMIT 15;</code><button class="copy">copy</button></pre>
+
+  <h4>Expectancy by market regime</h4>
+  <pre><code>SELECT s.name AS strategy, t.regime_at_entry,
+       count(*) AS trades,
+       round(avg(t.pnl_pct)::numeric, 4) AS expectancy,
+       round(avg(CASE WHEN t.pnl_pct &gt; 0 THEN 1 ELSE 0 END)::numeric, 3) AS win_rate
+FROM journal_trade t JOIN journal_strategy s ON s.id = t.strategy_id
+WHERE t.exit_at IS NOT NULL AND t.regime_at_entry IS NOT NULL
+GROUP BY 1, 2
+HAVING count(*) &gt;= 10
+ORDER BY strategy, expectancy DESC;</code><button class="copy">copy</button></pre>
+
+  <h4>Sync reliability</h4>
+  <pre><code>SELECT kind, status, count(*) AS runs, max(finished_at) AS last_finished,
+       sum(rows_written) AS rows
+FROM os_sync_run
+WHERE started_at &gt; now() - interval '30 days'
+GROUP BY kind, status ORDER BY last_finished DESC;</code><button class="copy">copy</button></pre>
+
+  <h4>What did the agent actually do?</h4>
+  <pre><code>SELECT acted_at, agent, action, status, left(detail, 120) AS detail
+FROM os_agent_action
+ORDER BY acted_at DESC LIMIT 25;</code><button class="copy">copy</button></pre>
+
+  <h2 id="vault">12 · The vault</h2>
+  <pre><code>~/Documents/Obsidian Vault/02 - AITrader-2/Agent OS/
+├── Daily/        2026-11-05 - Daily review.md
+├── Evolution/
+│   ├── Reflections/
+│   ├── Mutations/        ← parameter diffs, before → after
+│   └── Experiments/      ← batch verdicts
+└── Market/               ← regime notes</code><button class="copy">copy</button></pre>
+  <p>Every note opens with YAML frontmatter, so Obsidian's Dataview / search and the
+  <code>jarvis-tools</code> <code>search_vault</code> MCP tool can both query it:</p>
+  <pre><code>---
+date: 2026-11-05
+strategy: DailyGoldenCrossRotation
+kind: mutation
+account: Acct#1
+params_changed: 2
+tags:
+  - aitrader-os
+  - mutation
+---
+
+# EMA pairing retune
+
+| Parameter | Before | After |
+|---|---|---|
+| ema_fast | 10 | 20 |
+| stop_atr | 2.0 | 2.5 |
+
+## Notes
+Win rate fell to 44% across 76 trades — testing a wider stop…</code><button class="copy">copy</button></pre>
+
+  <h2 id="trouble">13 · Troubleshooting</h2>
+  <table>
+    <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Tools don't appear in a chat</td>
+        <td>Tool schemas load at process start; no hot reload</td>
+        <td><code>hermes gateway restart</code>, then start a new chat. Check <code>hermes plugins show aitrader_os</code> → Status: enabled.</td>
+      </tr>
+      <tr>
+        <td>Bot profile has no tools</td>
+        <td>Profiles are isolated</td>
+        <td><code>ln -sfn ~/.hermes/plugins ~/.hermes/profiles/&lt;name&gt;/plugins</code></td>
+      </tr>
+      <tr>
+        <td>Every DB query: <code>Permission denied</code></td>
+        <td><code>tradecraft-db</code> volume ownership flipped (uid 999 vs server uid 70)</td>
+        <td>Stop container, <code>chown -R 70:70</code> the volume from a root helper container, start it. Metadata only.</td>
+      </tr>
+      <tr>
+        <td>Replies are silent</td>
+        <td>Edge TTS is blocked (HTTP 403) on this machine</td>
+        <td>Provider is already <code>macsay</code> (macOS <code>say</code>). Check <code>hermes config get tts.provider</code>.</td>
+      </tr>
+      <tr>
+        <td>Spoken clip is half a second long</td>
+        <td>A command template used <code>{text}</code>, which doesn't exist</td>
+        <td>Use <code>-f {input_path}</code>; verify with <code>ffprobe -show_entries format=duration</code>.</td>
+      </tr>
+      <tr>
+        <td>“Hey Hermes” never fires</td>
+        <td>Three causes, in order of likelihood: <b>(1)</b> <code>capture: client</code> — the Electron renderer must stream PCM, and it can silently send nothing; <b>(2)</b> <code>confirmation_frames: 3</code> — the bundled model scores the bare phrase for only one frame, so it never satisfies three in a row; <b>(3)</b> mic permission denied for Hermes</td>
+        <td>Use <code>capture: local</code> (the desktop backend is a child of Hermes.app, so it inherits the app's mic grant), <code>confirmation_frames: 1</code>, <code>sensitivity: 0.5</code>. Then restart the app and check <code>~/.hermes/logs/agent.log</code> for <code>listening (… external=False)</code> — that proves local capture — followed by <code>mic audio detected</code> and <code>phrase detected</code>.</td>
+      </tr>
+      <tr>
+        <td>Wake arms, then stops every few minutes</td>
+        <td>Each arm in <code>capture: client</code> mode that receives no frames is torn down and re-armed</td>
+        <td>Same fix: switch to local capture. Say the phrase <i>plus</i> a few words (“Hey Hermes, what's my equity”) — a bare two-word phrase is marginal on a cold detector.</td>
+      </tr>
+      <tr>
+        <td>Cron ran, nothing arrived</td>
+        <td>Job was created from a desktop session → save-only</td>
+        <td>Re-point it: <code>deliver='whatsapp'</code> (or <code>all</code>).</td>
+      </tr>
+      <tr>
+        <td><code>BackendUnavailable</code> on backtests</td>
+        <td><code>uvicorn</code> on :8000 isn't running</td>
+        <td>The launchd job <code>com.tradecraft.alpaca-backend</code> should hold it up; check <code>launchctl list | grep tradecraft</code>.</td>
+      </tr>
+      <tr>
+        <td>Alpaca 401 / 403</td>
+        <td>Key rotation</td>
+        <td>Update <code>ALPACA_&lt;n&gt;_API_KEY</code> / <code>_SECRET_KEY</code> in the repo <code>.env</code> — the plugin reads it live, no restart.</td>
+      </tr>
+      <tr>
+        <td><code>database "sp1500_1d" has no actual collation version</code></td>
+        <td>Harmless startup notice</td>
+        <td>Ignore it. Do <b>not</b> run <code>REFRESH COLLATION VERSION</code> — it can invalidate text indexes on 1,500 ticker tables.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="commands">14 · Command card</h2>
+  <pre><code># plugin status / verification
+hermes plugins show aitrader_os
+~/.hermes/hermes-agent/venv/bin/python ~/.hermes/plugins/aitrader_os/smoke_test.py
+
+# voice settings
+hermes config get tts.provider
+hermes config set voice.auto_tts false      # stop speaking every reply
+hermes config set wake_word.sensitivity 0.5 # wake word a little easier to trigger
+
+# bots
+hermes profile list
+quant-dev            # profile alias → shell for that bot
+hermes -p system-ops config get tts.providers.macsay.voice
+
+# daily loop
+bash ~/.hermes/scripts/aitrader_daily_loop.sh
+hermes cron list | grep -A4 "daily evaluation"
+
+# repo / infra
+hermes gateway restart
+hermes gateway status
+/Applications/Docker.app/Contents/Resources/bin/docker ps --filter name=tradecraft-db</code><button class="copy">copy</button></pre>
+
+  <hr>
+  <p style="color:var(--muted); font-size:13px">
+    aitrader_os v1.0.0 · built for AITrader-2 · plugin at
+    <code>~/.hermes/plugins/aitrader_os/</code> · manual generated 2026-11-05.
+    Nothing in this manual is aspirational: every tool action, table, config key and failure
+    mode above was exercised on this machine.
+  </p>
+
+</main>
+</div>
+
+<script>
+(function () {
+  var html = document.documentElement;
+  var saved = localStorage.getItem('aitrader-manual-theme');
+  if (saved) html.dataset.theme = saved;
+  document.getElementById('theme').onclick = function () {
+    var next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+    html.dataset.theme = next;
+    localStorage.setItem('aitrader-manual-theme', next);
+  };
+
+  function copyText(text, btn) {
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = 'copied';
+      btn.classList.add('done');
+      setTimeout(function () { btn.textContent = old; btn.classList.remove('done'); }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () {});
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+  }
+
+  document.querySelectorAll('pre .copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      copyText(btn.parentElement.querySelector('code').innerText, btn);
+    });
+  });
+
+  document.querySelectorAll('.prompt').forEach(function (row) {
+    var btn = row.querySelector('.copy2');
+    var q = row.querySelector('q');
+    if (btn && q) {
+      btn.addEventListener('click', function () { copyText(q.textContent, btn); });
+    }
+  });
+
+  // active-section highlight
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav a'));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function sync() {
+    var y = window.scrollY + 120, idx = 0;
+    targets.forEach(function (t, i) { if (t && t.offsetTop <= y) idx = i; });
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', sync, { passive: true });
+  sync();
+})();
+</script>
+</body>
+</html>
