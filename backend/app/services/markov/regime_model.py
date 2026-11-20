@@ -26,6 +26,50 @@ DEFAULT_LAMBDA = 10.0
 VOL_GATE_THRESHOLD = 0.5
 
 
+def identify_bull_state(obs, filtered_probs) -> int:
+    """Which fitted state is the bull state?
+
+    statsmodels assigns the two Markov regimes arbitrary indices per series, so
+    "state 1" is NOT reliably the up-state. Assuming it was inverted whole
+    sectors (live: XLK, XLP) and reported a ~100% bear probability as "BULL".
+
+    The bull state is the one whose observations have the higher mean 20-day
+    return. Ties fall back to the calmer (lower-variance) state, then to state 1
+    so the historical behaviour is preserved when there is nothing to separate
+    them.
+    """
+    obs = np.asarray(obs, dtype=float)
+    probs = np.asarray(filtered_probs, dtype=float)
+    if probs.ndim != 2 or probs.shape[1] != 2:
+        return 1
+
+    assigned = probs.argmax(axis=1)
+    n = min(len(obs), len(assigned))
+    obs, assigned = obs[:n], assigned[:n]
+
+    means: list[Optional[float]] = []
+    variances: list[Optional[float]] = []
+    for k in (0, 1):
+        vals = obs[(assigned == k) & np.isfinite(obs)]
+        means.append(float(vals.mean()) if vals.size else None)
+        variances.append(float(vals.var()) if vals.size else None)
+
+    if means[0] is None and means[1] is None:
+        return 1
+    if means[0] is None:
+        return 1
+    if means[1] is None:
+        return 0
+
+    if not np.isclose(means[0], means[1], atol=1e-12):
+        return 0 if means[0] > means[1] else 1
+
+    v0, v1 = variances
+    if v0 is not None and v1 is not None and not np.isclose(v0, v1, atol=1e-18):
+        return 0 if v0 < v1 else 1
+    return 1
+
+
 class JumpModel:
     """Two-state Statistical Jump Model for a single ETF."""
 
@@ -36,6 +80,8 @@ class JumpModel:
         self.garch_model = None
         self.garch_residuals: Optional[pd.Series] = None
         self._is_trained = False
+        #: Index (0 or 1) of the fitted state with the higher mean return.
+        self.bull_state: Optional[int] = None
 
     @property
     def is_trained(self) -> bool:
@@ -78,6 +124,10 @@ class JumpModel:
                 columns=[f'state_{i}' for i in range(2)],
             )
 
+            # Identify the bull state from the FIT, not from column order.
+            self.bull_state = identify_bull_state(
+                obs, self._filtered_probs.to_numpy())
+
             # Apply jump penalty: smooth state transitions
             self._smoothed_probs = self._apply_jump_penalty()
 
@@ -109,7 +159,10 @@ class JumpModel:
         0.5 for < N days, suppress the transition.
         """
         probs = self._filtered_probs.copy()
-        bull_prob = probs.get(probs.columns[-1], probs.iloc[:, 0])
+        # Select the bull state identified from the fit. Falling back to the
+        # historical "last column" keeps untrained/legacy objects working.
+        idx = self.bull_state if self.bull_state is not None else probs.shape[1] - 1
+        bull_prob = probs.iloc[:, idx]
 
         # Apply persistence filter: require N consecutive days above 0.5
         # to switch states. N is derived from jump_penalty.
@@ -238,6 +291,25 @@ class SectorRegimeManager:
         self.models: Dict[str, JumpModel] = {}
         self.last_updated: Optional[str] = None
         self._train_lock = threading.Lock()
+
+    def as_of_date(self) -> Optional[str]:
+        """Latest date the fitted regimes cover, as YYYY-MM-DD (None if untrained).
+
+        The UI shows this next to the badge: the label is a smoothed regime over
+        daily bars, so without an as-of date it reads like an intraday call.
+        """
+        dates = []
+        for model in self.models.values():
+            if not getattr(model, "is_trained", False):
+                continue
+            try:
+                if len(model._smoothed_probs):
+                    dates.append(model._smoothed_probs.index[-1])
+            except Exception:
+                continue
+        if not dates:
+            return None
+        return pd.Timestamp(max(dates)).strftime("%Y-%m-%d")
 
     def ensure_trained(self) -> bool:
         """Lazily train all Jump Models on first use (just-in-time).

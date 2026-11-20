@@ -431,4 +431,9 @@ async def get_regimes():
     rm, _, _ = _get_managers()
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, rm.ensure_trained)
-    return {"sector_status": rm.get_all_regimes()}
+    return {
+        "sector_status": rm.get_all_regimes(),
+        # The label is a smoothed regime over daily bars; the UI shows this date
+        # so it is not mistaken for an intraday market call.
+        "as_of": rm.as_of_date(),
+    }

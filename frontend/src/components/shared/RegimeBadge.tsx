@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchRegimes, summarizeRegimes, type SectorRegime } from '../../lib/regime';
+import { fetchRegimeSnapshot, formatAsOf, summarizeRegimes, type SectorRegime } from '../../lib/regime';
 
 const COLORS = {
   BULL: '#10B981',
@@ -11,6 +11,7 @@ const COLORS = {
 
 export function RegimeBadge() {
   const [sectors, setSectors] = useState<SectorRegime[]>([]);
+  const [asOf, setAsOf] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState(false);
 
@@ -18,9 +19,10 @@ export function RegimeBadge() {
     let cancelled = false;
     const load = async () => {
       try {
-        const data = await fetchRegimes();
+        const snapshot = await fetchRegimeSnapshot();
         if (!cancelled) {
-          setSectors(data);
+          setSectors(snapshot.sectors);
+          setAsOf(snapshot.asOf);
           setError(false);
         }
       } catch {
@@ -37,9 +39,11 @@ export function RegimeBadge() {
 
   const summary = summarizeRegimes(sectors);
   const dotColor = error ? COLORS.UNKNOWN : COLORS[summary.overall];
+  const asOfLabel = formatAsOf(asOf);
   const label = error
     ? 'STALE'
-    : `${summary.overall} ${summary.vol}-vol · ${sectors.length} sectors`;
+    : `${summary.overall} ${summary.vol}-vol · ${sectors.length} sectors`
+      + (asOfLabel ? ` · as of ${asOfLabel}` : '');
 
   return (
     <div style={{ position: 'relative' }}>

@@ -8,13 +8,43 @@ export interface SectorRegime {
 
 export interface RegimeResponse {
   sector_status: SectorRegime[];
+  // Latest bar the fitted regimes cover ("YYYY-MM-DD"). Absent on older backends.
+  as_of?: string | null;
+}
+
+export interface RegimeSnapshot {
+  sectors: SectorRegime[];
+  asOf: string | null;
 }
 
 import { request } from "@/lib/api";
 
-export async function fetchRegimes(): Promise<SectorRegime[]> {
+export async function fetchRegimeSnapshot(): Promise<RegimeSnapshot> {
   const data = await request<RegimeResponse>('/markov/regimes');
-  return data.sector_status ?? [];
+  return { sectors: data.sector_status ?? [], asOf: data.as_of ?? null };
+}
+
+export async function fetchRegimes(): Promise<SectorRegime[]> {
+  return (await fetchRegimeSnapshot()).sectors;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "2026-11-13" -> "13 Nov".
+ *
+ * The regime is computed from daily bars and is smoothed, so it must be shown
+ * with its as-of date; without one it reads like an intraday market call.
+ */
+export function formatAsOf(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const month = MONTHS[Number(m[2]) - 1];
+  const day = Number(m[3]);
+  if (!month || !Number.isFinite(day) || day < 1 || day > 31) return null;
+  return `${day} ${month}`;
 }
 
 export function summarizeRegimes(sectors: SectorRegime[]): {
