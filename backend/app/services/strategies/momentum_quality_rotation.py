@@ -52,6 +52,7 @@ DEFAULTS = {
     "hard_stop_loss": HARD_STOP,         # 20% hard stop
     "trailing_stop": TRAILING_STOP,      # 12% trailing stop
     "trailing_stop_activation": 0.0,     # 0 = trail armed from entry (baseline)
+    "trailing_stop_min_hold_days": 0,    # calendar days before the trail arms
     "take_profit": TAKE_PROFIT,          # +50% take profit
     "time_stop_days": TIME_STOP_DAYS,    # 120d time stop
     "min_hold_days": MIN_HOLD_DAYS,      # 14d before rotation can sell
@@ -88,6 +89,7 @@ class MomentumQualityRotation(SectorScannerTop5Rotation, Strategy):
             hard_stop_loss=self.p["hard_stop_loss"],
             trailing_stop=self.p["trailing_stop"],
             trailing_stop_activation=self.p["trailing_stop_activation"],
+            trailing_stop_min_hold_days=self.p["trailing_stop_min_hold_days"],
             take_profit=self.p["take_profit"],
             time_stop_days=self.p["time_stop_days"],
             min_hold_days=self.p["min_hold_days"],

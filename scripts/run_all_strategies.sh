@@ -69,10 +69,10 @@ run_one() {
 run_one daily_golden_cross "1" "DailyGoldenCross"
 # Daily Golden Cross on 2 account
 run_one daily_golden_cross "2" "DailyGoldenCrossRotation"
-# Sector Scanner Top-5 V3 on 3 account
-# DISABLED 2026-09-29: this slot traded on its own without an explicit deploy (the
-# schedule kept an implicit binding), so restore it only via a deliberate deploy.
-# run_one sector_top5_pegy "3" "SectorTop5Pegy"
+# MQR_V1 on 3 account
+# ENABLED 2026-11-13 by an explicit deploy. This slot replaces the disabled
+# sector_top5_pegy slot; it is no longer an implicit binding.
+run_one momentum_quality_rotation_v1 "3" "MomentumQualityRotationV1"
 
 # Keep only last 30 days
 find "$LOG_DIR" -name "alpaca_*.log" -mtime +30 -delete

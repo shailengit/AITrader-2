@@ -53,8 +53,8 @@ RUNNING_STRATEGIES: List[RunningStrategy] = [
                     "DailyGoldenCrossRotation", "1", "daily_golden_cross", "PA3LE9Y79BU0"),
     RunningStrategy("DailyGoldenCrossRotation", "daily_golden_cross",
                     "DailyGoldenCrossRotation", "2", "daily_golden_cross", "PA33GEZZ5K7Y"),
-    RunningStrategy("SectorTop5Pegy", "sector_top5_pegy",
-                    "SectorTop5MomentumPEGY", "3", "sector_top5_pegy", "PA3CE4ALJ8OJ"),
+    RunningStrategy("MomentumQualityRotationV1", "momentum_quality_rotation_v1",
+                    "MomentumQualityRotationV1", "3", "momentum_quality_rotation_v1", "PA3CE4ALJ8OJ"),
 ]
 
 

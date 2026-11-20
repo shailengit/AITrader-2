@@ -31,6 +31,9 @@ class ExitPolicy:
     hard_stop_loss: float = 0.20
     trailing_stop: float = 0.12
     trailing_stop_activation: float = 0.0
+    #: Calendar days a position must be held before the trailing stop arms.
+    #: 0 = armed from entry (the historical behaviour).
+    trailing_stop_min_hold_days: int = 0
     take_profit: float = 0.50
     time_stop_days: int = 120
     exit_priority: Tuple[str, ...] = (
@@ -151,9 +154,10 @@ def replay_position(
                 if ret <= -policy.hard_stop_loss:
                     reason = "Stop Loss"
             elif rule == "trailing_stop" and use_trail:
-                if _trailing_triggered(entry_px, peak, close,
-                                       policy.trailing_stop,
-                                       policy.trailing_stop_activation):
+                if (hold >= policy.trailing_stop_min_hold_days
+                        and _trailing_triggered(entry_px, peak, close,
+                                                policy.trailing_stop,
+                                                policy.trailing_stop_activation)):
                     reason = "Trailing Stop"
             elif rule == "take_profit" and use_tp:
                 if ret >= policy.take_profit:
