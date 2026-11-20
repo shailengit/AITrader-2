@@ -10,6 +10,7 @@ Supports dual-database access:
 """
 
 import logging
+import re
 from typing import List, Optional, Dict, Any
 
 import pandas as pd
@@ -40,6 +41,21 @@ RESAMPLE_RULE_MAP = {
     "1h": "1h",
 }
 
+# Tables in the public schema that are not per-ticker price tables.
+_NON_TICKER_TABLES = {
+    "ohlcv",  # legacy consolidated copy, removed 2026-11
+    "vix",    # volatility index series, not a tradable ticker
+}
+
+# Per-ticker tables are lowercase symbols, optionally with a class suffix.
+_TICKER_TABLE_RE = re.compile(r"^[a-z]{1,5}(-[a-z])?$")
+
+
+def _is_ticker_table(name: str) -> bool:
+    """Return True when a public table name is a per-ticker OHLCV table."""
+    lowered = name.lower()
+    return bool(_TICKER_TABLE_RE.match(lowered)) and lowered not in _NON_TICKER_TABLES
+
 
 class DataService:
     """
@@ -54,27 +70,16 @@ class DataService:
 
     @staticmethod
     def get_available_tickers() -> List[str]:
-        """Get list of all available tickers in the database.
-
-        Prefers the consolidated `ohlcv` table; falls back to listing the
-        per-ticker tables if `ohlcv` is empty (e.g. before backfill).
-        """
+        """List tickers that have a per-ticker OHLCV table in sp1500_1d."""
         try:
             with engine.connect() as conn:
-                # Prefer the consolidated table.
-                rows = conn.execute(text(
-                    "SELECT DISTINCT ticker FROM ohlcv ORDER BY ticker"
-                )).fetchall()
-                if rows:
-                    return [r[0].upper() for r in rows]
-                # Fallback: per-ticker tables.
                 rows = conn.execute(text("""
                     SELECT table_name
                     FROM information_schema.tables
                     WHERE table_schema = 'public'
-                    AND table_name NOT IN ('stock_metadata', 'stock_financials_quarterly', 'stock_financials_yearly')
+                    AND table_type = 'BASE TABLE'
                 """)).fetchall()
-                return [r[0].upper() for r in rows]
+            return sorted({name.upper() for (name,) in rows if _is_ticker_table(name)})
         except Exception as e:
             logger.error(f"Error getting available tickers: {e}")
             return []
@@ -101,7 +106,7 @@ class DataService:
             ticker: Stock ticker symbol (e.g., 'AAPL')
             start_date: Start date in 'YYYY-MM-DD' format (optional)
             end_date: End date in 'YYYY-MM-DD' format (optional)
-            limit: Maximum number of rows to return (optional)
+            limit: Maximum number of most-recent rows to return (optional)
             frequency: 'daily' for sp1500_1d (default) or 'minute' for sp1500_1m
 
         Returns:
@@ -112,11 +117,8 @@ class DataService:
         target_engine = DataService._get_engine(frequency)
 
         try:
-            # Prefer the consolidated `ohlcv` table (single-table schema).
-            # Fall back to the per-ticker table if the ticker isn't in `ohlcv`
-            # yet (e.g. before backfill, or minute data which lives in sp1500_1m).
             conditions = []
-            params = {"ticker": ticker.lower()}
+            params = {}
 
             if start_date:
                 conditions.append('"Date" >= :start_date')
@@ -125,32 +127,20 @@ class DataService:
                 conditions.append('"Date" <= :end_date')
                 params['end_date'] = end_date
 
-            where = (" AND " + " AND ".join(conditions)) if conditions else ""
-            limit_sql = f" LIMIT {limit}" if limit else ""
-
-            ohlcv_query = text(f'''
+            base_query = f'''
                 SELECT "Date", "Open", "High", "Low", "Close", "Volume"
-                FROM ohlcv
-                WHERE ticker = :ticker{where}
-                ORDER BY "Date" ASC{limit_sql}
-            ''')
+                FROM "{table_name}"
+            '''
+            if conditions:
+                base_query += " WHERE " + " AND ".join(conditions)
+            if limit:
+                # A limit means "the most recent N rows", not the first N.
+                base_query += f' ORDER BY "Date" DESC LIMIT {limit}'
+            else:
+                base_query += ' ORDER BY "Date" ASC'
 
             with target_engine.connect() as conn:
-                df = pd.read_sql(ohlcv_query, conn, params=params)
-
-            if df.empty:
-                # Fallback: per-ticker table (legacy schema).
-                base_query = f'''
-                    SELECT "Date", "Open", "High", "Low", "Close", "Volume"
-                    FROM "{table_name}"
-                '''
-                if conditions:
-                    base_query += " WHERE " + " AND ".join(conditions)
-                base_query += ' ORDER BY "Date" ASC'
-                if limit:
-                    base_query += f" LIMIT {limit}"
-                with target_engine.connect() as conn:
-                    df = pd.read_sql(text(base_query), conn, params=params)
+                df = pd.read_sql(text(base_query), conn, params=params)
 
             if df.empty:
                 logger.warning(f"No data found for ticker {ticker} ({frequency})")
