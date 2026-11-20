@@ -27,6 +27,8 @@ import pandas as pd
 from sqlalchemy import text
 
 from app.db.database import engine as db_engine
+from app.services.exit_gate.context import apply_exit_gate
+from app.services.exit_gate.types import ExitGate, GateStats
 from app.services.strategy_base import Strategy, Signal, ExitCheck, RotationConfig
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,15 @@ def trailing_stop_triggered(
         return False
     drawdown = (peak_price - current_price) / peak_price
     return drawdown >= trailing_stop
+
+
+def trailing_stop_armed(hold_days: int, min_hold_days: int) -> bool:
+    """Has a position been held long enough for its trailing stop to arm?
+
+    `min_hold_days` is in calendar days, matching `hold_days` everywhere in the
+    simulation. 0 means armed from entry, which is the historical behaviour.
+    """
+    return hold_days >= max(0, int(min_hold_days or 0))
 
 
 def trade_cost(notional: float, cost_bps: float) -> float:
@@ -105,8 +116,11 @@ class StrategyBacktestAdapter:
     run standalone or through the app.
     """
 
-    def __init__(self, strategy: Strategy):
+    def __init__(self, strategy: Strategy, exit_gate: Optional[ExitGate] = None):
         self.strategy = strategy
+        #: Optional veto gate consulted when a price exit fires. None (the
+        #: default) reproduces the pre-gate behaviour exactly.
+        self.exit_gate = exit_gate
         self._signals_cache: Dict[str, List[Signal]] = {}
         self._last_signal_date: Optional[str] = None
 
@@ -118,6 +132,8 @@ class StrategyBacktestAdapter:
         max_holdings: Optional[int] = None,
         precomputed_signals: Optional[Dict[str, List[Signal]]] = None,
         price_cache: Optional[Dict[str, Dict[str, float]]] = None,
+        open_cache: Optional[Dict[str, Dict[str, float]]] = None,
+        open_dates_cache: Optional[Dict[str, List[str]]] = None,
     ) -> Dict[str, Any]:
         """Run the daily simulation. Returns trades, daily_equity, summary.
 
@@ -128,6 +144,13 @@ class StrategyBacktestAdapter:
         expensive per-run precompute (useful for batch runs that share a fixed
         end date and only vary the start date). When omitted, they are computed
         as before.
+
+        `open_cache` / `open_dates_cache` do the same for the next-open fill
+        prices: batch runs that only vary the start date can build them once
+        over the full range instead of re-querying every ticker per run. They
+        must cover at least [as_of, end]; a superset reaching further into the
+        past is harmless because fills only ever look FORWARD from the signal
+        date. Omitted => built per run exactly as before.
         """
         from collections import OrderedDict
 
@@ -221,30 +244,38 @@ class StrategyBacktestAdapter:
         # ticker in the close cache so the simulation can execute at next-open
         # instead of the (optimistic) signal-day close. `_open_idx` maps
         # date -> index into the open arrays for fast lookahead-by-1.
-        open_cache: Dict[str, Dict[str, float]] = {}
         _open_dates_cache: Dict[str, List[str]] = {}
-        try:
-            from app.utils.security import get_safe_table_name
-            for tk_lower in list(price_cache.keys()):
-                try:
-                    safe = get_safe_table_name(tk_lower)
-                    with db_engine.connect() as conn:
-                        odf = pd.read_sql(
-                            f'SELECT "Date", "Open" FROM "{safe}" '
-                            f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
-                            f'ORDER BY "Date"',
-                            conn,
-                        )
-                    if odf is None or odf.empty:
+        if open_cache is not None:
+            # Caller supplied the full-range fills; derive the sorted date lists
+            # (bisect needs ascending order) unless they came with them.
+            _open_dates_cache = (
+                open_dates_cache if open_dates_cache is not None
+                else {tk: sorted(v) for tk, v in open_cache.items()}
+            )
+        else:
+            open_cache = {}
+            try:
+                from app.utils.security import get_safe_table_name
+                for tk_lower in list(price_cache.keys()):
+                    try:
+                        safe = get_safe_table_name(tk_lower)
+                        with db_engine.connect() as conn:
+                            odf = pd.read_sql(
+                                f'SELECT "Date", "Open" FROM "{safe}" '
+                                f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
+                                f'ORDER BY "Date"',
+                                conn,
+                            )
+                        if odf is None or odf.empty:
+                            continue
+                        odates = odf["Date"].astype(str).str[:10].tolist()
+                        opens = odf["Open"].astype(float).tolist()
+                        open_cache[tk_lower] = dict(zip(odates, opens))
+                        _open_dates_cache[tk_lower] = odates
+                    except Exception:
                         continue
-                    odates = odf["Date"].astype(str).str[:10].tolist()
-                    opens = odf["Open"].astype(float).tolist()
-                    open_cache[tk_lower] = dict(zip(odates, opens))
-                    _open_dates_cache[tk_lower] = odates
-                except Exception:
-                    continue
-        except Exception:
-            pass
+            except Exception:
+                pass
 
         def get_next_open(ticker: str, date_str: str) -> float:
             """Return the NEXT trading day's open price strictly after date_str."""
@@ -287,6 +318,10 @@ class StrategyBacktestAdapter:
         holdings: Dict[str, Any] = OrderedDict()
         trades: List[Dict[str, Any]] = []
         daily_equity: List[Dict[str, Any]] = []
+        gate_stats: Optional[GateStats] = (
+            GateStats() if self.exit_gate is not None else None)
+        vetoes: Optional[List[Dict[str, Any]]] = (
+            [] if self.exit_gate is not None else None)
         cash = capital
         portfolio_value = capital
 
@@ -297,7 +332,36 @@ class StrategyBacktestAdapter:
                 if pd.notna(spy_sma200.iloc[sim_idx]):
                     is_bear = float(spy_close_series.iloc[sim_idx]) < float(spy_sma200.iloc[sim_idx])
             exposure = cfg.bear_exposure if is_bear else 1.0
-            # ── 3a. Check exits (in strategy's priority order) ──────────
+
+            # ── 3a. Get signals (new candidates for this date) ──────────
+            # Hoisted above the exit check so an exit gate can see what the
+            # freed slot would buy today (slot opportunity cost). Signals are
+            # a pure function of the date -- precomputed lookup or a cached
+            # get_signals call -- so reordering changes no simulation state.
+            signals: List[Signal] = []
+            if precomputed_signals is not None:
+                signals = precomputed_signals.get(current_date, [])
+            else:
+                use_cache = (
+                    self._last_signal_date is not None
+                    and self._signals_cache
+                    and self._last_signal_date in self._signals_cache
+                )
+                if use_cache:
+                    last_dt = pd.Timestamp(self._last_signal_date)
+                    cur_dt = pd.Timestamp(current_date)
+                    if (cur_dt - last_dt).days <= 7:
+                        signals = self._signals_cache.get(self._last_signal_date, [])
+                if not use_cache or not signals:
+                    try:
+                        signals = self.strategy.get_signals(current_date, db_engine)
+                        self._signals_cache[current_date] = signals
+                        if signals:
+                            self._last_signal_date = current_date
+                    except Exception as e:
+                        logger.warning("get_signals failed for %s: %s", current_date, e)
+
+            # ── 3b. Check exits (in strategy's priority order) ──────────
             to_remove: List[str] = []
             for ticker in list(holdings.keys()):
                 h = holdings[ticker]
@@ -314,6 +378,7 @@ class StrategyBacktestAdapter:
                 ).days
 
                 reason: Optional[str] = None
+                fired_rule: Optional[str] = None
 
                 for exit_type in cfg.exit_priority:
                     if reason is not None:
@@ -326,15 +391,19 @@ class StrategyBacktestAdapter:
                             )
                             if exit_check.should_close:
                                 reason = exit_check.reason
+                                fired_rule = exit_type
                         except Exception as e:
                             logger.warning("should_exit failed for %s: %s", ticker, e)
 
                     elif exit_type == "hard_stop_loss" and cfg.hard_stop_loss > 0:
                         if ret <= -cfg.hard_stop_loss:
                             reason = "Stop Loss"
+                            fired_rule = exit_type
 
                     elif exit_type == "trailing_stop" and cfg.trailing_stop > 0:
-                        if trailing_stop_triggered(
+                        if trailing_stop_armed(
+                            hold_days, cfg.trailing_stop_min_hold_days
+                        ) and trailing_stop_triggered(
                             h["entry_price"],
                             h["peak_price"],
                             current_price,
@@ -342,14 +411,50 @@ class StrategyBacktestAdapter:
                             cfg.trailing_stop_activation,
                         ):
                             reason = "Trailing Stop"
+                            fired_rule = exit_type
 
                     elif exit_type == "take_profit" and cfg.take_profit > 0:
                         if ret >= cfg.take_profit:
                             reason = "Take Profit"
+                            fired_rule = exit_type
 
                     elif exit_type == "time_stop" and cfg.time_stop_days > 0:
                         if hold_days >= cfg.time_stop_days:
                             reason = "Time Stop"
+                            fired_rule = exit_type
+
+                if reason is not None:
+                    # An exit gate may veto a price exit (hold instead). It is
+                    # never consulted for hard stops, strategy exits or
+                    # rotation, and consult_gate fails open, so a broken gate
+                    # cannot block an exit.
+                    outcome = apply_exit_gate(
+                        self.exit_gate,
+                        stats=gate_stats,
+                        ticker=ticker,
+                        current_date=current_date,
+                        holding=h,
+                        current_price=current_price,
+                        hold_days=hold_days,
+                        rule=fired_rule or "",
+                        holdings=holdings,
+                        today_signals=signals,
+                        max_holdings=cfg_max_holdings,
+                        max_sector_count=cfg.max_sector_count,
+                    )
+                    if outcome.veto:
+                        if vetoes is not None:
+                            vetoes.append({
+                                "ticker": ticker,
+                                "date": current_date,
+                                "rule": fired_rule,
+                                "entry_date": h["entry_date"],
+                                "confidence": (outcome.decision.confidence
+                                               if outcome.decision else 0.0),
+                                "gate_id": (outcome.decision.gate_id
+                                            if outcome.decision else ""),
+                            })
+                        reason = None
 
                 if reason is not None:
                     # Realistic exit: the exit condition is evaluated on the
@@ -381,30 +486,6 @@ class StrategyBacktestAdapter:
 
             for t in to_remove:
                 del holdings[t]
-
-            # ── 3b. Get signals (new candidates for this date) ──────────
-            signals: List[Signal] = []
-            if precomputed_signals is not None:
-                signals = precomputed_signals.get(current_date, [])
-            else:
-                use_cache = (
-                    self._last_signal_date is not None
-                    and self._signals_cache
-                    and self._last_signal_date in self._signals_cache
-                )
-                if use_cache:
-                    last_dt = pd.Timestamp(self._last_signal_date)
-                    cur_dt = pd.Timestamp(current_date)
-                    if (cur_dt - last_dt).days <= 7:
-                        signals = self._signals_cache.get(self._last_signal_date, [])
-                if not use_cache or not signals:
-                    try:
-                        signals = self.strategy.get_signals(current_date, db_engine)
-                        self._signals_cache[current_date] = signals
-                        if signals:
-                            self._last_signal_date = current_date
-                    except Exception as e:
-                        logger.warning("get_signals failed for %s: %s", current_date, e)
 
             # ── 3c. Build ranked candidate list (holdings + new signals) ─
             # Re-score existing holdings if configured
@@ -638,6 +719,8 @@ class StrategyBacktestAdapter:
             "daily_equity": daily_equity,
             "summary": summary,
             "warmup_warnings": warmup_warnings,
+            "gate_stats": gate_stats.as_dict() if gate_stats is not None else None,
+            "vetoes": vetoes or [],
         }
 
 

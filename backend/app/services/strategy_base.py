@@ -46,6 +46,7 @@ class RotationConfig:
     hard_stop_loss: float = 0.0              # 0 = disabled
     trailing_stop: float = 0.20
     trailing_stop_activation: float = 0.0    # Arm the trail only after the position has been up this much at its peak (0 = always armed, original behaviour)
+    trailing_stop_min_hold_days: int = 0     # Calendar days before the trail arms (0 = armed from entry)
     take_profit: float = 0.30
     time_stop_days: int = 60
     min_hold_days: int = 7
