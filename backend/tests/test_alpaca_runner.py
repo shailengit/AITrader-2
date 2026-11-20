@@ -119,3 +119,35 @@ def test_run_daily_crisis_goes_to_cash(runner, monkeypatch):
     result = runner.run_daily()
     assert result["status"] == "completed_crisis"
     assert result["crisis_mode"] is True
+
+
+class _CrisisConn:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _CrisisEngine:
+    def connect(self):
+        return _CrisisConn()
+
+
+def test_check_crisis_override_binds_the_date(runner, monkeypatch):
+    """The crisis query is parameterised, not string-formatted."""
+    import pandas as pd
+    import app.services.alpaca_runner as alpaca_runner_module
+
+    seen = {}
+
+    def fake_read_sql(sql, conn, params=None):
+        seen["sql"], seen["params"] = str(sql), params
+        return pd.DataFrame()
+
+    monkeypatch.setattr(alpaca_runner_module.pd, "read_sql", fake_read_sql)
+    runner.engine = _CrisisEngine()
+
+    assert runner.check_crisis_override("2024-06-08") is False
+    assert "2024-06-08" not in seen["sql"]
+    assert seen["params"] == {"as_of_date": "2024-06-08"}

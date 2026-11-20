@@ -170,3 +170,70 @@ def test_a_bracket_still_supports_a_trailing_stop_when_asked():
                                 entry_price=100.0)
     stop = client.api.kwargs["stop_loss"]
     assert stop["trail_percent"] == "12.0"
+
+
+class _FailingTrailAlpaca(_ProtectionAlpaca):
+    def submit_trailing_stop(self, **kw):
+        self.trailing.append(kw)
+        raise RuntimeError("alpaca is down")
+
+
+def test_delay_with_a_hard_stop_puts_a_fixed_stop_on_the_bracket():
+    r = _runner(RotationConfig(trailing_stop=0.12, hard_stop_loss=0.20,
+                               trailing_stop_min_hold_days=7),
+                _ProtectionAlpaca(_status([])))
+    trailing, hard = r._entry_protection_args()
+    assert trailing == 0.0
+    assert hard == pytest.approx(0.20)
+
+
+def test_delay_without_a_hard_stop_keeps_the_trail_on_the_bracket():
+    """A postponed trail plus no hard stop would put NO stop on the entry."""
+    r = _runner(RotationConfig(trailing_stop=0.12, hard_stop_loss=0.0,
+                               trailing_stop_min_hold_days=7),
+                _ProtectionAlpaca(_status([])))
+    trailing, hard = r._entry_protection_args()
+    assert trailing == pytest.approx(0.12)
+    assert hard == 0.0
+
+
+def test_a_young_position_without_a_hard_stop_gets_the_trail(monkeypatch):
+    """Same hole on the re-attach path: the trail must arm rather than wait."""
+    alpaca = _ProtectionAlpaca(_status([]))
+    r = _runner(RotationConfig(trailing_stop=0.12, hard_stop_loss=0.0,
+                               trailing_stop_min_hold_days=7), alpaca)
+    monkeypatch.setattr(r, "_get_hold_calendar_days", lambda t, d: 2)
+    r.re_attach_protection([{"ticker": "AAA", "qty": 10}], "2024-06-08")
+    assert alpaca.fixed == []
+    assert alpaca.trailing and alpaca.trailing[0]["trail_percent"] == pytest.approx(12.0)
+
+
+def test_swapping_the_trail_leaves_the_take_profit_order_alone(monkeypatch):
+    """Only the stop leg is replaced; cancelling the limit leg loses the TP."""
+    take_profit = {"id": "tp1", "type": "limit"}
+    stop = {"id": "s1", "type": "stop"}
+    alpaca = _ProtectionAlpaca(_status([stop], all_orders=[stop, take_profit]))
+    r = _runner(RotationConfig(trailing_stop=0.12, hard_stop_loss=0.20,
+                               trailing_stop_min_hold_days=7), alpaca)
+    monkeypatch.setattr(r, "_get_hold_calendar_days", lambda t, d: 9)
+    r.re_attach_protection([{"ticker": "AAA", "qty": 10}], "2024-06-08")
+    assert alpaca.cancelled == ["s1"]
+    assert alpaca.trailing
+
+
+def test_a_failed_trail_submit_restores_the_fixed_stop(monkeypatch):
+    """The old stop is already cancelled, so a failed submit must not go naked."""
+    stop = {"id": "s1", "type": "stop"}
+    alpaca = _FailingTrailAlpaca(_status([stop], all_orders=[stop]))
+    r = _runner(RotationConfig(trailing_stop=0.12, hard_stop_loss=0.20,
+                               trailing_stop_min_hold_days=7), alpaca)
+    monkeypatch.setattr(r, "_get_hold_calendar_days", lambda t, d: 9)
+    monkeypatch.setattr("app.services.alpaca_runner.time.sleep", lambda s: None)
+
+    r.re_attach_protection(
+        [{"ticker": "AAA", "qty": 10, "avg_entry_price": 100.0}],
+        "2024-06-08")
+
+    assert len(alpaca.trailing) == 3
+    assert len(alpaca.fixed) == 1
+    assert alpaca.fixed[0]["stop_price"] == pytest.approx(80.0)

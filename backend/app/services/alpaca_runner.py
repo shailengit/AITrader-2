@@ -79,10 +79,13 @@ class StrategyRunner:
         """Check if SPY has dropped >20% from its 200-day high."""
         try:
             with self.engine.connect() as conn:
+                # Bound parameter: as_of_date is a caller-supplied string.
                 spy = pd.read_sql(
-                    f'SELECT "Date", "Close" FROM spy WHERE "Date" <= \'{as_of_date}\' '
-                    f'ORDER BY "Date" DESC LIMIT 200',
+                    text('SELECT "Date", "Close" FROM spy '
+                         'WHERE "Date" <= :as_of_date '
+                         'ORDER BY "Date" DESC LIMIT 200'),
                     conn,
+                    params={"as_of_date": as_of_date},
                 )
             if spy.empty or len(spy) < 200:
                 return False
@@ -96,6 +99,43 @@ class StrategyRunner:
 
     # ── Protection ─────────────────────────────────────────────────────
 
+    def _entry_protection_args(self) -> tuple[float, float]:
+        """Return `(trailing_stop_pct, hard_stop_pct)` for an entry bracket.
+
+        A postponed trailing stop is only safe when the bracket carries a FIXED
+        stop in the meantime. With no hard stop configured there is nothing to
+        postpone the trail into, so the bracket keeps the trailing stop -- a
+        position must never be opened with no stop at all.
+        """
+        if self.trailing_stop_min_hold_days > 0 and self.hard_stop_loss > 0:
+            return 0.0, self.hard_stop_loss
+        return self.trailing_stop, 0.0
+
+    def _attach_fixed_stop(self, ticker: str, qty: int,
+                           position: Dict[str, Any],
+                           protection_orders: List[Dict[str, Any]]) -> bool:
+        """Submit a standalone fixed stop. Returns True when it was placed."""
+        if self.hard_stop_loss <= 0:
+            return False
+        entry_px = float(position.get("avg_entry_price") or 0.0)
+        if entry_px <= 0:
+            logger.error(
+                "No entry price for %s; cannot place a fixed stop", ticker)
+            return False
+        stop_px = entry_px * (1 - self.hard_stop_loss)
+        order = self.alpaca.submit_stop_loss(
+            symbol=ticker, qty=qty, side="sell", stop_price=stop_px)
+        protection_orders.append({
+            "ticker": ticker, "qty": qty,
+            "stop_price": round(stop_px, 2),
+            "order_id": order["id"],
+            "kind": "fixed_stop",
+        })
+        logger.info(
+            "ATTACH HARD STOP %s: %d shares @ %.2f (trail waits %d days)",
+            ticker, qty, stop_px, self.trailing_stop_min_hold_days)
+        return True
+
     def re_attach_protection(self, current_positions: List[Dict[str, Any]],
                              as_of_date: Optional[str] = None) -> List[Dict[str, Any]]:
         """Keep every position protected, honouring any trailing-stop delay.
@@ -104,6 +144,10 @@ class StrategyRunner:
         hard stop and gets no trail; once it is old enough the fixed stop is
         cancelled and replaced by the trailing stop. With 0 this is the
         historical behaviour (attach a trail to anything missing a stop).
+
+        If the delay is enabled but no hard stop is configured, the trail is
+        attached immediately instead: a postponed trail with nothing to cover
+        the gap would leave the position with no stop.
         """
         protection_orders = []
         min_age = int(getattr(self, "trailing_stop_min_hold_days", 0) or 0)
@@ -114,42 +158,36 @@ class StrategyRunner:
 
             try:
                 status = self.alpaca.get_position_protection_status(ticker)
+                delayed = min_age > 0 and as_of_date is not None
 
-                if min_age > 0 and as_of_date is not None:
-                    has_trailing = any(o.get("type") == "trailing_stop"
-                                       for o in status.get("sl_orders", []))
+                if delayed:
                     age = self._get_hold_calendar_days(ticker, as_of_date)
-                    if age < min_age:
+                    if age < min_age and self.hard_stop_loss > 0:
                         # The trail is deliberately postponed. A young position
-                        # must never be left naked, so place a fixed hard stop
-                        # if one is missing (the entry bracket usually has one).
-                        if not status["has_sl"] and self.hard_stop_loss > 0:
-                            entry_px = float(pos.get("avg_entry_price") or 0.0)
-                            if entry_px > 0:
-                                stop_px = entry_px * (1 - self.hard_stop_loss)
-                                order = self.alpaca.submit_stop_loss(
-                                    symbol=ticker, qty=qty, side="sell",
-                                    stop_price=stop_px)
-                                protection_orders.append({
-                                    "ticker": ticker, "qty": qty,
-                                    "stop_price": round(stop_px, 2),
-                                    "order_id": order["id"],
-                                    "kind": "fixed_stop",
-                                })
-                                logger.info(
-                                    "ATTACH HARD STOP %s: %d shares @ %.2f "
-                                    "(trail waits %d days)",
-                                    ticker, qty, stop_px, min_age)
+                        # must never be left naked, so place the fixed hard stop
+                        # if the bracket's leg is missing.
+                        if not status["has_sl"]:
+                            self._attach_fixed_stop(
+                                ticker, qty, pos, protection_orders)
                         continue
-                    if has_trailing:
+                    if age < min_age:
+                        logger.warning(
+                            "%s is %d days old and no hard stop is configured; "
+                            "attaching the trailing stop rather than leaving the "
+                            "position unprotected", ticker, age)
+                    elif any(o.get("type") == "trailing_stop"
+                             for o in status.get("sl_orders", [])):
                         logger.debug("Trailing stop already active for %s", ticker)
                         continue
                 elif status["has_sl"]:
                     logger.debug("Trailing stop already active for %s", ticker)
                     continue
 
-                # Cancel any stale orders for this symbol before re-submitting
-                for o in status["all_orders"]:
+                # Replace the STOP leg only. Cancelling every order for the
+                # symbol also killed the take-profit limit leg.
+                for o in status.get("all_orders", []):
+                    if o.get("type") not in ("stop", "trailing_stop"):
+                        continue
                     try:
                         self.alpaca.api.cancel_order(o["id"])
                     except Exception:
@@ -161,6 +199,7 @@ class StrategyRunner:
                 # (requested: N, available: 0)". Retry with a short delay so the
                 # cancel propagates and the trailing stop actually lands.
                 order = None
+                last_error: Optional[Exception] = None
                 for attempt in range(3):
                     try:
                         order = self.alpaca.submit_trailing_stop(
@@ -171,14 +210,26 @@ class StrategyRunner:
                         )
                         break
                     except Exception as e:
+                        last_error = e
                         if attempt < 2:
                             logger.warning(
                                 "Trailing stop submit for %s failed (attempt %d/3): %s — retrying",
                                 ticker, attempt + 1, e,
                             )
                             time.sleep(2)
-                        else:
-                            raise
+                if order is None:
+                    # The old stop was cancelled above, so restore a fixed stop
+                    # before surfacing the failure: never leave a position naked.
+                    if self._attach_fixed_stop(
+                            ticker, qty, pos, protection_orders):
+                        logger.error(
+                            "Trailing stop submit for %s failed; restored the "
+                            "fixed stop instead", ticker)
+                    else:
+                        logger.error(
+                            "CRITICAL: %s has no stop after a failed "
+                            "trailing-stop submit", ticker)
+                    raise last_error
                 protection_orders.append({
                     "ticker": ticker,
                     "qty": qty,
@@ -361,20 +412,19 @@ class StrategyRunner:
                 qty = max(1, int(target_value / signal.price))
 
                 try:
+                    # When the trail is postponed the entry bracket carries a
+                    # FIXED hard stop instead; the runner attaches the trail
+                    # once the position is old enough. Without a hard stop
+                    # there is nothing to postpone into, so the bracket keeps
+                    # the trailing stop rather than opening unprotected.
+                    trailing_pct, hard_pct = self._entry_protection_args()
                     self.alpaca.submit_bracket_order(
                         symbol=signal.ticker,
                         qty=qty,
                         side="buy" if signal.side == "long" else "sell",
                         take_profit_pct=self.take_profit,
-                        # When the trail is postponed, the entry bracket
-                        # carries a FIXED hard stop instead; the runner
-                        # attaches the trail once the position is old enough.
-                        trailing_stop_pct=(
-                            0.0 if self.trailing_stop_min_hold_days > 0
-                            else self.trailing_stop),
-                        hard_stop_pct=(
-                            self.hard_stop_loss
-                            if self.trailing_stop_min_hold_days > 0 else 0.0),
+                        trailing_stop_pct=trailing_pct,
+                        hard_stop_pct=hard_pct,
                         entry_price=signal.price,
                     )
                     result["orders_placed"].append({
