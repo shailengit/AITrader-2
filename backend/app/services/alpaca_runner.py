@@ -47,12 +47,15 @@ class StrategyRunner:
             self.take_profit = float(getattr(_cfg, "take_profit", TAKE_PROFIT_PCT) or 0.0)
             self.hard_stop_loss = float(getattr(_cfg, "hard_stop_loss", 0.0) or 0.0)
             self.protect_winners = bool(getattr(_cfg, "protect_winners", False))
+            self.trailing_stop_min_hold_days = int(
+                getattr(_cfg, "trailing_stop_min_hold_days", 0) or 0)
         except Exception:
             self.min_hold_days = MIN_HOLD_DAYS
             self.trailing_stop = TRAILING_STOP_PCT
             self.take_profit = TAKE_PROFIT_PCT
             self.hard_stop_loss = 0.0
             self.protect_winners = False
+            self.trailing_stop_min_hold_days = 0
         self.db_url = (
             f"postgresql://{os.getenv('DB_USER', 'postgres')}:"
             f"{os.getenv('DB_PASSWORD')}@"
@@ -93,9 +96,17 @@ class StrategyRunner:
 
     # ── Protection ─────────────────────────────────────────────────────
 
-    def re_attach_protection(self, current_positions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Check each position for active trailing-stop orders and re-attach if missing."""
+    def re_attach_protection(self, current_positions: List[Dict[str, Any]],
+                             as_of_date: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Keep every position protected, honouring any trailing-stop delay.
+
+        With `trailing_stop_min_hold_days > 0` a young position keeps a FIXED
+        hard stop and gets no trail; once it is old enough the fixed stop is
+        cancelled and replaced by the trailing stop. With 0 this is the
+        historical behaviour (attach a trail to anything missing a stop).
+        """
         protection_orders = []
+        min_age = int(getattr(self, "trailing_stop_min_hold_days", 0) or 0)
 
         for pos in current_positions:
             ticker = pos["ticker"]
@@ -104,7 +115,36 @@ class StrategyRunner:
             try:
                 status = self.alpaca.get_position_protection_status(ticker)
 
-                if status["has_sl"]:
+                if min_age > 0 and as_of_date is not None:
+                    has_trailing = any(o.get("type") == "trailing_stop"
+                                       for o in status.get("sl_orders", []))
+                    age = self._get_hold_calendar_days(ticker, as_of_date)
+                    if age < min_age:
+                        # The trail is deliberately postponed. A young position
+                        # must never be left naked, so place a fixed hard stop
+                        # if one is missing (the entry bracket usually has one).
+                        if not status["has_sl"] and self.hard_stop_loss > 0:
+                            entry_px = float(pos.get("avg_entry_price") or 0.0)
+                            if entry_px > 0:
+                                stop_px = entry_px * (1 - self.hard_stop_loss)
+                                order = self.alpaca.submit_stop_loss(
+                                    symbol=ticker, qty=qty, side="sell",
+                                    stop_price=stop_px)
+                                protection_orders.append({
+                                    "ticker": ticker, "qty": qty,
+                                    "stop_price": round(stop_px, 2),
+                                    "order_id": order["id"],
+                                    "kind": "fixed_stop",
+                                })
+                                logger.info(
+                                    "ATTACH HARD STOP %s: %d shares @ %.2f "
+                                    "(trail waits %d days)",
+                                    ticker, qty, stop_px, min_age)
+                        continue
+                    if has_trailing:
+                        logger.debug("Trailing stop already active for %s", ticker)
+                        continue
+                elif status["has_sl"]:
                     logger.debug("Trailing stop already active for %s", ticker)
                     continue
 
@@ -154,6 +194,24 @@ class StrategyRunner:
         return protection_orders
 
     # ── Hold Days ──────────────────────────────────────────────────────
+
+    def _get_hold_calendar_days(self, ticker: str, as_of_date: str) -> int:
+        """Calendar days since entry. Unknown entry date counts as 0 (young).
+
+        Deliberately different from `_get_hold_days` (trading days): the
+        trailing-stop delay is expressed in calendar days everywhere else in
+        the system, and treating an unknown age as "young" errs toward keeping
+        the hard stop rather than arming the trail early.
+        """
+        entry_date = self.alpaca.get_entry_date(ticker)
+        if not entry_date:
+            return 0
+        try:
+            ed = datetime.strptime(str(entry_date)[:10], "%Y-%m-%d")
+            ad = datetime.strptime(str(as_of_date)[:10], "%Y-%m-%d")
+            return max(0, (ad - ed).days)
+        except Exception:
+            return 0
 
     def _get_hold_days(self, ticker: str, as_of_date: str) -> int:
         """Estimate how many trading days a position has been held."""
@@ -229,7 +287,8 @@ class StrategyRunner:
         # ── Step 4: Re-attach protection ──
         if current_positions:
             logger.info("Checking protection on %d existing positions...", len(current_positions))
-            result["protection_attached"] = self.re_attach_protection(current_positions)
+            result["protection_attached"] = self.re_attach_protection(
+                current_positions, as_of_date)
 
         # ── Step 5: Close positions that should exit ──
         for pos in current_positions:
@@ -307,7 +366,15 @@ class StrategyRunner:
                         qty=qty,
                         side="buy" if signal.side == "long" else "sell",
                         take_profit_pct=self.take_profit,
-                        trailing_stop_pct=self.trailing_stop,
+                        # When the trail is postponed, the entry bracket
+                        # carries a FIXED hard stop instead; the runner
+                        # attaches the trail once the position is old enough.
+                        trailing_stop_pct=(
+                            0.0 if self.trailing_stop_min_hold_days > 0
+                            else self.trailing_stop),
+                        hard_stop_pct=(
+                            self.hard_stop_loss
+                            if self.trailing_stop_min_hold_days > 0 else 0.0),
                         entry_price=signal.price,
                     )
                     result["orders_placed"].append({

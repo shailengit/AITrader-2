@@ -94,8 +94,15 @@ class AlpacaClient:
         trailing_stop_pct: float = 0.20,
         entry_price: float = 0.0,
         limit_tolerance: float = 0.005,
+        hard_stop_pct: float = 0.0,
     ) -> Dict[str, Any]:
-        """Submit a bracket order with take profit and trailing stop.
+        """Submit a bracket order with take profit and a stop leg.
+
+        The stop leg is either a FIXED stop (`hard_stop_pct`, a plain
+        stop_price) or a trailing stop (`trailing_stop_pct`); a bracket has a
+        single stop leg, so `hard_stop_pct` takes precedence when both are set.
+        Use the fixed form when a strategy delays its trailing stop: the
+        position stays protected by the hard stop until the trail is attached.
 
         Uses a limit order with tolerance to avoid bad fills at market open.
         For buys: limit price = entry_price * (1 + tolerance)
@@ -125,8 +132,11 @@ class AlpacaClient:
             tp_price = round(entry_price * (1 + take_profit_pct), 2)
             order_kwargs["take_profit"] = {"limit_price": str(tp_price)}
 
-        # Add trailing stop loss
-        if trailing_stop_pct > 0:
+        # Stop leg: a fixed hard stop takes precedence over a trailing stop.
+        if hard_stop_pct > 0:
+            stop_price = round(entry_price * (1 - hard_stop_pct), 2)
+            order_kwargs["stop_loss"] = {"stop_price": str(stop_price)}
+        elif trailing_stop_pct > 0:
             stop_price = round(entry_price * (1 - trailing_stop_pct), 2)
             order_kwargs["stop_loss"] = {
                 "stop_price": str(stop_price),
@@ -187,13 +197,29 @@ class AlpacaClient:
                 "status": "error",
             }
 
-    def get_open_orders(self, symbol: str = None) -> List[Dict[str, Any]]:
-        """Get all open orders, optionally filtered by symbol.
+    #: Order statuses that still represent live protection. Alpaca bracket child
+    #: legs sit in "held", which `status="open"` does not return.
+    LIVE_ORDER_STATUSES = frozenset({
+        "new", "accepted", "held", "pending_new", "accepted_for_bidding",
+        "partially_filled",
+    })
 
-        Returns list of dicts with order details including side, type, status.
+    def get_open_orders(self, symbol: str = None,
+                        include_held: bool = False) -> List[Dict[str, Any]]:
+        """Get open orders, optionally filtered by symbol.
+
+        `include_held=True` also returns bracket child legs in status "held".
+        Those are invisible to `status="open"` and are exactly how a bracket's
+        stop-loss/take-profit legs appear once the entry fills -- without them a
+        fully protected position looks unprotected.
         """
         try:
-            raw = self.api.list_orders(status="open")
+            if include_held:
+                raw = self.api.list_orders(status="all", limit=500)
+                raw = [o for o in raw
+                       if str(getattr(o, "status", "")).lower() in self.LIVE_ORDER_STATUSES]
+            else:
+                raw = self.api.list_orders(status="open")
             orders = []
             for o in raw:
                 if symbol and o.symbol != symbol:
@@ -226,7 +252,7 @@ class AlpacaClient:
             has_sl: bool — has an active stop-loss order (trailing or fixed)
             orders: list — the matching open orders
         """
-        orders = self.get_open_orders(symbol)
+        orders = self.get_open_orders(symbol, include_held=True)
         tp_orders = [o for o in orders if o["side"] in ("sell",) and o["type"] == "limit"]
         sl_orders = [o for o in orders if o["side"] in ("sell",) and o["type"] in ("stop", "trailing_stop")]
         return {
@@ -275,6 +301,41 @@ class AlpacaClient:
             }
         except Exception as e:
             logger.error("Failed to submit trailing stop for %s: %s", symbol, e)
+            raise
+
+    def submit_stop_loss(
+        self,
+        symbol: str,
+        qty: int,
+        side: str,
+        stop_price: float,
+    ) -> Dict[str, Any]:
+        """Submit a standalone FIXED stop order for an existing position.
+
+        Used while a strategy is postponing its trailing stop: the position
+        must still carry tail protection in the meantime.
+        """
+        try:
+            order = self.api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type="stop",
+                stop_price=str(round(float(stop_price), 2)),
+                time_in_force="gtc",
+            )
+            return {
+                "id": str(order.id),
+                "symbol": order.symbol,
+                "qty": int(order.qty),
+                "side": order.side,
+                "status": order.status,
+                "type": order.type,
+                "stop_price": round(float(stop_price), 2),
+                "submitted_at": str(order.submitted_at),
+            }
+        except Exception as e:
+            logger.error("Failed to submit stop loss for %s: %s", symbol, e)
             raise
 
     def get_closed_fills(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:

@@ -21,6 +21,10 @@ from app.services.strategy_base import Strategy, ExitCheck
 
 class _DummyAlpaca:
     """Stand-in for AlpacaClient so tests never touch the live API."""
+
+    def __init__(self, prefix=""):
+        # Mirror the real constructor: StrategyRunner passes `prefix=`.
+        self.prefix = prefix
     def get_positions(self):
         return []
     def get_account(self):
