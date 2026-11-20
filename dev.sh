@@ -218,6 +218,28 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
+# --------------------------------------------------------------------- flags
+# --backend-reload is opt-in. See start_backend() for why.
+BACKEND_RELOAD=""
+for arg in "$@"; do
+    case "$arg" in
+        --backend-reload) BACKEND_RELOAD=1 ;;
+        --help|-h)
+            cat <<'USAGE'
+Usage: ./dev.sh [--backend-reload]
+
+  (no flags)        start both servers; backend WITHOUT hot reload
+  --backend-reload  restart the backend whenever a .py file under backend/ changes
+
+Hot reload is off by default because a Strategy Lab batch runs in a thread inside
+the backend process. A reload restarts that process and kills the batch silently.
+USAGE
+            exit 0
+            ;;
+        *) warn "ignoring unknown flag: $arg" ;;
+    esac
+done
+
 # ------------------------------------------------------------------------ main
 
 echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
@@ -256,7 +278,29 @@ if ! "$VENV_PY" -c "import fastapi, uvicorn, sqlalchemy, ptyprocess" >/dev/null 
 fi
 
 : > "$BACKEND_LOG"
-"$VENV_PY" -m uvicorn app.main:app --reload --port "$BACKEND_PORT" >> "$BACKEND_LOG" 2>&1 &
+
+# --reload is OFF by default, deliberately.
+#
+# A Strategy Lab batch runs in a thread inside this process
+# (strategy_lab_orchestrator.run_batch), so restarting the worker kills it with no
+# experiment rows, no error and a UI that spins forever. With --reload on, every
+# save of any .py file under backend/ restarts the worker - including saves by
+# another agent working in this repo. On 2026-10-01 the worker restarted 22 times
+# in four minutes, and a 10-experiment Daily Golden Cross batch died with it.
+#
+# Pass --backend-reload when you are editing API code and are not running a batch.
+BACKEND_ARGS=(--port "$BACKEND_PORT")
+if [ "$BACKEND_RELOAD" = "1" ]; then
+    BACKEND_ARGS+=(--reload
+        --reload-exclude '.pytest_cache/*'
+        --reload-exclude 'logs/*'
+        --reload-exclude 'tests/*'
+        --reload-exclude 'scripts/*'
+        --reload-exclude '*.log')
+    warn "Backend hot reload is ON — saving a .py file under backend/ will kill a running batch."
+fi
+
+"$VENV_PY" -m uvicorn app.main:app "${BACKEND_ARGS[@]}" >> "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
 if ! wait_for_port "$BACKEND_PORT" "backend" 180; then
@@ -297,6 +341,11 @@ echo -e "  ${BLUE}Frontend:${NC} http://localhost:$FRONTEND_PORT"
 echo -e "  ${BLUE}Backend:${NC}  http://localhost:$BACKEND_PORT"
 echo -e "  ${BLUE}API Docs:${NC}  http://localhost:$BACKEND_PORT/docs"
 echo -e "  ${BLUE}Logs:${NC}      $LOG_DIR/{backend,frontend}.log"
+if [ "$BACKEND_RELOAD" = "1" ]; then
+    echo -e "  ${YELLOW}Backend hot reload: ON (unsafe for batches)${NC}"
+else
+    echo -e "  ${GREEN}Backend hot reload: off (safe for experiment batches)${NC}"
+fi
 echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop all servers${NC}"
 echo -e "${YELLOW}$LAUNCHD_LABEL is stopped while this runs and restored on exit.${NC}"
@@ -304,7 +353,19 @@ echo ""
 
 # Stay in the foreground and notice if either server dies, instead of waiting on
 # processes whose output nobody can see.
+CHECK_TICK=0
 while true; do
+    # Another dev.sh - or its shutdown handler - can re-load the agent underneath
+    # us. While this run owns the port, launchd then keeps starting a uvicorn that
+    # cannot bind it. Re-assert the bootout instead of letting that churn.
+    CHECK_TICK=$((CHECK_TICK + 1))
+    if [ "$CHECK_TICK" -ge 5 ] && [ "$LAUNCHD_STOPPED" = "1" ]; then
+        CHECK_TICK=0
+        if launchctl print "$LAUNCHD_DOMAIN/$LAUNCHD_LABEL" >/dev/null 2>&1; then
+            warn "$LAUNCHD_LABEL was re-loaded while this run owns port $BACKEND_PORT — stopping it again."
+            launchctl bootout "$LAUNCHD_DOMAIN/$LAUNCHD_LABEL" 2>/dev/null || true
+        fi
+    fi
     if ! still_alive "$BACKEND_PID"; then
         fail "Backend exited."
         show_log_tail "$BACKEND_LOG"
