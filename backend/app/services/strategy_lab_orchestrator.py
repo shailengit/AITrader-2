@@ -26,6 +26,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import text
+
 logger = logging.getLogger(__name__)
 
 
@@ -309,9 +311,13 @@ def _precompute_for_batch(
             return None, None, None
         strategy = strategy_class()
         with db_engine.connect() as conn:
+            # Bound parameters: these dates arrive as strings from the request.
             spy_dates = pd.read_sql(
-                f'SELECT "Date" FROM spy WHERE "Date" >= \'{start_date_min}\' AND "Date" <= \'{end_date}\' ORDER BY "Date"',
+                text('SELECT "Date" FROM spy '
+                     'WHERE "Date" >= :start_date_min AND "Date" <= :end_date '
+                     'ORDER BY "Date"'),
                 conn,
+                params={"start_date_min": start_date_min, "end_date": end_date},
             )
         all_dates = [str(d)[:10] for d in spy_dates["Date"]]
         if not all_dates:

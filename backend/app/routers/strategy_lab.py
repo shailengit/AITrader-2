@@ -4,6 +4,7 @@ Phase 1 scope: no LLM calls, no experiment orchestration, no deploy.
 Those land in Phases 2-4. This router establishes the foundation.
 """
 import asyncio
+import datetime as dt
 import json
 import logging
 import threading
@@ -13,7 +14,7 @@ from typing import List, Optional, Any, Dict
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
@@ -309,6 +310,20 @@ def delete_strategy_class(body: DeleteStrategyRequest):
 
 # ── Experiment endpoints (Phase 3) ────────────────────────────────────────
 
+def _iso_date(value: str) -> str:
+    """Validate a request-supplied date and return it as YYYY-MM-DD.
+
+    These values reach SQL. The queries bind them now, but the boundary must
+    reject a non-date outright instead of passing it down as a string.
+    """
+    if not isinstance(value, str):
+        raise ValueError("date must be a YYYY-MM-DD string")
+    try:
+        return dt.datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        raise ValueError(f"date must be YYYY-MM-DD, got {value!r}") from None
+
+
 class ExperimentRequest(BaseModel):
     n_runs: int = Field(10, ge=1, le=500)
     end_date: str = Field(..., description="YYYY-MM-DD, e.g. '2024-12-31'")
@@ -318,6 +333,18 @@ class ExperimentRequest(BaseModel):
     model: Optional[str] = None
     # New mode: path to a Strategy subclass file (e.g. "strategies/daily_golden_cross.py")
     strategy_class_path: Optional[str] = Field(None, description="Path to a Strategy subclass file (replaces code_text mode)")
+
+    @field_validator("end_date", "start_date_min", "start_date_max")
+    @classmethod
+    def _check_dates(cls, value):
+        return _iso_date(value)
+
+    @field_validator("fixed_start_dates")
+    @classmethod
+    def _check_fixed_start_dates(cls, value):
+        if value is None:
+            return value
+        return [_iso_date(v) for v in value]
 
 
 class ExperimentStartResponse(BaseModel):

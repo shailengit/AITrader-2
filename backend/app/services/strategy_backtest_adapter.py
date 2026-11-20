@@ -19,8 +19,9 @@ Usage:
 
 import bisect
 import logging
+import re
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -68,6 +69,56 @@ def trailing_stop_armed(hold_days: int, min_hold_days: int) -> bool:
     simulation. 0 means armed from entry, which is the historical behaviour.
     """
     return hold_days >= max(0, int(min_hold_days or 0))
+
+
+# Per-ticker tables are lowercase symbols; class shares become "brk-b" (dots are
+# replaced by hyphens in get_safe_table_name), so hyphen and underscore are legal.
+_TABLE_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
+
+
+def validate_date_range(as_of: str, end: str) -> tuple[str, str]:
+    """Return `(as_of, end)` as ISO dates, or raise ValueError.
+
+    The dates are bound as query parameters, so they cannot inject. Validating
+    here as well means a malformed value fails immediately with a clear message
+    instead of surfacing later as a Postgres comparison error.
+    """
+    def _check(value: Any, field: str) -> str:
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").strftime("%Y-%m-%d")
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"{field} must be a YYYY-MM-DD date, got {value!r}") from None
+
+    return _check(as_of, "as_of"), _check(end, "end")
+
+
+def read_date_range(
+    conn,
+    table: str,
+    columns: Iterable[str],
+    as_of: str,
+    end: str,
+    *,
+    descending: bool = False,
+    limit: Optional[int] = None,
+) -> pd.DataFrame:
+    """Read `columns` from `table` over [as_of, end] with BOUND dates.
+
+    Every backtest query goes through here. The table name is an internal
+    identifier (a validated ticker table or a literal like "spy"), checked
+    against a strict pattern; the dates are parameters, never SQL text.
+    """
+    if not _TABLE_NAME_RE.match(table):
+        raise ValueError(f"unsafe table name: {table!r}")
+    cols = ", ".join(f'"{c}"' for c in columns)
+    sql = (f'SELECT {cols} FROM "{table}" '
+           f'WHERE "Date" >= :as_of AND "Date" <= :end ORDER BY "Date"')
+    if descending:
+        sql += " DESC"
+    if limit is not None:
+        sql += f" LIMIT {int(limit)}"
+    return pd.read_sql(text(sql), conn, params={"as_of": as_of, "end": end})
 
 
 def trade_cost(notional: float, cost_bps: float) -> float:
@@ -154,17 +205,16 @@ class StrategyBacktestAdapter:
         """
         from collections import OrderedDict
 
+        # Fail before touching the database: these values used to be pasted
+        # into the SQL, so anything non-date was an injection vector.
+        as_of, end = validate_date_range(as_of, end)
+
         cfg = self.strategy.get_rotation_config()
         cfg_max_holdings = max_holdings or self.strategy.max_holdings
 
         # ── 1. Build trading calendar from SPY ──────────────────────────
         with db_engine.connect() as conn:
-            spy_dates = pd.read_sql(
-                f'SELECT "Date" FROM spy '
-                f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
-                f'ORDER BY "Date"',
-                conn,
-            )
+            spy_dates = read_date_range(conn, "spy", ("Date",), as_of, end)
         all_dates = [str(d)[:10] for d in spy_dates["Date"]]
         if not all_dates:
             logger.warning("No SPY trading dates in range %s to %s", as_of, end)
@@ -211,12 +261,9 @@ class StrategyBacktestAdapter:
                         from app.utils.security import get_safe_table_name
                         safe = get_safe_table_name(ticker)
                         with db_engine.connect() as conn:
-                            df = pd.read_sql(
-                                f'SELECT "Date", "Close" FROM "{safe}" '
-                                f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
-                                f'ORDER BY "Date" DESC LIMIT 3000',
-                                conn,
-                            )
+                            df = read_date_range(
+                                conn, safe, ("Date", "Close"), as_of, end,
+                                descending=True, limit=3000)
                         cache: Dict[str, float] = {}
                         for _, row in df.iterrows():
                             cache[str(pd.Timestamp(row["Date"]))[:10]] = float(row["Close"])
@@ -260,12 +307,8 @@ class StrategyBacktestAdapter:
                     try:
                         safe = get_safe_table_name(tk_lower)
                         with db_engine.connect() as conn:
-                            odf = pd.read_sql(
-                                f'SELECT "Date", "Open" FROM "{safe}" '
-                                f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
-                                f'ORDER BY "Date"',
-                                conn,
-                            )
+                            odf = read_date_range(
+                                conn, safe, ("Date", "Open"), as_of, end)
                         if odf is None or odf.empty:
                             continue
                         odates = odf["Date"].astype(str).str[:10].tolist()
@@ -302,12 +345,8 @@ class StrategyBacktestAdapter:
         if cfg.bear_exposure < 1.0:
             try:
                 with db_engine.connect() as conn:
-                    spy_df = pd.read_sql(
-                        f'SELECT "Date", "Close" FROM spy '
-                        f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
-                        f'ORDER BY "Date"',
-                        conn,
-                    )
+                    spy_df = read_date_range(
+                        conn, "spy", ("Date", "Close"), as_of, end)
                 if not spy_df.empty and len(spy_df) >= 200:
                     spy_close_series = spy_df["Close"].astype(float)
                     spy_sma200 = spy_close_series.rolling(200).mean()
@@ -757,12 +796,7 @@ def _compute_summary(
     spy_ret = 0.0
     try:
         with db_engine.connect() as conn:
-            spy_df = pd.read_sql(
-                f'SELECT "Date", "Close" FROM spy '
-                f'WHERE "Date" >= \'{as_of}\' AND "Date" <= \'{end}\' '
-                f'ORDER BY "Date"',
-                conn,
-            )
+            spy_df = read_date_range(conn, "spy", ("Date", "Close"), as_of, end)
         if not spy_df.empty:
             spy_ret = (spy_df["Close"].iloc[-1] / spy_df["Close"].iloc[0] - 1) * 100
     except Exception:
